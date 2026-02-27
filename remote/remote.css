@@ -1,0 +1,386 @@
+/* ── Design Tokens ── */
+:root {
+  --bg: #0c0c0e;
+  --surface-1: #141417;
+  --surface-2: #1c1c21;
+  --surface-3: #24242b;
+  --text-primary: #eaeaed;
+  --text-secondary: #9494a0;
+  --accent: #7b93f5;
+  --danger: #f07070;
+  --success: #5ec269;
+  --radius: 14px;
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── App Shell ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: 100dvh;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.header__title {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 12px;
+}
+
+.header__status {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  transition: background 0.3s ease;
+}
+
+.header__status.connected {
+  background: var(--success);
+}
+
+/* ── Climate Grid ── */
+.climate-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  align-content: start;
+  -webkit-overflow-scrolling: touch;
+}
+
+.climate-grid__empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  text-align: center;
+}
+
+/* ── Climate Card ── */
+.climate-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 16px 8px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 2px solid transparent;
+  transition:
+    transform 0.15s ease,
+    border-color 0.2s ease;
+  will-change: transform;
+}
+
+.climate-card:active {
+  transform: scale(0.95);
+}
+
+.climate-card.active {
+  border-color: var(--card-color, var(--accent));
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.climate-card__icon {
+  width: 28px;
+  height: 28px;
+  opacity: 0.9;
+}
+
+.climate-card__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.climate-card__name {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Now Playing ── */
+.now-playing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 16px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--surface-2);
+}
+
+.now-playing__dot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: background 0.3s ease;
+}
+
+.now-playing__track {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.2s ease;
+}
+
+.now-playing__track.fade-out {
+  opacity: 0;
+}
+
+.now-playing__track.fade-in {
+  opacity: 1;
+}
+
+.now-playing__skip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.now-playing__skip:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.now-playing__skip svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Controls Bar ── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 72px;
+  min-height: 72px;
+  padding: 0 16px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface-1);
+}
+
+.controls__play-pause {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.controls__play-pause:active {
+  transform: scale(0.92);
+}
+
+.controls__play-pause:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.controls__play-pause svg {
+  width: 22px;
+  height: 22px;
+}
+
+.controls__mute {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.controls__mute svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Volume Slider ── */
+.controls__volume {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  outline: none;
+}
+
+.controls__volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+}
+
+.controls__volume::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+}
+
+.controls__volume::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+
+/* ── Disconnected Overlay ── */
+.disconnected-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(12, 12, 14, 0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.disconnected-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.disconnected-overlay__icon {
+  color: var(--text-secondary);
+}
+
+.disconnected-overlay__icon svg {
+  width: 48px;
+  height: 48px;
+}
+
+.disconnected-overlay__text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.disconnected-overlay__sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .climate-card.active {
+    animation: none;
+    opacity: 1;
+  }
+
+  .climate-card:active {
+    transform: none;
+  }
+
+  .controls__play-pause:active {
+    transform: none;
+  }
+
+  .now-playing__track {
+    transition: none;
+  }
+}

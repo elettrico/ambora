@@ -4,27 +4,62 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#0C0C0E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Ambora Remote</title>
-    <style>
-      body {
-        background: #0c0c0e;
-        color: #eaeaed;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        margin: 0;
-      }
-      h1 {
-        font-size: 24px;
-        font-weight: 600;
-      }
-    </style>
+    <link rel="stylesheet" href="remote.css" />
   </head>
   <body>
-    <h1>Ambora Remote</h1>
+    <div id="app">
+      <!-- Header -->
+      <header class="header">
+        <span id="campaign-name" class="header__title">No campaign selected</span>
+        <span id="connection-dot" class="header__status"></span>
+      </header>
+
+      <!-- Climate Grid -->
+      <main id="climate-grid" class="climate-grid">
+        <div class="climate-grid__empty">No campaign selected</div>
+      </main>
+
+      <!-- Now Playing -->
+      <div class="now-playing">
+        <span id="now-playing-dot" class="now-playing__dot"></span>
+        <span id="track-title" class="now-playing__track">No track playing</span>
+        <button id="btn-skip" class="now-playing__skip" disabled aria-label="Skip track"></button>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button
+          id="btn-play-pause"
+          class="controls__play-pause"
+          disabled
+          aria-label="Play"
+        ></button>
+        <button id="btn-mute" class="controls__mute" aria-label="Mute"></button>
+        <input
+          id="volume-slider"
+          class="controls__volume"
+          type="range"
+          min="0"
+          max="100"
+          value="80"
+          aria-label="Volume"
+        />
+      </div>
+
+      <!-- Disconnected Overlay -->
+      <div id="disconnected-overlay" class="disconnected-overlay">
+        <div class="disconnected-overlay__icon" id="wifi-off-icon"></div>
+        <div class="disconnected-overlay__text">Disconnected</div>
+        <div class="disconnected-overlay__sub">Reconnecting...</div>
+      </div>
+    </div>
+
+    <script src="remote.js" defer></script>
   </body>
 </html>
