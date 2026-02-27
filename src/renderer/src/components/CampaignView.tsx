@@ -57,7 +57,7 @@ export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex items-start justify-between px-8 pt-8 pb-6">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">

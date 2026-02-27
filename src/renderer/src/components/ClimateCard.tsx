@@ -1,25 +1,88 @@
+import { useState } from 'react'
 import { Play } from 'lucide-react'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
+import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
 import type { Climate } from '@/lib/types'
 import type { FadeAnimation } from '@/store/audioStore'
 
 interface ClimateCardProps {
   climate: Climate
   isActive: boolean
+  isSelected: boolean
   fadeAnimation?: FadeAnimation
   onClick: () => void
   onPlay: () => void
+  onDropFiles: (climateId: string, files: File[]) => void
+}
+
+function hasAudioFiles(dt: DataTransfer): boolean {
+  for (const item of Array.from(dt.items)) {
+    if (item.kind === 'file') {
+      const ext = '.' + (item.type.split('/')[1] || '').toLowerCase()
+      // Also check by common mime subtypes
+      if (
+        ACCEPTED_AUDIO_EXTENSIONS.some((ae) => ext === ae || item.type === `audio/${ae.slice(1)}`)
+      ) {
+        return true
+      }
+      // Fallback: allow any file during dragover, filter on drop
+      return true
+    }
+  }
+  return false
 }
 
 export function ClimateCard({
   climate,
   isActive,
+  isSelected,
   fadeAnimation,
   onClick,
   onPlay,
+  onDropFiles,
 }: ClimateCardProps): React.JSX.Element {
   const Icon = ICON_MAP[climate.icon as ClimateIconName]
   const showGlow = isActive || fadeAnimation?.direction === 'out'
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  function handleDragOver(e: React.DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    if (hasAudioFiles(e.dataTransfer)) {
+      e.dataTransfer.dropEffect = 'copy'
+      setIsDragOver(true)
+    }
+  }
+
+  function handleDragEnter(e: React.DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only leave if we're leaving the card entirely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const files = Array.from(e.dataTransfer.files).filter((f) => {
+      const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
+      return ACCEPTED_AUDIO_EXTENSIONS.includes(ext)
+    })
+
+    if (files.length > 0) {
+      onDropFiles(climate.id, files)
+    }
+  }
 
   return (
     <button
@@ -27,8 +90,14 @@ export function ClimateCard({
       className="group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3"
       style={{
         borderLeft: `3px solid ${climate.color}B3`,
+        outline: isSelected ? `2px solid ${climate.color}` : undefined,
+        outlineOffset: isSelected ? '-2px' : undefined,
       }}
       onClick={onClick}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Glow overlay — always rendered, opacity transitions via CSS */}
       <span
@@ -39,6 +108,13 @@ export function ClimateCard({
           transition: 'opacity 400ms ease-out',
         }}
       />
+
+      {/* Drag-over overlay */}
+      {isDragOver && (
+        <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent-muted/30">
+          <span className="text-[12px] font-medium text-accent">Drop to add tracks</span>
+        </span>
+      )}
 
       <div className="flex items-center gap-2">
         {Icon && <Icon className="size-6" style={{ color: climate.color }} />}

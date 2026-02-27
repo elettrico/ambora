@@ -10,7 +10,7 @@ interface TrackListItemProps {
 
 export function TrackListItem({ track, onDelete }: TrackListItemProps): React.JSX.Element {
   return (
-    <div className="group flex h-12 items-center gap-2 rounded-md px-2 hover:bg-surface-2">
+    <div className="group flex h-12 min-w-0 items-center gap-2 rounded-md px-2 hover:bg-surface-2">
       <GripVertical className="size-3.5 shrink-0 text-text-tertiary" />
       {track.source === 'youtube' ? (
         <Youtube className="size-4 shrink-0 text-text-secondary" />
@@ -24,7 +24,7 @@ export function TrackListItem({ track, onDelete }: TrackListItemProps): React.JS
       <Button
         variant="ghost"
         size="icon-xs"
-        className="shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:text-danger"
+        className="shrink-0 text-text-tertiary hover:text-danger"
         onClick={() => onDelete(track.id)}
       >
         <Trash2 className="size-3.5" />

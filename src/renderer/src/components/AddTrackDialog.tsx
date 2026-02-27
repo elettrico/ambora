@@ -26,7 +26,7 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null
 }
 
-const ACCEPTED_AUDIO = '.mp3,.wav,.ogg,.flac'
+import { ACCEPTED_AUDIO } from '@/lib/constants'
 
 export function AddTrackDialog({
   open,

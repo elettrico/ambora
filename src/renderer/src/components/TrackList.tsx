@@ -21,7 +21,7 @@ export function TrackList({ tracks, onDeleteTrack }: TrackListProps): React.JSX.
   }
 
   return (
-    <ScrollArea className="max-h-[300px]">
+    <ScrollArea>
       <div className="flex flex-col gap-0.5">
         {sorted.map((track) => (
           <TrackListItem key={track.id} track={track} onDelete={onDeleteTrack} />

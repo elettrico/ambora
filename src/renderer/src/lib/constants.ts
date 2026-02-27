@@ -40,6 +40,9 @@ export const CLIMATE_ICONS = [
   'Sparkles',
 ] as const
 
+export const ACCEPTED_AUDIO = '.mp3,.wav,.ogg,.flac'
+export const ACCEPTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac']
+
 export const DEFAULTS = {
   crossfadeDuration: 4,
   volume: 80,
