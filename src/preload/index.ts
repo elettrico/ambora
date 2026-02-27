@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { Campaign } from '../shared/types'
+import type { Campaign, RemoteCommand, RemoteStateMessage, RemoteFullState } from '../shared/types'
 
 // Custom APIs for renderer
 const api = {
@@ -9,6 +9,24 @@ const api = {
     ipcRenderer.send('data:save-campaigns', campaigns)
   },
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  getServerInfo: (): Promise<{ port: number; localIP: string }> =>
+    ipcRenderer.invoke('server:get-info'),
+  onRemoteCommand: (callback: (command: RemoteCommand) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: RemoteCommand): void => {
+      callback(command)
+    }
+    ipcRenderer.on('remote:command', handler)
+    return () => {
+      ipcRenderer.removeListener('remote:command', handler)
+    }
+  },
+  sendStateUpdate: (message: RemoteStateMessage): void => {
+    ipcRenderer.send('remote:state-update', message)
+  },
+  sendFullState: (state: RemoteFullState): void => {
+    ipcRenderer.send('remote:full-state', state)
+  },
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -3,10 +3,19 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { loadCampaigns, saveCampaigns, flushSave } from './data'
+import {
+  startServer,
+  stopServer,
+  broadcastToClients,
+  updateCachedState,
+  getLocalIP,
+} from './server'
 
-function createWindow(): void {
+let mainWindow: BrowserWindow | null = null
+
+function createWindow(): BrowserWindow {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -18,11 +27,11 @@ function createWindow(): void {
     },
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  win.on('ready-to-show', () => {
+    win.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -30,10 +39,12 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return win
 }
 
 function registerIpcHandlers(): void {
@@ -43,6 +54,18 @@ function registerIpcHandlers(): void {
 
   ipcMain.on('data:save-campaigns', (_event, campaigns) => {
     saveCampaigns(campaigns)
+  })
+
+  ipcMain.handle('server:get-info', () => {
+    return { port: 3000, localIP: getLocalIP() }
+  })
+
+  ipcMain.on('remote:state-update', (_event, message) => {
+    broadcastToClients(message)
+  })
+
+  ipcMain.on('remote:full-state', (_event, state) => {
+    updateCachedState(state)
   })
 }
 
@@ -75,17 +98,22 @@ app.whenReady().then(() => {
 
   registerIpcHandlers()
 
-  createWindow()
+  mainWindow = createWindow()
+  startServer(mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+      startServer(mainWindow)
+    }
   })
 })
 
-// Flush pending data writes before quitting
+// Flush pending data writes and stop server before quitting
 app.on('before-quit', () => {
+  stopServer()
   flushSave()
 })
 

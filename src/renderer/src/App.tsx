@@ -6,6 +6,7 @@ import { CampaignView } from '@/components/CampaignView'
 import { NowPlayingBar } from '@/components/NowPlayingBar'
 import { EmptyState } from '@/components/EmptyState'
 import { useCampaignStore } from '@/store/campaignStore'
+import { useRemoteSync } from '@/hooks/useRemoteSync'
 
 function App(): React.JSX.Element {
   const { isLoaded, loadCampaigns, getActiveCampaign } = useCampaignStore()
@@ -14,6 +15,8 @@ function App(): React.JSX.Element {
   useEffect(() => {
     loadCampaigns()
   }, [loadCampaigns])
+
+  useRemoteSync()
 
   if (!isLoaded) {
     return (
