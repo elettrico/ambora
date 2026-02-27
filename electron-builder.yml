@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: ambora-scaffold
+appId: com.ambora.app
+productName: Ambora
 directories:
   buildResources: build
 files:
@@ -15,7 +15,7 @@ extraResources:
 asarUnpack:
   - resources/**
 win:
-  executableName: ambora-scaffold
+  executableName: ambora
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
