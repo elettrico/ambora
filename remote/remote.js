@@ -647,6 +647,9 @@
       var climateId = card.getAttribute('data-climate-id')
       if (!climateId) return
 
+      // Already playing — no-op
+      if (climateId === state.playback.activeClimateId) return
+
       // Haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(40)

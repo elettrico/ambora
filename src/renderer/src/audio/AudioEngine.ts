@@ -261,6 +261,11 @@ export class AudioEngine {
   }
 
   async activateClimate(climate: Climate): Promise<void> {
+    // Already playing this climate — no-op
+    if (useAudioStore.getState().activeClimateId === climate.id && this.engineState === 'playing') {
+      return
+    }
+
     if (climate.tracks.length === 0) {
       toast.error('This climate has no tracks')
       return
