@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { Campaign } from '../shared/types'
 
@@ -8,6 +8,7 @@ const api = {
   saveCampaigns: (campaigns: Campaign[]): void => {
     ipcRenderer.send('data:save-campaigns', campaigns)
   },
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

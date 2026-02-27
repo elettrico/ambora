@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -46,6 +46,12 @@ function registerIpcHandlers(): void {
   })
 }
 
+// Register custom protocol for serving local audio files.
+// Must be called before app is ready.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-audio', privileges: { stream: true, supportFetchAPI: true } },
+])
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -58,6 +64,13 @@ app.whenReady().then(() => {
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+  })
+
+  // Serve local audio files via custom protocol so the renderer
+  // can load them regardless of its own origin (http:// in dev, file:// in prod).
+  protocol.handle('local-audio', (request) => {
+    const filePath = decodeURIComponent(new URL(request.url).pathname)
+    return net.fetch('file://' + filePath)
   })
 
   registerIpcHandlers()

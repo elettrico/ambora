@@ -3,6 +3,8 @@ import { Plus } from 'lucide-react'
 import { ClimateCard } from '@/components/ClimateCard'
 import { ClimateDetail } from '@/components/ClimateDetail'
 import { useCampaignStore } from '@/store/campaignStore'
+import { useAudioStore } from '@/store/audioStore'
+import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { DEFAULTS } from '@/lib/constants'
 import type { Campaign } from '@/lib/types'
 import { toast } from 'sonner'
@@ -13,6 +15,8 @@ interface ClimateGridProps {
 
 export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
   const { createClimate } = useCampaignStore()
+  const { activeClimateId } = useAudioStore()
+  const audioEngine = useAudioEngine()
   const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
 
   const sorted = [...campaign.climates].sort((a, b) => a.order - b.order)
@@ -35,7 +39,9 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
           <ClimateCard
             key={climate.id}
             climate={climate}
+            isActive={climate.id === activeClimateId}
             onClick={() => setSelectedClimateId(climate.id)}
+            onPlay={() => audioEngine.activateClimate(climate)}
           />
         ))}
         {canAdd && (

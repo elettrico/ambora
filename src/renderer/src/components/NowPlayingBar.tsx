@@ -1,12 +1,14 @@
-import { SkipForward, Volume2 } from 'lucide-react'
+import { Pause, Play, SkipForward, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
+import { useAudioEngine } from '@/hooks/useAudioEngine'
 
 export function NowPlayingBar(): React.JSX.Element {
-  const { volume, setVolume, activeClimateId, activeTrackId } = useAudioStore()
+  const { volume, setVolume, isPlaying, activeClimateId, activeTrackId } = useAudioStore()
   const { campaigns } = useCampaignStore()
+  const audioEngine = useAudioEngine()
 
   let climateName: string | null = null
   let climateColor: string | null = null
@@ -28,6 +30,18 @@ export function NowPlayingBar(): React.JSX.Element {
   }
 
   const isIdle = !climateName
+
+  function handlePlayPause(): void {
+    if (isPlaying) {
+      audioEngine.fadeToSilence()
+    } else {
+      audioEngine.resume()
+    }
+  }
+
+  function handleSkip(): void {
+    audioEngine.nextTrack()
+  }
 
   return (
     <div className="flex h-16 shrink-0 items-center border-t border-border-subtle bg-surface-1 px-6">
@@ -58,7 +72,10 @@ export function NowPlayingBar(): React.JSX.Element {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon-sm" disabled={isIdle}>
+        <Button variant="ghost" size="icon-sm" disabled={isIdle} onClick={handlePlayPause}>
+          {isPlaying ? <Pause className="size-[18px]" /> : <Play className="size-[18px]" />}
+        </Button>
+        <Button variant="ghost" size="icon-sm" disabled={isIdle || !isPlaying} onClick={handleSkip}>
           <SkipForward className="size-[18px]" />
         </Button>
         <div className="flex items-center gap-2">

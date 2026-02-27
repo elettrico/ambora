@@ -55,7 +55,7 @@ export function AddTrackDialog({
   function handleFiles(files: FileList | null): void {
     if (!files) return
     for (const file of Array.from(files)) {
-      const filePath = (file as File & { path?: string }).path ?? file.name
+      const filePath = window.api.getPathForFile(file)
       onAddTrack({
         source: 'local',
         title: file.name,
