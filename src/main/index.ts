@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { loadCampaigns, saveCampaigns, flushSave } from './data'
 
 function createWindow(): void {
   // Create the browser window.
@@ -35,6 +36,16 @@ function createWindow(): void {
   }
 }
 
+function registerIpcHandlers(): void {
+  ipcMain.handle('data:get-campaigns', () => {
+    return loadCampaigns()
+  })
+
+  ipcMain.on('data:save-campaigns', (_event, campaigns) => {
+    saveCampaigns(campaigns)
+  })
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -49,8 +60,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  registerIpcHandlers()
 
   createWindow()
 
@@ -61,6 +71,11 @@ app.whenReady().then(() => {
   })
 })
 
+// Flush pending data writes before quitting
+app.on('before-quit', () => {
+  flushSave()
+})
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -69,6 +84,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

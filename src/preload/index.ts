@@ -1,8 +1,14 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { Campaign } from '../shared/types'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  getCampaigns: (): Promise<Campaign[]> => ipcRenderer.invoke('data:get-campaigns'),
+  saveCampaigns: (campaigns: Campaign[]): void => {
+    ipcRenderer.send('data:save-campaigns', campaigns)
+  },
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
