@@ -43,6 +43,7 @@ export class AudioEngine {
 
   private currentClimate: Climate | null = null
   private currentTrackIndex = 0
+  private pendingActiveChannelId: ChannelId | null = null
 
   private volumeUnsub: (() => void) | null = null
 
@@ -180,7 +181,7 @@ export class AudioEngine {
   }
 
   private handleTrackEnded(): void {
-    if (this.engineState !== 'playing' && this.engineState !== 'crossfading') {
+    if (this.engineState !== 'playing') {
       return
     }
 
@@ -190,6 +191,24 @@ export class AudioEngine {
     }
 
     this.advanceToTrack(this.getNextTrackIndex())
+  }
+
+  private completePendingCrossfade(): void {
+    if (this.engineState !== 'crossfading' || !this.pendingActiveChannelId) return
+
+    this.crossfadeManager.cancelAll()
+
+    const inId = this.pendingActiveChannelId
+    const outId: ChannelId = inId === 'A' ? 'B' : 'A'
+    const outChannel = this.getChannel(outId)
+    const inChannel = this.getChannel(inId)
+
+    this.disposeChannel(outChannel)
+    inChannel.state = 'active'
+    this.crossfadeManager.setImmediate(inChannel.gainNode, this.getVolume01())
+    this.activeChannelId = inId
+    this.pendingActiveChannelId = null
+    this.engineState = 'playing'
   }
 
   private async advanceToTrack(nextIndex: number): Promise<void> {
@@ -218,6 +237,7 @@ export class AudioEngine {
       const loaded = await this.loadAndPlayOnChannel(inChannel, track)
       if (loaded) {
         this.engineState = 'crossfading'
+        this.pendingActiveChannelId = inId
 
         this.crossfadeManager.crossfade(
           outChannel.id,
@@ -230,6 +250,7 @@ export class AudioEngine {
             this.disposeChannel(outChannel)
             inChannel.state = 'active'
             this.activeChannelId = inId
+            this.pendingActiveChannelId = null
             this.engineState = 'playing'
           },
         )
@@ -249,6 +270,7 @@ export class AudioEngine {
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
     this.engineState = 'idle'
+    this.pendingActiveChannelId = null
     this.currentClimate = null
     this.currentTrackIndex = 0
     this.updateStore({
@@ -320,6 +342,7 @@ export class AudioEngine {
       const loaded = await this.loadAndPlayOnChannel(inChannel, track)
       if (loaded) {
         this.engineState = 'crossfading'
+        this.pendingActiveChannelId = inId
         outChannel.state = 'fading-out'
         inChannel.state = 'active'
 
@@ -333,6 +356,7 @@ export class AudioEngine {
           () => {
             this.disposeChannel(outChannel)
             this.activeChannelId = inId
+            this.pendingActiveChannelId = null
             this.engineState = 'playing'
           },
         )
@@ -343,7 +367,13 @@ export class AudioEngine {
   }
 
   async nextTrack(): Promise<void> {
-    if (this.engineState !== 'playing' || !this.currentClimate) return
+    if (!this.currentClimate) return
+
+    if (this.engineState === 'crossfading') {
+      this.completePendingCrossfade()
+    }
+
+    if (this.engineState !== 'playing') return
     await this.advanceToTrack(this.getNextTrackIndex())
   }
 
