@@ -9,6 +9,8 @@ const api = {
     ipcRenderer.send('data:save-campaigns', campaigns)
   },
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  registerAudioPath: (filePath: string): Promise<string> =>
+    ipcRenderer.invoke('audio:register-path', filePath),
 
   getServerInfo: (): Promise<{ port: number; localIP: string }> =>
     ipcRenderer.invoke('server:get-info'),

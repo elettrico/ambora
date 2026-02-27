@@ -1,5 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'node:url'
+import { randomUUID } from 'node:crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { loadCampaigns, saveCampaigns, flushSave } from './data'
@@ -12,6 +14,7 @@ import {
 } from './server'
 
 let mainWindow: BrowserWindow | null = null
+const audioPathRegistry = new Map<string, string>()
 
 function createWindow(): BrowserWindow {
   // Create the browser window.
@@ -67,6 +70,12 @@ function registerIpcHandlers(): void {
   ipcMain.on('remote:full-state', (_event, state) => {
     updateCachedState(state)
   })
+
+  ipcMain.handle('audio:register-path', (_event, filePath: string) => {
+    const token = randomUUID()
+    audioPathRegistry.set(token, filePath)
+    return token
+  })
 }
 
 // Register custom protocol for serving local audio files.
@@ -92,8 +101,12 @@ app.whenReady().then(() => {
   // Serve local audio files via custom protocol so the renderer
   // can load them regardless of its own origin (http:// in dev, file:// in prod).
   protocol.handle('local-audio', (request) => {
-    const filePath = decodeURIComponent(new URL(request.url).pathname)
-    return net.fetch('file://' + filePath)
+    const token = new URL(request.url).pathname.replace(/^\/+/, '')
+    const filePath = audioPathRegistry.get(token)
+    if (!filePath) {
+      return new Response('Not found', { status: 404 })
+    }
+    return net.fetch(pathToFileURL(filePath).href)
   })
 
   registerIpcHandlers()

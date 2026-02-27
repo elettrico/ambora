@@ -5,6 +5,7 @@ interface AmboraAPI {
   getCampaigns(): Promise<Campaign[]>
   saveCampaigns(campaigns: Campaign[]): void
   getPathForFile(file: File): string
+  registerAudioPath(filePath: string): Promise<string>
   getServerInfo(): Promise<{ port: number; localIP: string }>
   onRemoteCommand(callback: (command: RemoteCommand) => void): () => void
   sendStateUpdate(message: RemoteStateMessage): void

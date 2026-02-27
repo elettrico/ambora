@@ -28,7 +28,8 @@ export class LocalPlayer implements ITrackPlayer {
       throw new Error(`Track "${track.title}" has no local file path`)
     }
 
-    this.audio.src = 'local-audio://' + encodeURI(track.localFilePath)
+    const token = await window.api.registerAudioPath(track.localFilePath)
+    this.audio.src = `local-audio:///${token}`
 
     if (!this.mediaSource) {
       this.mediaSource = this.audioContext.createMediaElementSource(this.audio)
