@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambora — Logo</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap');
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg: #0c0c0e;
+        --surface-1: #141417;
+        --surface-2: #1c1c20;
+        --border: #2a2a30;
+        --text-primary: #eaeaed;
+        --text-secondary: #9494a0;
+        --text-tertiary: #5c5c68;
+        --accent: #7b93f5;
+        --accent-light: #95a8f8;
+        --indigo: #6659d9;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text-primary);
+        font-family:
+          'Inter',
+          -apple-system,
+          sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 60px 20px;
+        overflow-x: hidden;
+      }
+
+      /* === PRIMARY LOGO === */
+      .logo-primary {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 80px;
+      }
+
+      .logomark {
+        width: 160px;
+        height: 160px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .logomark svg {
+        width: 160px;
+        height: 160px;
+      }
+
+      /* Subtle ambient glow behind mark */
+      .logomark::before {
+        content: '';
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        background: radial-gradient(circle, rgba(123, 147, 245, 0.08) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: breathe 4s ease-in-out infinite;
+      }
+
+      @keyframes breathe {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scale(1.15);
+          opacity: 1;
+        }
+      }
+
+      .wordmark {
+        font-size: 48px;
+        font-weight: 300;
+        letter-spacing: 0.3em;
+        text-indent: 0.3em;
+        color: var(--text-primary);
+        margin-top: 28px;
+        opacity: 0.95;
+      }
+
+      .tagline {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        text-indent: 0.28em;
+        color: var(--text-secondary);
+        margin-top: 12px;
+        opacity: 0.6;
+        text-transform: uppercase;
+      }
+
+      /* === VARIATIONS === */
+      .variations {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        justify-content: center;
+        max-width: 1000px;
+        margin-top: 20px;
+      }
+
+      .variation {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .variation-label {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.15em;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+      }
+
+      .variation-card {
+        border-radius: 16px;
+        padding: 40px 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .variation-card.dark {
+        background: var(--surface-1);
+      }
+
+      .variation-card.light {
+        background: #f5f5f7;
+        border-color: #e0e0e4;
+      }
+
+      /* Compact horizontal logo */
+      .logo-horizontal {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .logo-horizontal svg {
+        width: 40px;
+        height: 40px;
+      }
+
+      .logo-horizontal .wordmark-sm {
+        font-size: 22px;
+        font-weight: 300;
+        letter-spacing: 0.25em;
+        color: var(--text-primary);
+      }
+
+      .logo-horizontal.on-light .wordmark-sm {
+        color: #1c1c20;
+      }
+
+      /* Icon only */
+      .logo-icon-only svg {
+        width: 56px;
+        height: 56px;
+      }
+
+      /* Monochrome */
+      .mono-white svg path,
+      .mono-white svg circle {
+        stroke: var(--text-primary);
+        fill: none;
+      }
+      .mono-white svg circle.center-dot {
+        fill: var(--text-primary);
+        stroke: none;
+      }
+
+      /* App icon container */
+      .app-icon {
+        width: 120px;
+        height: 120px;
+        border-radius: 26px;
+        background: linear-gradient(135deg, #141417 0%, #0c0c0e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .app-icon svg {
+        width: 64px;
+        height: 64px;
+      }
+
+      /* Divider */
+      .divider {
+        width: 60px;
+        height: 1px;
+        background: var(--accent);
+        opacity: 0.2;
+        margin: 60px 0;
+      }
+
+      /* Color specs */
+      .color-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 40px;
+      }
+
+      .color-swatch {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .color-info {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        letter-spacing: 0.02em;
+      }
+
+      /* Animate the arcs on page load */
+      .arc-animate {
+        stroke-dasharray: 200;
+        stroke-dashoffset: 200;
+        animation: drawArc 1.2s ease-out forwards;
+      }
+
+      .arc-animate:nth-child(1) {
+        animation-delay: 0.1s;
+      }
+      .arc-animate:nth-child(2) {
+        animation-delay: 0.25s;
+      }
+      .arc-animate:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      .arc-animate:nth-child(4) {
+        animation-delay: 0.15s;
+      }
+      .arc-animate:nth-child(5) {
+        animation-delay: 0.3s;
+      }
+      .arc-animate:nth-child(6) {
+        animation-delay: 0.45s;
+      }
+
+      @keyframes drawArc {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      .dot-animate {
+        opacity: 0;
+        animation: fadeIn 0.4s ease-out 0.6s forwards;
+      }
+
+      .glow-animate {
+        opacity: 0;
+        animation: fadeIn 0.6s ease-out 0.7s forwards;
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      .wordmark-animate {
+        opacity: 0;
+        animation: fadeUp 0.6s ease-out 0.8s forwards;
+      }
+
+      .tagline-animate {
+        opacity: 0;
+        animation: fadeUp 0.6s ease-out 1s forwards;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PRIMARY LOGO: Full lockup -->
+    <div class="logo-primary">
+      <div class="logomark">
+        <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.9" />
+              <stop offset="100%" stop-color="#6659D9" stop-opacity="0.55" />
+            </linearGradient>
+            <linearGradient id="gB" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.9" />
+              <stop offset="100%" stop-color="#7B93F5" stop-opacity="0.55" />
+            </linearGradient>
+          </defs>
+
+          <!-- Channel A arcs (left-facing) -->
+          <path
+            class="arc-animate"
+            d="M -18,58 A 68,68 0 0,1 -18,-58"
+            fill="none"
+            stroke="url(#gA)"
+            stroke-width="3"
+            stroke-linecap="round"
+            opacity="0.35"
+          />
+          <path
+            class="arc-animate"
+            d="M -14,44 A 52,52 0 0,1 -14,-44"
+            fill="none"
+            stroke="url(#gA)"
+            stroke-width="3.5"
+            stroke-linecap="round"
+            opacity="0.6"
+          />
+          <path
+            class="arc-animate"
+            d="M -10,28 A 34,34 0 0,1 -10,-28"
+            fill="none"
+            stroke="url(#gA)"
+            stroke-width="4"
+            stroke-linecap="round"
+            opacity="0.9"
+          />
+
+          <!-- Channel B arcs (right-facing) -->
+          <path
+            class="arc-animate"
+            d="M 10,28 A 34,34 0 0,0 10,-28"
+            fill="none"
+            stroke="url(#gB)"
+            stroke-width="4"
+            stroke-linecap="round"
+            opacity="0.9"
+          />
+          <path
+            class="arc-animate"
+            d="M 14,44 A 52,52 0 0,0 14,-44"
+            fill="none"
+            stroke="url(#gB)"
+            stroke-width="3.5"
+            stroke-linecap="round"
+            opacity="0.6"
+          />
+          <path
+            class="arc-animate"
+            d="M 18,58 A 68,68 0 0,0 18,-58"
+            fill="none"
+            stroke="url(#gB)"
+            stroke-width="3"
+            stroke-linecap="round"
+            opacity="0.35"
+          />
+
+          <!-- Center dot -->
+          <circle class="glow-animate" cx="0" cy="0" r="8" fill="#7B93F5" opacity="0.12" />
+          <circle class="dot-animate" cx="0" cy="0" r="3.5" fill="#EAEAED" opacity="0.9" />
+        </svg>
+      </div>
+
+      <div class="wordmark wordmark-animate">AMBORA</div>
+      <div class="tagline tagline-animate">Atmospheric music for your table</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- VARIATIONS -->
+    <div class="variations">
+      <!-- Horizontal lockup (dark) -->
+      <div class="variation">
+        <div class="variation-label">Horizontal — Dark</div>
+        <div class="variation-card dark">
+          <div class="logo-horizontal">
+            <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="gA2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#6659D9" stop-opacity="0.55" />
+                </linearGradient>
+                <linearGradient id="gB2" x1="100%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#7B93F5" stop-opacity="0.55" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M -18,58 A 68,68 0 0,1 -18,-58"
+                fill="none"
+                stroke="url(#gA2)"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.35"
+              />
+              <path
+                d="M -14,44 A 52,52 0 0,1 -14,-44"
+                fill="none"
+                stroke="url(#gA2)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.6"
+              />
+              <path
+                d="M -10,28 A 34,34 0 0,1 -10,-28"
+                fill="none"
+                stroke="url(#gA2)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.9"
+              />
+              <path
+                d="M 10,28 A 34,34 0 0,0 10,-28"
+                fill="none"
+                stroke="url(#gB2)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.9"
+              />
+              <path
+                d="M 14,44 A 52,52 0 0,0 14,-44"
+                fill="none"
+                stroke="url(#gB2)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.6"
+              />
+              <path
+                d="M 18,58 A 68,68 0 0,0 18,-58"
+                fill="none"
+                stroke="url(#gB2)"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.35"
+              />
+              <circle cx="0" cy="0" r="8" fill="#7B93F5" opacity="0.12" />
+              <circle cx="0" cy="0" r="3.5" fill="#EAEAED" opacity="0.9" />
+            </svg>
+            <span class="wordmark-sm">AMBORA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horizontal lockup (light) -->
+      <div class="variation">
+        <div class="variation-label">Horizontal — Light</div>
+        <div class="variation-card light">
+          <div class="logo-horizontal on-light">
+            <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="gA3" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#4B6BD4" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#5040B0" stop-opacity="0.6" />
+                </linearGradient>
+                <linearGradient id="gB3" x1="100%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#6B82E8" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#4B6BD4" stop-opacity="0.6" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M -18,58 A 68,68 0 0,1 -18,-58"
+                fill="none"
+                stroke="url(#gA3)"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.3"
+              />
+              <path
+                d="M -14,44 A 52,52 0 0,1 -14,-44"
+                fill="none"
+                stroke="url(#gA3)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.55"
+              />
+              <path
+                d="M -10,28 A 34,34 0 0,1 -10,-28"
+                fill="none"
+                stroke="url(#gA3)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.85"
+              />
+              <path
+                d="M 10,28 A 34,34 0 0,0 10,-28"
+                fill="none"
+                stroke="url(#gB3)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.85"
+              />
+              <path
+                d="M 14,44 A 52,52 0 0,0 14,-44"
+                fill="none"
+                stroke="url(#gB3)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.55"
+              />
+              <path
+                d="M 18,58 A 68,68 0 0,0 18,-58"
+                fill="none"
+                stroke="url(#gB3)"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.3"
+              />
+              <circle cx="0" cy="0" r="8" fill="#4B6BD4" opacity="0.1" />
+              <circle cx="0" cy="0" r="3.5" fill="#1C1C20" opacity="0.85" />
+            </svg>
+            <span class="wordmark-sm">AMBORA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- App icon -->
+      <div class="variation">
+        <div class="variation-label">App Icon</div>
+        <div class="variation-card dark">
+          <div class="app-icon">
+            <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="gA4" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#6659D9" stop-opacity="0.55" />
+                </linearGradient>
+                <linearGradient id="gB4" x1="100%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#7B93F5" stop-opacity="0.55" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M -18,58 A 68,68 0 0,1 -18,-58"
+                fill="none"
+                stroke="url(#gA4)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.4"
+              />
+              <path
+                d="M -14,44 A 52,52 0 0,1 -14,-44"
+                fill="none"
+                stroke="url(#gA4)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.65"
+              />
+              <path
+                d="M -10,28 A 34,34 0 0,1 -10,-28"
+                fill="none"
+                stroke="url(#gA4)"
+                stroke-width="5"
+                stroke-linecap="round"
+                opacity="0.95"
+              />
+              <path
+                d="M 10,28 A 34,34 0 0,0 10,-28"
+                fill="none"
+                stroke="url(#gB4)"
+                stroke-width="5"
+                stroke-linecap="round"
+                opacity="0.95"
+              />
+              <path
+                d="M 14,44 A 52,52 0 0,0 14,-44"
+                fill="none"
+                stroke="url(#gB4)"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.65"
+              />
+              <path
+                d="M 18,58 A 68,68 0 0,0 18,-58"
+                fill="none"
+                stroke="url(#gB4)"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.4"
+              />
+              <circle cx="0" cy="0" r="10" fill="#7B93F5" opacity="0.15" />
+              <circle cx="0" cy="0" r="4.5" fill="#EAEAED" opacity="0.95" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Icon only -->
+      <div class="variation">
+        <div class="variation-label">Icon Only — Monochrome</div>
+        <div class="variation-card dark mono-white">
+          <div class="logo-icon-only">
+            <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M -18,58 A 68,68 0 0,1 -18,-58"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.3"
+              />
+              <path
+                d="M -14,44 A 52,52 0 0,1 -14,-44"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.55"
+              />
+              <path
+                d="M -10,28 A 34,34 0 0,1 -10,-28"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.85"
+              />
+              <path
+                d="M 10,28 A 34,34 0 0,0 10,-28"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="4"
+                stroke-linecap="round"
+                opacity="0.85"
+              />
+              <path
+                d="M 14,44 A 52,52 0 0,0 14,-44"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="3.5"
+                stroke-linecap="round"
+                opacity="0.55"
+              />
+              <path
+                d="M 18,58 A 68,68 0 0,0 18,-58"
+                fill="none"
+                stroke="#EAEAED"
+                stroke-width="3"
+                stroke-linecap="round"
+                opacity="0.3"
+              />
+              <circle class="center-dot" cx="0" cy="0" r="3.5" fill="#EAEAED" opacity="0.85" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color reference -->
+    <div
+      style="margin-top: 64px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center"
+    >
+      <div class="color-row">
+        <div class="color-swatch" style="background: #7b93f5"></div>
+        <span class="color-info">Primary — #7B93F5</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background: #6659d9"></div>
+        <span class="color-info">Indigo — #6659D9</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background: #95a8f8"></div>
+        <span class="color-info">Light — #95A8F8</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background: #eaeaed"></div>
+        <span class="color-info">White — #EAEAED</span>
+      </div>
+    </div>
+  </body>
+</html>

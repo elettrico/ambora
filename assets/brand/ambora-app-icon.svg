@@ -1,0 +1,46 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141417"/>
+      <stop offset="100%" stop-color="#0C0C0E"/>
+    </linearGradient>
+    <linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#6659D9" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="gB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#7B93F5" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#7B93F5" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background with rounded corners (macOS style) -->
+  <rect width="1024" height="1024" rx="228" ry="228" fill="url(#bgGrad)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="1" y="1" width="1022" height="1022" rx="227" ry="227" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+
+  <!-- Center glow -->
+  <circle cx="512" cy="512" r="280" fill="url(#centerGlow)"/>
+
+  <!-- Logomark centered at 512,512, scaled up ~3.2x from base -->
+  <g transform="translate(512, 512) scale(3.2)">
+    <!-- Channel A arcs (left-facing) -->
+    <path d="M -18,58 A 68,68 0 0,1 -18,-58" fill="none" stroke="url(#gA)" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+    <path d="M -14,44 A 52,52 0 0,1 -14,-44" fill="none" stroke="url(#gA)" stroke-width="4" stroke-linecap="round" opacity="0.65"/>
+    <path d="M -10,28 A 34,34 0 0,1 -10,-28" fill="none" stroke="url(#gA)" stroke-width="5" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Channel B arcs (right-facing) -->
+    <path d="M 10,28 A 34,34 0 0,0 10,-28" fill="none" stroke="url(#gB)" stroke-width="5" stroke-linecap="round" opacity="0.95"/>
+    <path d="M 14,44 A 52,52 0 0,0 14,-44" fill="none" stroke="url(#gB)" stroke-width="4" stroke-linecap="round" opacity="0.65"/>
+    <path d="M 18,58 A 68,68 0 0,0 18,-58" fill="none" stroke="url(#gB)" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="10" fill="#7B93F5" opacity="0.15"/>
+    <circle cx="0" cy="0" r="4.5" fill="#EAEAED" opacity="0.95"/>
+  </g>
+</svg>
