@@ -125,6 +125,7 @@ button {
   border-radius: var(--radius);
   background: var(--surface-2);
   border: 2px solid transparent;
+  overflow: hidden;
   transition:
     transform 0.15s ease,
     border-color 0.2s ease;
@@ -168,6 +169,33 @@ button {
   }
   50% {
     opacity: 1;
+  }
+}
+
+/* ── Crossfade Progress Bar ── */
+.climate-card__fade-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  pointer-events: none;
+}
+
+@keyframes bar-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes bar-drain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
   }
 }
 
@@ -374,6 +402,11 @@ button {
 
   .climate-card:active {
     transform: none;
+  }
+
+  .climate-card__fade-bar {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 
   .controls__play-pause:active {

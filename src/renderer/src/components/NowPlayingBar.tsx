@@ -55,7 +55,11 @@ export function NowPlayingBar(): React.JSX.Element {
         {isIdle ? (
           <span className="text-[13px] text-text-tertiary">No track playing</span>
         ) : (
-          <>
+          <div
+            key={`${activeClimateId}-${activeTrackId}`}
+            className="flex min-w-0 items-center gap-3"
+            style={{ animation: 'text-fade-in 300ms ease-out' }}
+          >
             <span className="shrink-0 text-[13px] font-medium text-text-primary">
               {climateName}
             </span>
@@ -67,7 +71,7 @@ export function NowPlayingBar(): React.JSX.Element {
                 </span>
               </>
             )}
-          </>
+          </div>
         )}
       </div>
 

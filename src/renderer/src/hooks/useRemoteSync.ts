@@ -14,6 +14,7 @@ function getPlaybackState(): PlaybackState {
     isPlaying: audio.isPlaying,
     volume: audio.volume,
     isFadingToSilence: audio.isFadingToSilence,
+    fadeAnimations: audio.fadeAnimations,
   }
 }
 
@@ -39,7 +40,8 @@ export function useRemoteSync(): void {
         state.activeClimateId !== prev.activeClimateId ||
         state.activeTrackId !== prev.activeTrackId ||
         state.volume !== prev.volume ||
-        state.isFadingToSilence !== prev.isFadingToSilence
+        state.isFadingToSilence !== prev.isFadingToSilence ||
+        state.fadeAnimations !== prev.fadeAnimations
 
       if (changed) {
         const playback = getPlaybackState()

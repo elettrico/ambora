@@ -288,6 +288,7 @@
       isPlaying: false,
       volume: 80,
       isFadingToSilence: false,
+      fadeAnimations: [],
     },
     connected: false,
   }
@@ -374,6 +375,9 @@
         state.campaigns = msg.payload.campaigns || []
         state.activeCampaignId = msg.payload.activeCampaignId
         state.playback = msg.payload.playback || state.playback
+        if (!state.playback.fadeAnimations) {
+          state.playback.fadeAnimations = []
+        }
         renderAll()
         break
 
@@ -381,6 +385,9 @@
         var prevTrackId = state.playback.activeTrackId
         var prevClimateId = state.playback.activeClimateId
         state.playback = msg.payload
+        if (!state.playback.fadeAnimations) {
+          state.playback.fadeAnimations = []
+        }
         if (msg.payload.activeClimateId !== prevClimateId) {
           updateActiveClimateCard()
         }
@@ -389,6 +396,7 @@
         } else {
           renderPlaybackState()
         }
+        updateFadeAnimations()
         break
 
       case 'campaigns-update':
@@ -406,6 +414,7 @@
     renderCampaignName()
     renderClimateGrid()
     renderPlaybackState()
+    updateFadeAnimations()
   }
 
   function renderConnectionStatus() {
@@ -547,6 +556,55 @@
 
     // Also update playback UI (track, buttons, dot)
     renderPlaybackState()
+  }
+
+  function updateFadeAnimations() {
+    var animations = state.playback.fadeAnimations || []
+    var cards = dom.climateGrid.querySelectorAll('.climate-card')
+
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i]
+      var climateId = card.getAttribute('data-climate-id')
+      var fa = null
+      for (var j = 0; j < animations.length; j++) {
+        if (animations[j].climateId === climateId) {
+          fa = animations[j]
+          break
+        }
+      }
+
+      var existing = card.querySelector('.climate-card__fade-bar')
+
+      if (fa) {
+        // Check if we need a fresh bar (new animation or different startedAt)
+        if (existing && existing.getAttribute('data-started-at') === String(fa.startedAt)) {
+          continue // Same animation, already rendering
+        }
+        // Remove old bar if any
+        if (existing) {
+          existing.parentNode.removeChild(existing)
+        }
+        // Create new bar
+        var bar = document.createElement('span')
+        bar.className = 'climate-card__fade-bar'
+        bar.setAttribute('data-started-at', String(fa.startedAt))
+        var animName = fa.direction === 'in' ? 'bar-fill' : 'bar-drain'
+        var color = card.style.getPropertyValue('--card-color')
+        bar.style.cssText =
+          'background:' +
+          color +
+          'CC;box-shadow:0 0 6px ' +
+          color +
+          '80;animation:' +
+          animName +
+          ' ' +
+          fa.durationMs +
+          'ms linear forwards'
+        card.appendChild(bar)
+      } else if (existing) {
+        existing.parentNode.removeChild(existing)
+      }
+    }
   }
 
   function animateTrackChange() {

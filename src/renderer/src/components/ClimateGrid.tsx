@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { ClimateCard } from '@/components/ClimateCard'
 import { ClimateDetail } from '@/components/ClimateDetail'
@@ -15,13 +15,32 @@ interface ClimateGridProps {
 
 export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
   const { createClimate } = useCampaignStore()
-  const { activeClimateId } = useAudioStore()
+  const { activeClimateId, fadeAnimations, clearAllFadeAnimations } = useAudioStore()
   const audioEngine = useAudioEngine()
   const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const sorted = [...campaign.climates].sort((a, b) => a.order - b.order)
   const selectedClimate = sorted.find((c) => c.id === selectedClimateId)
   const canAdd = campaign.climates.length < DEFAULTS.maxClimates
+
+  // Safety timer: clear fade animations if they overshoot
+  useEffect(() => {
+    if (safetyTimerRef.current) {
+      clearTimeout(safetyTimerRef.current)
+      safetyTimerRef.current = null
+    }
+    if (fadeAnimations.length === 0) return
+    const maxDuration = Math.max(...fadeAnimations.map((fa) => fa.durationMs))
+    safetyTimerRef.current = setTimeout(() => {
+      clearAllFadeAnimations()
+    }, maxDuration + 500)
+    return () => {
+      if (safetyTimerRef.current) {
+        clearTimeout(safetyTimerRef.current)
+      }
+    }
+  }, [fadeAnimations, clearAllFadeAnimations])
 
   function handleAddClimate(): void {
     const climate = createClimate(campaign.id, 'New Climate')
@@ -40,6 +59,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
             key={climate.id}
             climate={climate}
             isActive={climate.id === activeClimateId}
+            fadeAnimation={fadeAnimations.find((fa) => fa.climateId === climate.id)}
             onClick={() => setSelectedClimateId(climate.id)}
             onPlay={() => audioEngine.activateClimate(climate)}
           />

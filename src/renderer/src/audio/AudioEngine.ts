@@ -251,6 +251,7 @@ export class AudioEngine {
     this.engineState = 'idle'
     this.currentClimate = null
     this.currentTrackIndex = 0
+    useAudioStore.getState().clearAllFadeAnimations()
     this.updateStore({
       isPlaying: false,
       activeClimateId: null,
@@ -292,6 +293,14 @@ export class AudioEngine {
       if (loaded) {
         channel.state = 'active'
         this.engineState = 'playing'
+        const store = useAudioStore.getState()
+        store.clearAllFadeAnimations()
+        store.startFadeAnimation({
+          climateId: climate.id,
+          direction: 'in',
+          durationMs: FADE_IN_DURATION * 1000,
+          startedAt: Date.now(),
+        })
         this.crossfadeManager.fadeChannel(
           'A',
           channel.gainNode,
@@ -304,6 +313,8 @@ export class AudioEngine {
       }
     } else {
       // Currently playing — crossfade to new climate
+      const previousClimateId = useAudioStore.getState().activeClimateId
+
       const outChannel = this.getActiveChannel()
       const inId = this.getInactiveChannelId()
       const inChannel = this.getChannel(inId)
@@ -323,6 +334,25 @@ export class AudioEngine {
         outChannel.state = 'fading-out'
         inChannel.state = 'active'
 
+        const store = useAudioStore.getState()
+        store.clearAllFadeAnimations()
+        const now = Date.now()
+        const durationMs = duration * 1000
+        if (previousClimateId) {
+          store.startFadeAnimation({
+            climateId: previousClimateId,
+            direction: 'out',
+            durationMs,
+            startedAt: now,
+          })
+        }
+        store.startFadeAnimation({
+          climateId: climate.id,
+          direction: 'in',
+          durationMs,
+          startedAt: now,
+        })
+
         this.crossfadeManager.crossfade(
           outChannel.id,
           outChannel.gainNode,
@@ -334,6 +364,7 @@ export class AudioEngine {
             this.disposeChannel(outChannel)
             this.activeChannelId = inId
             this.engineState = 'playing'
+            useAudioStore.getState().clearAllFadeAnimations()
           },
         )
       } else {
@@ -353,6 +384,18 @@ export class AudioEngine {
     this.engineState = 'fading-to-silence'
     this.updateStore({ isFadingToSilence: true })
 
+    const activeClimateId = useAudioStore.getState().activeClimateId
+    const store = useAudioStore.getState()
+    store.clearAllFadeAnimations()
+    if (activeClimateId) {
+      store.startFadeAnimation({
+        climateId: activeClimateId,
+        direction: 'out',
+        durationMs: FADE_TO_SILENCE_DURATION * 1000,
+        startedAt: Date.now(),
+      })
+    }
+
     const channel = this.getActiveChannel()
     this.crossfadeManager.fadeChannel(
       channel.id,
@@ -362,6 +405,7 @@ export class AudioEngine {
       () => {
         channel.player?.pause()
         this.updateStore({ isPlaying: false })
+        useAudioStore.getState().clearAllFadeAnimations()
       },
     )
   }
@@ -378,6 +422,14 @@ export class AudioEngine {
     this.engineState = 'playing'
 
     this.updateStore({ isPlaying: true, isFadingToSilence: false })
+
+    store.clearAllFadeAnimations()
+    store.startFadeAnimation({
+      climateId: store.activeClimateId,
+      direction: 'in',
+      durationMs: FADE_IN_DURATION * 1000,
+      startedAt: Date.now(),
+    })
 
     this.crossfadeManager.fadeChannel(
       channel.id,

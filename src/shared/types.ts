@@ -50,6 +50,13 @@ export type RemoteStateMessage =
   | { type: 'playback-update'; payload: PlaybackState }
   | { type: 'campaigns-update'; payload: { campaigns: Campaign[] } }
 
+export interface RemoteFadeAnimation {
+  climateId: string
+  direction: 'in' | 'out'
+  durationMs: number
+  startedAt: number
+}
+
 export interface PlaybackState {
   activeCampaignId: string | null
   activeClimateId: string | null
@@ -57,6 +64,7 @@ export interface PlaybackState {
   isPlaying: boolean
   volume: number
   isFadingToSilence: boolean
+  fadeAnimations: RemoteFadeAnimation[]
 }
 
 export interface RemoteFullState {
