@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/output/
+
+# Installers
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.deb
+*.snap
+*.rpm
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.log.*
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# Editor
+.idea/
+*.swp
+*.swo
+
+# Cache
+.eslintcache
+*.tsbuildinfo
+
+# Test coverage
+coverage/

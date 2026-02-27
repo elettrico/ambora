@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* === Color System === */
+  --color-background: #0c0c0e;
+  --color-surface-1: #141417;
+  --color-surface-2: #1c1c20;
+  --color-surface-3: #242428;
+  --color-border: #2a2a30;
+  --color-border-subtle: #1f1f24;
+  --color-text-primary: #eaeaed;
+  --color-text-secondary: #9494a0;
+  --color-text-tertiary: #5c5c68;
+  --color-accent: #7b93f5;
+  --color-accent-hover: #95a8f8;
+  --color-accent-muted: #7b93f520;
+  --color-danger: #f07070;
+  --color-success: #5ec269;
+
+  /* === Spacing (4px base grid) === */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+
+  /* === Border Radius === */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* === Typography === */
+  --font-sans:
+    'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  /* === Font Sizes === */
+  --font-size-display: 28px;
+  --font-size-heading-1: 22px;
+  --font-size-heading-2: 17px;
+  --font-size-heading-3: 14px;
+  --font-size-body: 14px;
+  --font-size-body-small: 13px;
+  --font-size-caption: 11px;
+  --font-size-overline: 11px;
+
+  /* === shadcn/ui CSS variables mapped to our design system === */
+  --color-sidebar-ring: #7b93f5;
+  --color-sidebar-border: #2a2a30;
+  --color-sidebar-accent-foreground: #eaeaed;
+  --color-sidebar-accent: #242428;
+  --color-sidebar-foreground: #9494a0;
+  --color-sidebar-primary-foreground: #eaeaed;
+  --color-sidebar-primary: #7b93f5;
+  --color-sidebar-background: #141417;
+  --color-chart-5: #f07070;
+  --color-chart-4: #5ec269;
+  --color-chart-3: #7b93f5;
+  --color-chart-2: #9494a0;
+  --color-chart-1: #eaeaed;
+  --color-ring: #7b93f5;
+  --color-input: #2a2a30;
+  --color-destructive: #f07070;
+  --color-accent-foreground: #eaeaed;
+  --color-muted-foreground: #9494a0;
+  --color-muted: #1c1c20;
+  --color-popover-foreground: #eaeaed;
+  --color-popover: #141417;
+  --color-card-foreground: #eaeaed;
+  --color-card: #1c1c20;
+  --color-secondary-foreground: #eaeaed;
+  --color-secondary: #1c1c20;
+  --color-primary-foreground: #0c0c0e;
+  --color-primary: #eaeaed;
+  --color-foreground: #eaeaed;
+  --radius: 10px;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings:
+      'cv01' 1,
+      'cv02' 1;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    margin: 0;
+    overflow: hidden;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-muted);
+    color: var(--color-text-primary);
+  }
+}

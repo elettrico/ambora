@@ -5,6 +5,7 @@
 Build **Ambora**, an open-source, cross-platform desktop application (macOS + Windows + Linux) with a phone-based remote control for managing atmospheric music during tabletop RPG sessions.
 
 The app has two interfaces:
+
 1. **Desktop app** (Electron) — the setup tool and audio engine. Used before/between sessions to manage campaigns, climates, and tracks. During a session it runs in the background playing audio.
 2. **Phone remote** — a responsive web page served by the desktop app over the local network. Used during sessions to control playback with one-tap climate switching. This is the primary interface during gameplay.
 
@@ -43,42 +44,42 @@ The app has two interfaces:
 
 ```typescript
 interface Campaign {
-  id: string; // uuid
-  name: string;
-  description?: string;
-  climates: Climate[];
-  createdAt: string; // ISO 8601
-  updatedAt: string; // ISO 8601
+  id: string // uuid
+  name: string
+  description?: string
+  climates: Climate[]
+  createdAt: string // ISO 8601
+  updatedAt: string // ISO 8601
 }
 
 interface Climate {
-  id: string; // uuid
-  name: string;
-  color: string; // hex color from the predefined palette
-  icon: string; // Lucide icon name from the predefined set
-  tracks: Track[];
-  order: number; // display order in the grid
-  crossfadeDuration: number; // seconds, default 4, range 1-10
+  id: string // uuid
+  name: string
+  color: string // hex color from the predefined palette
+  icon: string // Lucide icon name from the predefined set
+  tracks: Track[]
+  order: number // display order in the grid
+  crossfadeDuration: number // seconds, default 4, range 1-10
 }
 
 interface Track {
-  id: string; // uuid
-  title: string;
-  source: 'youtube' | 'local';
-  youtubeVideoId?: string;
-  youtubeUrl?: string;
-  localFilePath?: string;
-  duration?: number; // seconds, if known
-  order: number; // playback order within the climate
+  id: string // uuid
+  title: string
+  source: 'youtube' | 'local'
+  youtubeVideoId?: string
+  youtubeUrl?: string
+  localFilePath?: string
+  duration?: number // seconds, if known
+  order: number // playback order within the climate
 }
 
 interface AppState {
-  activeCampaignId: string | null;
-  activeClimateId: string | null;
-  activeTrackId: string | null;
-  isPlaying: boolean;
-  volume: number; // 0-100
-  isFadingToSilence: boolean;
+  activeCampaignId: string | null
+  activeClimateId: string | null
+  activeTrackId: string | null
+  isPlaying: boolean
+  volume: number // 0-100
+  isFadingToSilence: boolean
 }
 ```
 
@@ -123,6 +124,7 @@ interface AppState {
 Maintain two audio "channels" (A and B) that can play simultaneously. At most one is "active" (fading in or audible) and one is "outgoing" (fading out). They alternate roles.
 
 **Playback flow:**
+
 1. Climate activated (from silence): Load first track on Channel A, fade from 0 → master volume over 1s.
 2. Climate switch (crossfade): Load new climate's first track on the inactive channel at volume 0. Over the crossfade duration: ramp old channel to 0, ramp new channel to master volume. When complete, stop old channel, release resources.
 3. Track ends within climate: Crossfade to next track (~2s shorter crossfade). If last track, loop to first.
@@ -130,17 +132,20 @@ Maintain two audio "channels" (A and B) that can play simultaneously. At most on
 5. "Fade to silence": Fade active channel from current volume to 0 over 3s. Pause on completion. Set `isFadingToSilence` state.
 
 **Volume control:**
+
 - Master volume (0-100) controls maximum volume
 - All fades are relative to master volume
 - Changing master volume during playback immediately adjusts the active channel proportionally
 
 **YouTube playback:**
+
 - YouTube IFrame Player API with hidden iframes (1px × 1px)
 - `player.setVolume(0-100)` for crossfade volume control
 - Handle `onStateChange` (state === 0 = ended → next track), `onError` (→ skip + toast)
 - **Pre-buffering**: when session active, cue first track of every non-playing climate via `player.cueVideoById()` for instant switches
 
 **Local file playback:**
+
 - HTMLAudioElement → `audioContext.createMediaElementSource()` → GainNode → destination
 - Use `gainNode.gain.linearRampToValueAtTime()` for smooth fades
 - Handle `ended` event for next track
@@ -152,6 +157,7 @@ Maintain two audio "channels" (A and B) that can play simultaneously. At most on
 - WebSocket server for real-time bidirectional communication
 
 **Connection flow:**
+
 1. Desktop starts server on launch, auto-detects local IP via `os.networkInterfaces()`
 2. Desktop shows QR code (via `qrcode` package `QRCode.toDataURL()`) encoding `http://<local-ip>:<port>/remote`, plus the URL as selectable text
 3. User scans QR or types URL on phone
@@ -161,6 +167,7 @@ Maintain two audio "channels" (A and B) that can play simultaneously. At most on
 **WebSocket protocol (JSON with `type` field):**
 
 Phone → Desktop:
+
 ```json
 { "type": "switch_climate", "climateId": "uuid" }
 { "type": "set_volume", "volume": 75 }
@@ -171,6 +178,7 @@ Phone → Desktop:
 ```
 
 Desktop → Phone:
+
 ```json
 { "type": "state_update", "state": { ...AppState } }
 { "type": "campaign_data", "campaigns": [...] }
@@ -182,6 +190,7 @@ On connect: desktop sends `campaign_data`, `active_campaign`, and `state_update`
 ### 6. Settings (Desktop)
 
 Minimal for v1:
+
 - **Server port**: number input, default 3000 (requires restart)
 - **Default crossfade duration**: number input, default 4 seconds
 - **Audio output device**: dropdown from `navigator.mediaDevices.enumerateDevices()`
@@ -196,6 +205,7 @@ Minimal for v1:
 Ambora is a **performance instrument for dungeon masters**. During a game session, the DM is talking, improvising, rolling dice, and managing NPCs — all while trying to set the mood with music. The UI must disappear into this workflow.
 
 **Core principles:**
+
 - **Zero cognitive load during play.** The phone remote must be usable with a glance and a tap — no reading, no thinking, no navigating.
 - **Dark by default.** Used in dimly lit rooms. Must never blast the DM's face with light or draw attention from players.
 - **Quiet confidence.** Feels like a premium audio tool — Ableton's restraint, Spotify's clarity. No fantasy clichés, no parchment textures, no dragon illustrations.
@@ -205,49 +215,50 @@ Ambora is a **performance instrument for dungeon masters**. During a game sessio
 
 Built on a neutral scale with a subtle cool undertone (hue ~260 in OKLCH). **Never use pure black (#000000)** — it creates harsh contrast. **Never use pure white (#FFFFFF) for text** — use off-white to reduce glare. All text/background pairs must meet **WCAG AA contrast ratio ≥ 4.5:1**.
 
-| Token | Hex | OKLCH | Usage |
-|---|---|---|---|
-| `--background` | `#0C0C0E` | `oklch(0.075 0.005 260)` | App background, phone remote background |
-| `--surface-1` | `#141417` | `oklch(0.105 0.005 260)` | Sidebar, panels, elevated containers |
-| `--surface-2` | `#1C1C20` | `oklch(0.135 0.005 260)` | Cards, inputs, wells |
-| `--surface-3` | `#242428` | `oklch(0.165 0.005 260)` | Hover states, active surfaces |
-| `--border` | `#2A2A30` | `oklch(0.195 0.007 260)` | Borders, dividers, separators |
-| `--border-subtle` | `#1F1F24` | `oklch(0.150 0.005 260)` | Very subtle dividers |
-| `--text-primary` | `#EAEAED` | `oklch(0.930 0.005 260)` | Headings, primary content |
-| `--text-secondary` | `#9494A0` | `oklch(0.640 0.015 270)` | Labels, metadata, helper text |
-| `--text-tertiary` | `#5C5C68` | `oklch(0.430 0.015 265)` | Disabled text, placeholders |
-| `--accent` | `#7B93F5` | `oklch(0.670 0.130 265)` | Interactive elements, links, focus rings |
-| `--accent-hover` | `#95A8F8` | `oklch(0.730 0.110 265)` | Accent hover state |
-| `--accent-muted` | `#7B93F520` | — | Accent at 12% opacity for subtle backgrounds |
-| `--danger` | `#F07070` | `oklch(0.680 0.140 20)` | Delete actions, errors |
-| `--success` | `#5EC269` | `oklch(0.700 0.150 145)` | Connection status, confirmations |
+| Token              | Hex         | OKLCH                    | Usage                                        |
+| ------------------ | ----------- | ------------------------ | -------------------------------------------- |
+| `--background`     | `#0C0C0E`   | `oklch(0.075 0.005 260)` | App background, phone remote background      |
+| `--surface-1`      | `#141417`   | `oklch(0.105 0.005 260)` | Sidebar, panels, elevated containers         |
+| `--surface-2`      | `#1C1C20`   | `oklch(0.135 0.005 260)` | Cards, inputs, wells                         |
+| `--surface-3`      | `#242428`   | `oklch(0.165 0.005 260)` | Hover states, active surfaces                |
+| `--border`         | `#2A2A30`   | `oklch(0.195 0.007 260)` | Borders, dividers, separators                |
+| `--border-subtle`  | `#1F1F24`   | `oklch(0.150 0.005 260)` | Very subtle dividers                         |
+| `--text-primary`   | `#EAEAED`   | `oklch(0.930 0.005 260)` | Headings, primary content                    |
+| `--text-secondary` | `#9494A0`   | `oklch(0.640 0.015 270)` | Labels, metadata, helper text                |
+| `--text-tertiary`  | `#5C5C68`   | `oklch(0.430 0.015 265)` | Disabled text, placeholders                  |
+| `--accent`         | `#7B93F5`   | `oklch(0.670 0.130 265)` | Interactive elements, links, focus rings     |
+| `--accent-hover`   | `#95A8F8`   | `oklch(0.730 0.110 265)` | Accent hover state                           |
+| `--accent-muted`   | `#7B93F520` | —                        | Accent at 12% opacity for subtle backgrounds |
+| `--danger`         | `#F07070`   | `oklch(0.680 0.140 20)`  | Delete actions, errors                       |
+| `--success`        | `#5EC269`   | `oklch(0.700 0.150 145)` | Connection status, confirmations             |
 
 ### Climate Card Color Palette (16 presets)
 
 These are the only saturated colors in the app. Applied at **controlled opacity** on cards to avoid overwhelming the dark UI.
 
-| Name | Hex | Suggested mood |
-|---|---|---|
-| Crimson | `#DC3545` | Combat, danger, boss |
-| Ember | `#E8652B` | Fire, urgency, chase |
-| Amber | `#D4943A` | Tavern, warmth, hearth |
-| Gold | `#CFAD3B` | Royalty, treasure, celebration |
-| Emerald | `#2D9A5D` | Forest, nature, druids |
-| Teal | `#21917F` | Ocean, river, water |
-| Sky | `#3B8DD4` | Open sky, travel, day |
-| Cobalt | `#4B6BD4` | Ice, serenity, calm |
-| Indigo | `#6659D9` | Arcane, magic, portals |
-| Violet | `#8B49B8` | Mystery, undead, fey |
-| Rose | `#C74B7A` | Enchantment, romance |
-| Slate | `#5E6B73` | Dungeon, stone, stealth |
-| Iron | `#404850` | Shadow, void, death |
-| Copper | `#9B6842` | Earth, caves, desert |
-| Silver | `#A8B0B8` | Divine, ethereal, dreams |
-| Blood | `#9B2335` | Horror, blood, sacrifice |
+| Name    | Hex       | Suggested mood                 |
+| ------- | --------- | ------------------------------ |
+| Crimson | `#DC3545` | Combat, danger, boss           |
+| Ember   | `#E8652B` | Fire, urgency, chase           |
+| Amber   | `#D4943A` | Tavern, warmth, hearth         |
+| Gold    | `#CFAD3B` | Royalty, treasure, celebration |
+| Emerald | `#2D9A5D` | Forest, nature, druids         |
+| Teal    | `#21917F` | Ocean, river, water            |
+| Sky     | `#3B8DD4` | Open sky, travel, day          |
+| Cobalt  | `#4B6BD4` | Ice, serenity, calm            |
+| Indigo  | `#6659D9` | Arcane, magic, portals         |
+| Violet  | `#8B49B8` | Mystery, undead, fey           |
+| Rose    | `#C74B7A` | Enchantment, romance           |
+| Slate   | `#5E6B73` | Dungeon, stone, stealth        |
+| Iron    | `#404850` | Shadow, void, death            |
+| Copper  | `#9B6842` | Earth, caves, desert           |
+| Silver  | `#A8B0B8` | Divine, ethereal, dreams       |
+| Blood   | `#9B2335` | Horror, blood, sacrifice       |
 
 **How climate colors are applied:**
 
 Phone remote cards:
+
 ```
 Background: climate color at 15% opacity
 Border: 1px solid, climate color at 30% opacity
@@ -257,6 +268,7 @@ Icon color: climate color at 90% opacity
 ```
 
 Desktop cards:
+
 ```
 Background: --surface-2
 Left accent bar: 3px solid, climate color at 70%
@@ -270,25 +282,25 @@ Enable OpenType features: `font-feature-settings: 'cv01' 1, 'cv02' 1` (cleaner a
 
 **Desktop type scale (1.25 Major Third ratio, 14px base):**
 
-| Token | Size | Weight | Line-height | Letter-spacing | Usage |
-|---|---|---|---|---|---|
-| `display` | 28px | 600 | 1.2 | -0.02em | "Ambora" logo text |
-| `heading-1` | 22px | 600 | 1.25 | -0.015em | Campaign name |
-| `heading-2` | 17px | 600 | 1.3 | -0.01em | Section titles |
-| `heading-3` | 14px | 600 | 1.4 | 0 | Card titles, climate names |
-| `body` | 14px | 400 | 1.5 | 0 | Default text, descriptions, inputs |
-| `body-small` | 13px | 400 | 1.45 | 0.005em | Track titles, metadata |
-| `caption` | 11px | 500 | 1.4 | 0.03em | Timestamps, badges, status |
-| `overline` | 11px | 600 | 1.3 | 0.06em | Section labels (uppercase) |
+| Token        | Size | Weight | Line-height | Letter-spacing | Usage                              |
+| ------------ | ---- | ------ | ----------- | -------------- | ---------------------------------- |
+| `display`    | 28px | 600    | 1.2         | -0.02em        | "Ambora" logo text                 |
+| `heading-1`  | 22px | 600    | 1.25        | -0.015em       | Campaign name                      |
+| `heading-2`  | 17px | 600    | 1.3         | -0.01em        | Section titles                     |
+| `heading-3`  | 14px | 600    | 1.4         | 0              | Card titles, climate names         |
+| `body`       | 14px | 400    | 1.5         | 0              | Default text, descriptions, inputs |
+| `body-small` | 13px | 400    | 1.45        | 0.005em        | Track titles, metadata             |
+| `caption`    | 11px | 500    | 1.4         | 0.03em         | Timestamps, badges, status         |
+| `overline`   | 11px | 600    | 1.3         | 0.06em         | Section labels (uppercase)         |
 
 **Phone remote type scale (larger for arm's-length use):**
 
-| Token | Size | Weight | Usage |
-|---|---|---|---|
-| `remote-campaign` | 15px | 500 | Campaign name in header |
-| `remote-climate` | 15px | 600 | Climate card labels |
-| `remote-track` | 13px | 400 | Now playing track title |
-| `remote-label` | 11px | 500 | Volume label, status text |
+| Token             | Size | Weight | Usage                     |
+| ----------------- | ---- | ------ | ------------------------- |
+| `remote-campaign` | 15px | 500    | Campaign name in header   |
+| `remote-climate`  | 15px | 600    | Climate card labels       |
+| `remote-track`    | 13px | 400    | Now playing track title   |
+| `remote-label`    | 11px | 500    | Volume label, status text |
 
 **Rules:** Never below 11px. Use negative letter-spacing (-0.01em to -0.02em) for headings ≥17px. Use positive letter-spacing (0.03em+) for uppercase overlines.
 
@@ -296,28 +308,29 @@ Enable OpenType features: `font-feature-settings: 'cv01' 1, 'cv02' 1` (cleaner a
 
 **4px base grid.** All spacing values are multiples of 4.
 
-| Token | Value | Usage |
-|---|---|---|
-| `space-1` | 4px | Minimum gap, tight icon-to-text |
-| `space-2` | 8px | Compact padding, related items |
-| `space-3` | 12px | Small component inner padding |
-| `space-4` | 16px | Standard card padding, list item gaps |
-| `space-5` | 20px | Section margins, panel padding |
-| `space-6` | 24px | Major section gaps |
-| `space-8` | 32px | Large section separators |
-| `space-10` | 40px | Page top/bottom padding |
+| Token      | Value | Usage                                 |
+| ---------- | ----- | ------------------------------------- |
+| `space-1`  | 4px   | Minimum gap, tight icon-to-text       |
+| `space-2`  | 8px   | Compact padding, related items        |
+| `space-3`  | 12px  | Small component inner padding         |
+| `space-4`  | 16px  | Standard card padding, list item gaps |
+| `space-5`  | 20px  | Section margins, panel padding        |
+| `space-6`  | 24px  | Major section gaps                    |
+| `space-8`  | 32px  | Large section separators              |
+| `space-10` | 40px  | Page top/bottom padding               |
 
 **Border radius:**
 
-| Token | Value | Usage |
-|---|---|---|
-| `radius-sm` | 6px | Inputs, badges, small buttons |
-| `radius-md` | 10px | Cards, dialogs, panels |
-| `radius-lg` | 14px | Phone remote climate cards |
-| `radius-xl` | 20px | Phone remote bottom sheet |
-| `radius-full` | 9999px | Pills, circular buttons |
+| Token         | Value  | Usage                         |
+| ------------- | ------ | ----------------------------- |
+| `radius-sm`   | 6px    | Inputs, badges, small buttons |
+| `radius-md`   | 10px   | Cards, dialogs, panels        |
+| `radius-lg`   | 14px   | Phone remote climate cards    |
+| `radius-xl`   | 20px   | Phone remote bottom sheet     |
+| `radius-full` | 9999px | Pills, circular buttons       |
 
 **Desktop dimensions:**
+
 ```
 Sidebar width:        260px (fixed)
 Sidebar padding:      20px
@@ -331,6 +344,7 @@ Min window size:      900px × 600px
 ```
 
 **Phone remote dimensions:**
+
 ```
 Screen padding:       16px horizontal, 12px top, 16px bottom
 Header:               48px
@@ -346,39 +360,55 @@ Viewport meta:        width=device-width, initial-scale=1, maximum-scale=1, user
 
 On dark backgrounds, traditional shadows are nearly invisible. Use **background color steps and borders** instead.
 
-| Level | Technique | Usage |
-|---|---|---|
-| 0 | `--background` | Page background |
-| 1 | `--surface-1` + `--border-subtle` | Sidebar, panels |
-| 2 | `--surface-2` + `--border` | Cards, inputs |
-| 3 | `--surface-3` | Hover states |
-| 4 | `--surface-1` + `--border` + `shadow: 0 16px 48px rgba(0,0,0,0.5)` | Modals, dialogs |
-| 5 | Climate color glow | Active climate card (phone) |
+| Level | Technique                                                          | Usage                       |
+| ----- | ------------------------------------------------------------------ | --------------------------- |
+| 0     | `--background`                                                     | Page background             |
+| 1     | `--surface-1` + `--border-subtle`                                  | Sidebar, panels             |
+| 2     | `--surface-2` + `--border`                                         | Cards, inputs               |
+| 3     | `--surface-3`                                                      | Hover states                |
+| 4     | `--surface-1` + `--border` + `shadow: 0 16px 48px rgba(0,0,0,0.5)` | Modals, dialogs             |
+| 5     | Climate color glow                                                 | Active climate card (phone) |
 
 **Rule: No visible shadows on non-overlay elements.** Depth is communicated through background color, not shadows.
 
 ### Animation & Motion
 
 **Timing:**
+
 - Micro-interactions (hover, focus): 100-150ms
 - State transitions (card activation): 200-300ms
 - Glow pulse, now-playing change: 300-500ms
 - Easing: `cubic-bezier(0.25, 0.1, 0.25, 1)` (ease-out) default. `cubic-bezier(0.34, 1.56, 0.64, 1)` (spring) for phone card taps.
 
 **Climate card tap (phone):**
+
 ```css
-.climate-card { transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.climate-card:active { transform: scale(0.95); transition-duration: 100ms; }
+.climate-card {
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.climate-card:active {
+  transform: scale(0.95);
+  transition-duration: 100ms;
+}
 ```
+
 Plus `navigator.vibrate(40)` haptic feedback.
 
 **Active climate glow (phone):**
+
 ```css
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
-.climate-card.active { animation: glow-pulse 3s ease-in-out infinite; }
+.climate-card.active {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
 ```
 
 **Climate switch transition:** Old card glow fades out (400ms ease-out), new card glow fades in (400ms ease-out).
@@ -393,13 +423,13 @@ Plus `navigator.vibrate(40)` haptic feedback.
 
 Lucide React exclusively. Sizing:
 
-| Context | Size | Stroke width |
-|---|---|---|
-| Climate icon (phone) | 28px | 1.5px |
-| Climate icon (desktop) | 24px | 1.5px |
-| Toolbar/action icons | 18px | 2px |
-| Inline icons | 16px | 2px |
-| Small indicators | 14px | 2px |
+| Context                | Size | Stroke width |
+| ---------------------- | ---- | ------------ |
+| Climate icon (phone)   | 28px | 1.5px        |
+| Climate icon (desktop) | 24px | 1.5px        |
+| Toolbar/action icons   | 18px | 2px          |
+| Inline icons           | 16px | 2px          |
+| Small indicators       | 14px | 2px          |
 
 Icon colors: Climate icons use the climate's own color at 90%. Action icons: `--text-secondary`, hover → `--text-primary`. Destructive icons: `--text-tertiary`, hover → `--danger`.
 
@@ -407,13 +437,13 @@ Icon colors: Climate icons use the climate's own color at 90%. Action icons: `--
 
 Every tappable element must have a minimum **44×44px** touch area (padding extends hit area beyond visual element).
 
-| Element | Visual size | Touch target | Spacing |
-|---|---|---|---|
-| Climate card | Full column × 80-120px | Same (large enough) | 12px gap |
-| Skip track | 18px icon | 48×48px (via padding) | Isolated |
-| Volume slider | 6px track | 44px tall (via padding) | 16px from edges |
-| Fade to silence | 48px circle | 48px | 16px from slider |
-| Campaign selector | Full header width | 48px tall | — |
+| Element           | Visual size            | Touch target            | Spacing          |
+| ----------------- | ---------------------- | ----------------------- | ---------------- |
+| Climate card      | Full column × 80-120px | Same (large enough)     | 12px gap         |
+| Skip track        | 18px icon              | 48×48px (via padding)   | Isolated         |
+| Volume slider     | 6px track              | 44px tall (via padding) | 16px from edges  |
+| Fade to silence   | 48px circle            | 48px                    | 16px from slider |
+| Campaign selector | Full header width      | 48px tall               | —                |
 
 ---
 
@@ -575,6 +605,7 @@ Local file tab:   Dashed-border drop zone, 120px tall, accepts .mp3/.wav/.ogg/.f
 **Campaign selector bottom sheet:** Triggered by tapping header. Slides up 300ms ease-out, --surface-1 background, 20px top border-radius, 40×4px pill handle, campaign list (56px items), active campaign highlighted with --accent-muted + checkmark. Tap backdrop (60% --background) to dismiss.
 
 **Empty states:**
+
 - No campaign: "Select a campaign to begin" + auto-show selector
 - No climates: "No climates yet — add some on the desktop app"
 - Disconnected: Full overlay with Lucide WifiOff (pulsing), "Reconnecting...", auto-retry 2s
@@ -616,18 +647,18 @@ Local file tab:   Dashed-border drop zone, 120px tall, accepts .mp3/.wav/.ogg/.f
 
 Every action must provide immediate feedback.
 
-| Action | Feedback |
-|---|---|
-| Tap climate (phone) | Haptic (40ms), instant highlight, glow begins |
-| Tap skip (phone) | Track title fades out/in |
-| Drag volume (phone) | Instant visual, no haptic |
-| Tap fade-to-silence (phone) | Icon changes to Play, bg shifts |
-| Add track (desktop) | Track appears with 200ms fade-in |
-| Delete track (desktop) | 200ms fade-out, list reflows |
-| Delete campaign (desktop) | AlertDialog confirmation first |
-| Phone connects | Desktop green dot + sonner toast |
-| YouTube error | Sonner toast: "Track unavailable, skipping..." (3s) |
-| Climate switch | Phone: card highlights. Desktop: now-playing updates with color dot |
+| Action                      | Feedback                                                            |
+| --------------------------- | ------------------------------------------------------------------- |
+| Tap climate (phone)         | Haptic (40ms), instant highlight, glow begins                       |
+| Tap skip (phone)            | Track title fades out/in                                            |
+| Drag volume (phone)         | Instant visual, no haptic                                           |
+| Tap fade-to-silence (phone) | Icon changes to Play, bg shifts                                     |
+| Add track (desktop)         | Track appears with 200ms fade-in                                    |
+| Delete track (desktop)      | 200ms fade-out, list reflows                                        |
+| Delete campaign (desktop)   | AlertDialog confirmation first                                      |
+| Phone connects              | Desktop green dot + sonner toast                                    |
+| YouTube error               | Sonner toast: "Track unavailable, skipping..." (3s)                 |
+| Climate switch              | Phone: card highlights. Desktop: now-playing updates with color dot |
 
 ---
 
@@ -636,12 +667,13 @@ Every action must provide immediate feedback.
 In `src/renderer/src/index.css`:
 
 ```css
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "@fontsource-variable/inter";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/inter';
 
 @theme inline {
-  --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-sans:
+    'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --radius: 0.625rem;
 }
 
@@ -757,6 +789,7 @@ ambora/
 ```
 
 **Key notes:**
+
 - `remote/` is served as static files by Express. NOT part of Electron renderer build. Use vanilla JS, not React.
 - shadcn components go in `src/renderer/src/components/ui/` — install via `npx shadcn@latest add <component>`
 - `electron.vite.config.ts` must include `@tailwindcss/vite` in renderer plugins
@@ -775,6 +808,7 @@ npm install
 ```
 
 In `electron.vite.config.ts`:
+
 ```ts
 import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
@@ -782,8 +816,8 @@ export default defineConfig({
   preload: { plugins: [externalizeDepsPlugin()] },
   renderer: {
     resolve: { alias: { '@': resolve('src/renderer/src') } },
-    plugins: [react(), tailwindcss()]
-  }
+    plugins: [react(), tailwindcss()],
+  },
 })
 ```
 
@@ -818,13 +852,13 @@ Initialize shadcn: `npx shadcn@latest init` → "new-york" style, alias `@/compo
 
 ### Error Handling
 
-| Scenario | Behavior |
-|---|---|
-| YouTube fails | Skip to next track, sonner toast |
-| Local file missing | Skip, mark as broken in UI |
-| Phone disconnects | Desktop continues, phone shows "Reconnecting..." |
-| No internet | YouTube won't work, local files continue, clear message |
-| Port in use | Try next port, update QR/URL |
+| Scenario           | Behavior                                                |
+| ------------------ | ------------------------------------------------------- |
+| YouTube fails      | Skip to next track, sonner toast                        |
+| Local file missing | Skip, mark as broken in UI                              |
+| Phone disconnects  | Desktop continues, phone shows "Reconnecting..."        |
+| No internet        | YouTube won't work, local files continue, clear message |
+| Port in use        | Try next port, update QR/URL                            |
 
 ---
 
@@ -905,10 +939,10 @@ Use the **Contributor Covenant v2.1** (the standard). Include enforcement sectio
 
 ## Supported Versions
 
-| Version | Supported |
-|---|---|
-| latest | ✅ |
-| < latest | ❌ |
+| Version  | Supported |
+| -------- | --------- |
+| latest   | ✅        |
+| < latest | ❌        |
 
 ## Reporting a Vulnerability
 
@@ -922,6 +956,7 @@ If you discover a security vulnerability, please report it responsibly:
 ## Security Considerations
 
 Ambora runs a local HTTP/WebSocket server on your network. This server:
+
 - Only binds to the local network interface
 - Does not expose any data to the internet
 - Does not require authentication (anyone on your local network can connect)
@@ -945,6 +980,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+
 - Initial release
 - Campaign and climate management
 - YouTube and local file playback with crossfading
@@ -1035,7 +1071,7 @@ jobs:
 ```yaml
 name: Bug Report
 description: Report a bug in Ambora
-labels: ["bug", "triage"]
+labels: ['bug', 'triage']
 body:
   - type: markdown
     attributes:
@@ -1092,7 +1128,7 @@ body:
 ```yaml
 name: Feature Request
 description: Suggest a feature for Ambora
-labels: ["enhancement"]
+labels: ['enhancement']
 body:
   - type: markdown
     attributes:
@@ -1150,21 +1186,21 @@ body:
 ```yaml
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     groups:
       production-dependencies:
-        patterns: ["*"]
-        exclude-patterns: ["eslint*", "prettier*", "@types/*"]
+        patterns: ['*']
+        exclude-patterns: ['eslint*', 'prettier*', '@types/*']
       dev-dependencies:
-        patterns: ["eslint*", "prettier*", "@types/*"]
+        patterns: ['eslint*', 'prettier*', '@types/*']
     open-pull-requests-limit: 10
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "monthly"
+      interval: 'monthly'
 ```
 
 ### .editorconfig
@@ -1275,11 +1311,13 @@ npx husky init
 ```
 
 In `.husky/pre-commit`:
+
 ```bash
 npx lint-staged
 ```
 
 In `package.json`:
+
 ```json
 {
   "lint-staged": {
@@ -1318,6 +1356,7 @@ Even in a dark-themed niche app, accessibility matters:
 ## Versioning
 
 Follow **Semantic Versioning (SemVer)**:
+
 - `MAJOR.MINOR.PATCH` (e.g., `1.0.0`)
 - PATCH: bug fixes
 - MINOR: new features, backwards-compatible

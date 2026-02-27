@@ -89,6 +89,7 @@ See the bottom of the build prompt for the 10-step build order. In short: (1) sc
 ## Detailed Specs
 
 For full implementation details, read these files:
+
 - @docs/BUILD_PROMPT.md — Complete build prompt with all feature specs, data models, WebSocket protocol, component specs
 - @docs/DESIGN.md — Full UI/UX design system (colors, typography, spacing, component measurements, animation specs)
 - @docs/ARCHITECTURE.md — Technical architecture overview
