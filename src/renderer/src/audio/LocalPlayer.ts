@@ -74,6 +74,14 @@ export class LocalPlayer implements ITrackPlayer {
     return Number.isFinite(dur) ? dur : undefined
   }
 
+  getCurrentTime(): number {
+    return this.audio.currentTime
+  }
+
+  seekTo(timeSec: number): void {
+    this.audio.currentTime = timeSec
+  }
+
   hasEnded(): boolean {
     return this.audio.ended
   }

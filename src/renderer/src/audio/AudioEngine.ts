@@ -17,6 +17,8 @@ export interface ITrackPlayer {
   stop(): void
   setVolume(volume: number): void
   getDuration(): number | undefined
+  getCurrentTime(): number
+  seekTo(timeSec: number): void
   hasEnded(): boolean
   getMediaSource(): MediaElementAudioSourceNode | null
   onEnded(callback: () => void): void
@@ -34,6 +36,12 @@ interface Channel {
   player: ITrackPlayer | null
   volumeController: VolumeController | null
   state: ChannelState
+}
+
+interface ClimatePlaybackSnapshot {
+  trackIndex: number
+  positionSec: number
+  trackFingerprint: string
 }
 
 const FADE_IN_DURATION = 1
@@ -58,6 +66,7 @@ export class AudioEngine {
 
   private volumeUnsub: (() => void) | null = null
   private onDurationAvailable: ((trackId: string, duration: number) => void) | null = null
+  private climateSnapshots = new Map<string, ClimatePlaybackSnapshot>()
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -220,7 +229,40 @@ export class AudioEngine {
     return (this.currentTrackIndex + 1) % this.currentClimate.tracks.length
   }
 
-  private async loadAndPlayOnChannel(channel: Channel, track: Track): Promise<boolean> {
+  private getTrackFingerprint(climate: Climate): string {
+    return [...climate.tracks]
+      .map((t) => t.id)
+      .sort()
+      .join(',')
+  }
+
+  private saveClimateSnapshot(): void {
+    if (!this.currentClimate) return
+    const channel = this.getActiveChannel()
+    if (!channel.player) return
+
+    this.climateSnapshots.set(this.currentClimate.id, {
+      trackIndex: this.currentTrackIndex,
+      positionSec: channel.player.getCurrentTime(),
+      trackFingerprint: this.getTrackFingerprint(this.currentClimate),
+    })
+  }
+
+  private getClimateSnapshot(climate: Climate): ClimatePlaybackSnapshot | null {
+    const snapshot = this.climateSnapshots.get(climate.id)
+    if (!snapshot) return null
+    if (snapshot.trackFingerprint !== this.getTrackFingerprint(climate)) {
+      this.climateSnapshots.delete(climate.id)
+      return null
+    }
+    return snapshot
+  }
+
+  private async loadAndPlayOnChannel(
+    channel: Channel,
+    track: Track,
+    seekToSec?: number,
+  ): Promise<boolean> {
     if (channel.player) {
       if (channel.volumeController instanceof DirectVolumeController) {
         channel.volumeController.dispose()
@@ -256,6 +298,9 @@ export class AudioEngine {
     controller.setImmediate(0)
 
     player.play()
+    if (seekToSec && seekToSec > 0) {
+      player.seekTo(seekToSec)
+    }
 
     player.onEnded(() => this.handleTrackEnded())
     player.onError((err) => {
@@ -404,8 +449,14 @@ export class AudioEngine {
     this.crossfadeManager.cancelAll()
 
     const sorted = [...climate.tracks].sort((a, b) => a.order - b.order)
+
+    // Restore from snapshot if available, otherwise start at track 0
+    const snapshot = this.getClimateSnapshot(climate)
+    const startTrackIndex = snapshot ? snapshot.trackIndex % sorted.length : 0
+    const startPositionSec = snapshot?.positionSec ?? 0
+
     this.currentClimate = climate
-    this.currentTrackIndex = 0
+    this.currentTrackIndex = startTrackIndex
 
     if (this.engineState === 'idle' || this.engineState === 'fading-to-silence') {
       // Clean up any existing state
@@ -414,7 +465,7 @@ export class AudioEngine {
       this.activeChannelId = 'A'
 
       const channel = this.getChannel('A')
-      const track = sorted[0]
+      const track = sorted[startTrackIndex]
 
       this.updateStore({
         activeClimateId: climate.id,
@@ -423,7 +474,7 @@ export class AudioEngine {
         isFadingToSilence: false,
       })
 
-      const loaded = await this.loadAndPlayOnChannel(channel, track)
+      const loaded = await this.loadAndPlayOnChannel(channel, track, startPositionSec)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
       if (loaded) {
@@ -445,16 +496,17 @@ export class AudioEngine {
         )
       } else {
         // Try next tracks
-        await this.advanceToTrack(1)
+        await this.advanceToTrack(startTrackIndex + 1)
       }
     } else {
       // Currently playing — crossfade to new climate
+      this.saveClimateSnapshot()
       const previousClimateId = useAudioStore.getState().activeClimateId
 
       const outChannel = this.getActiveChannel()
       const inId = this.getInactiveChannelId()
       const inChannel = this.getChannel(inId)
-      const track = sorted[0]
+      const track = sorted[startTrackIndex]
       const duration = climate.crossfadeDuration
 
       this.updateStore({
@@ -464,7 +516,7 @@ export class AudioEngine {
         isFadingToSilence: false,
       })
 
-      const loaded = await this.loadAndPlayOnChannel(inChannel, track)
+      const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
       if (loaded) {
@@ -514,7 +566,7 @@ export class AudioEngine {
           },
         )
       } else {
-        await this.advanceToTrack(1)
+        await this.advanceToTrack(startTrackIndex + 1)
       }
     }
   }
@@ -534,6 +586,7 @@ export class AudioEngine {
   fadeToSilence(): void {
     if (this.engineState !== 'playing') return
 
+    this.saveClimateSnapshot()
     this.engineState = 'fading-to-silence'
     this.updateStore({ isFadingToSilence: true })
 
@@ -613,6 +666,7 @@ export class AudioEngine {
     this.channelB = null
     this.engineState = 'idle'
     this.isActivationLoading = false
+    this.climateSnapshots.clear()
     AudioEngine.instance = null
   }
 }

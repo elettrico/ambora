@@ -119,6 +119,22 @@ export class YouTubePlayer implements ITrackPlayer {
     return dur !== undefined && dur > 0 ? dur : undefined
   }
 
+  getCurrentTime(): number {
+    try {
+      return this.player?.getCurrentTime() ?? 0
+    } catch {
+      return 0
+    }
+  }
+
+  seekTo(timeSec: number): void {
+    try {
+      this.player?.seekTo(timeSec, true)
+    } catch {
+      // Player may be in a bad state — ignore.
+    }
+  }
+
   hasEnded(): boolean {
     try {
       return this.player?.getPlayerState() === YTPlayerState.ENDED
