@@ -1,7 +1,12 @@
 import { toast } from 'sonner'
 import { CrossfadeManager } from './CrossfadeManager'
 import { LocalPlayer } from './LocalPlayer'
-import { YouTubePlayer } from './YouTubePlayer'
+import { YouTubePlayer, removeOrphanedYouTubeContainers } from './YouTubePlayer'
+import {
+  GainNodeVolumeController,
+  DirectVolumeController,
+  type VolumeController,
+} from './VolumeController'
 import { useAudioStore } from '@/store/audioStore'
 import type { Climate, Track } from '@/lib/types'
 
@@ -12,6 +17,7 @@ export interface ITrackPlayer {
   stop(): void
   setVolume(volume: number): void
   getDuration(): number | undefined
+  hasEnded(): boolean
   getMediaSource(): MediaElementAudioSourceNode | null
   onEnded(callback: () => void): void
   onError(callback: (error: Error) => void): void
@@ -26,6 +32,7 @@ interface Channel {
   id: ChannelId
   gainNode: GainNode
   player: ITrackPlayer | null
+  volumeController: VolumeController | null
   state: ChannelState
 }
 
@@ -46,9 +53,10 @@ export class AudioEngine {
   private currentClimate: Climate | null = null
   private currentTrackIndex = 0
   private pendingActiveChannelId: ChannelId | null = null
+  private activationSeq = 0
+  private isActivationLoading = false
 
   private volumeUnsub: (() => void) | null = null
-  private volumeSyncTimers: Map<ChannelId, number> = new Map()
   private onDurationAvailable: ((trackId: string, duration: number) => void) | null = null
 
   private constructor() {
@@ -93,12 +101,24 @@ export class AudioEngine {
       const gainA = this.audioContext.createGain()
       gainA.gain.value = 0
       gainA.connect(this.audioContext.destination)
-      this.channelA = { id: 'A', gainNode: gainA, player: null, state: 'inactive' }
+      this.channelA = {
+        id: 'A',
+        gainNode: gainA,
+        player: null,
+        volumeController: null,
+        state: 'inactive',
+      }
 
       const gainB = this.audioContext.createGain()
       gainB.gain.value = 0
       gainB.connect(this.audioContext.destination)
-      this.channelB = { id: 'B', gainNode: gainB, player: null, state: 'inactive' }
+      this.channelB = {
+        id: 'B',
+        gainNode: gainB,
+        player: null,
+        volumeController: null,
+        state: 'inactive',
+      }
 
       this.subscribeToVolumeChanges()
     }
@@ -146,37 +166,11 @@ export class AudioEngine {
     this.volumeUnsub = useAudioStore.subscribe((state, prev) => {
       if (state.volume !== prev.volume && this.engineState === 'playing') {
         const channel = this.getActiveChannel()
-        this.crossfadeManager.setImmediate(channel.gainNode, state.volume / 100)
-        if (channel.player?.getMediaSource() === null) {
-          channel.player.setVolume(state.volume / 100)
+        if (channel.volumeController) {
+          this.crossfadeManager.setImmediate(channel.volumeController, state.volume / 100)
         }
       }
     })
-  }
-
-  private startVolumeSync(channelId: ChannelId): void {
-    this.stopVolumeSync(channelId)
-    const channel = this.getChannel(channelId)
-    if (!channel.player || channel.player.getMediaSource() !== null) return
-
-    const tick = (): void => {
-      if (!channel.player || channel.player.getMediaSource() !== null) {
-        this.volumeSyncTimers.delete(channelId)
-        return
-      }
-      const gainValue = channel.gainNode.gain.value
-      channel.player.setVolume(gainValue)
-      this.volumeSyncTimers.set(channelId, requestAnimationFrame(tick))
-    }
-    this.volumeSyncTimers.set(channelId, requestAnimationFrame(tick))
-  }
-
-  private stopVolumeSync(channelId: ChannelId): void {
-    const timer = this.volumeSyncTimers.get(channelId)
-    if (timer !== undefined) {
-      cancelAnimationFrame(timer)
-      this.volumeSyncTimers.delete(channelId)
-    }
   }
 
   private createPlayer(track: Track): ITrackPlayer {
@@ -184,6 +178,15 @@ export class AudioEngine {
       return new YouTubePlayer()
     }
     return new LocalPlayer(this.ensureContext())
+  }
+
+  private createVolumeController(player: ITrackPlayer, gainNode: GainNode): VolumeController {
+    if (player.getMediaSource() !== null) {
+      // Local file — volume through GainNode
+      return new GainNodeVolumeController(gainNode)
+    }
+    // YouTube — volume through player.setVolume() via RAF
+    return new DirectVolumeController(player)
   }
 
   private connectPlayer(player: ITrackPlayer, gainNode: GainNode): void {
@@ -194,14 +197,22 @@ export class AudioEngine {
   }
 
   private disposeChannel(channel: Channel): void {
-    this.stopVolumeSync(channel.id)
+    if (channel.volumeController) {
+      if (channel.volumeController instanceof DirectVolumeController) {
+        channel.volumeController.dispose()
+      }
+      channel.volumeController = null
+    }
     if (channel.player) {
       channel.player.stop()
       channel.player.dispose()
       channel.player = null
     }
     channel.state = 'inactive'
-    this.crossfadeManager.setImmediate(channel.gainNode, 0)
+    // Reset the GainNode to 0 for local file routing
+    const now = channel.gainNode.context.currentTime
+    channel.gainNode.gain.cancelScheduledValues(now)
+    channel.gainNode.gain.setValueAtTime(0, now)
   }
 
   private getNextTrackIndex(): number {
@@ -210,6 +221,16 @@ export class AudioEngine {
   }
 
   private async loadAndPlayOnChannel(channel: Channel, track: Track): Promise<boolean> {
+    if (channel.player) {
+      if (channel.volumeController instanceof DirectVolumeController) {
+        channel.volumeController.dispose()
+      }
+      channel.volumeController = null
+      channel.player.stop()
+      channel.player.dispose()
+      channel.player = null
+    }
+
     channel.state = 'loading'
     const player = this.createPlayer(track)
     channel.player = player
@@ -226,8 +247,15 @@ export class AudioEngine {
     }
 
     this.connectPlayer(player, channel.gainNode)
+
+    const controller = this.createVolumeController(player, channel.gainNode)
+    channel.volumeController = controller
+
+    // Ensure volume starts at 0 before play — the crossfade will ramp it up.
+    // For YouTube this prevents a burst at 100% before the first RAF tick.
+    controller.setImmediate(0)
+
     player.play()
-    this.startVolumeSync(channel.id)
 
     player.onEnded(() => this.handleTrackEnded())
     player.onError((err) => {
@@ -241,7 +269,7 @@ export class AudioEngine {
   }
 
   private handleTrackEnded(): void {
-    if (this.engineState !== 'playing') {
+    if (this.engineState !== 'playing' || this.isActivationLoading) {
       return
     }
 
@@ -265,7 +293,9 @@ export class AudioEngine {
 
     this.disposeChannel(outChannel)
     inChannel.state = 'active'
-    this.crossfadeManager.setImmediate(inChannel.gainNode, this.getVolume01())
+    if (inChannel.volumeController) {
+      this.crossfadeManager.setImmediate(inChannel.volumeController, this.getVolume01())
+    }
     this.activeChannelId = inId
     this.pendingActiveChannelId = null
     this.engineState = 'playing'
@@ -273,6 +303,7 @@ export class AudioEngine {
 
   private async advanceToTrack(nextIndex: number): Promise<void> {
     if (!this.currentClimate) return
+    const mySeq = this.activationSeq
 
     const sorted = [...this.currentClimate.tracks].sort((a, b) => a.order - b.order)
     if (sorted.length === 0) {
@@ -295,23 +326,29 @@ export class AudioEngine {
       const outChannel = this.getActiveChannel()
 
       const loaded = await this.loadAndPlayOnChannel(inChannel, track)
+      if (this.activationSeq !== mySeq) return
       if (loaded) {
         this.engineState = 'crossfading'
         this.pendingActiveChannelId = inId
 
         this.crossfadeManager.crossfade(
           outChannel.id,
-          outChannel.gainNode,
+          outChannel.volumeController!,
           inChannel.id,
-          inChannel.gainNode,
+          inChannel.volumeController!,
           this.getVolume01(),
           TRACK_CROSSFADE_DURATION,
           () => {
+            if (this.activationSeq !== mySeq) return
             this.disposeChannel(outChannel)
             inChannel.state = 'active'
             this.activeChannelId = inId
             this.pendingActiveChannelId = null
             this.engineState = 'playing'
+            // Track may have ended during crossfade — advance if so
+            if (inChannel.player?.hasEnded()) {
+              this.handleTrackEnded()
+            }
           },
         )
         return
@@ -327,12 +364,13 @@ export class AudioEngine {
 
   private goIdle(): void {
     this.crossfadeManager.cancelAll()
-    this.stopVolumeSync('A')
-    this.stopVolumeSync('B')
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
+    // Safe to remove orphaned YouTube iframes now — no players are active.
+    removeOrphanedYouTubeContainers()
     this.engineState = 'idle'
     this.pendingActiveChannelId = null
+    this.isActivationLoading = false
     this.currentClimate = null
     this.currentTrackIndex = 0
     useAudioStore.getState().clearAllFadeAnimations()
@@ -355,7 +393,14 @@ export class AudioEngine {
       return
     }
 
+    const mySeq = ++this.activationSeq
+    this.isActivationLoading = true
+
     this.ensureContext()
+
+    if (this.engineState === 'crossfading') {
+      this.completePendingCrossfade()
+    }
     this.crossfadeManager.cancelAll()
 
     const sorted = [...climate.tracks].sort((a, b) => a.order - b.order)
@@ -379,6 +424,8 @@ export class AudioEngine {
       })
 
       const loaded = await this.loadAndPlayOnChannel(channel, track)
+      if (this.activationSeq !== mySeq) return
+      this.isActivationLoading = false
       if (loaded) {
         channel.state = 'active'
         this.engineState = 'playing'
@@ -392,7 +439,7 @@ export class AudioEngine {
         })
         this.crossfadeManager.fadeChannel(
           'A',
-          channel.gainNode,
+          channel.volumeController!,
           this.getVolume01(),
           FADE_IN_DURATION,
         )
@@ -418,6 +465,8 @@ export class AudioEngine {
       })
 
       const loaded = await this.loadAndPlayOnChannel(inChannel, track)
+      if (this.activationSeq !== mySeq) return
+      this.isActivationLoading = false
       if (loaded) {
         this.engineState = 'crossfading'
         this.pendingActiveChannelId = inId
@@ -445,17 +494,23 @@ export class AudioEngine {
 
         this.crossfadeManager.crossfade(
           outChannel.id,
-          outChannel.gainNode,
+          outChannel.volumeController!,
           inChannel.id,
-          inChannel.gainNode,
+          inChannel.volumeController!,
           this.getVolume01(),
           duration,
           () => {
+            if (this.activationSeq !== mySeq) return
             this.disposeChannel(outChannel)
             this.activeChannelId = inId
             this.pendingActiveChannelId = null
             this.engineState = 'playing'
             useAudioStore.getState().clearAllFadeAnimations()
+            // Track may have ended during crossfade — advance if so
+            const activePlayer = this.getChannel(inId).player
+            if (activePlayer?.hasEnded()) {
+              this.handleTrackEnded()
+            }
           },
         )
       } else {
@@ -472,6 +527,7 @@ export class AudioEngine {
     }
 
     if (this.engineState !== 'playing') return
+    ++this.activationSeq
     await this.advanceToTrack(this.getNextTrackIndex())
   }
 
@@ -496,7 +552,7 @@ export class AudioEngine {
     const channel = this.getActiveChannel()
     this.crossfadeManager.fadeChannel(
       channel.id,
-      channel.gainNode,
+      channel.volumeController!,
       0,
       FADE_TO_SILENCE_DURATION,
       () => {
@@ -530,7 +586,7 @@ export class AudioEngine {
 
     this.crossfadeManager.fadeChannel(
       channel.id,
-      channel.gainNode,
+      channel.volumeController!,
       this.getVolume01(),
       FADE_IN_DURATION,
     )
@@ -539,25 +595,24 @@ export class AudioEngine {
   setVolume(volume: number): void {
     if (this.engineState === 'playing') {
       const channel = this.getActiveChannel()
-      this.crossfadeManager.setImmediate(channel.gainNode, volume / 100)
-      if (channel.player?.getMediaSource() === null) {
-        channel.player.setVolume(volume / 100)
+      if (channel.volumeController) {
+        this.crossfadeManager.setImmediate(channel.volumeController, volume / 100)
       }
     }
   }
 
   dispose(): void {
     this.crossfadeManager.cancelAll()
-    this.stopVolumeSync('A')
-    this.stopVolumeSync('B')
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
+    removeOrphanedYouTubeContainers()
     this.volumeUnsub?.()
     this.audioContext?.close()
     this.audioContext = null
     this.channelA = null
     this.channelB = null
     this.engineState = 'idle'
+    this.isActivationLoading = false
     AudioEngine.instance = null
   }
 }

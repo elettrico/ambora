@@ -1,8 +1,10 @@
+import type { VolumeController } from './VolumeController'
+
 type ChannelId = 'A' | 'B'
 
 interface ActiveFade {
   channelId: ChannelId
-  gainNode: GainNode
+  controller: VolumeController
   timeoutId: ReturnType<typeof setTimeout> | null
 }
 
@@ -11,40 +13,35 @@ export class CrossfadeManager {
 
   fadeChannel(
     channelId: ChannelId,
-    gainNode: GainNode,
+    controller: VolumeController,
     targetVolume: number,
     durationSec: number,
     onComplete?: () => void,
   ): void {
     this.cancelFade(channelId)
 
-    const now = gainNode.context.currentTime
-    gainNode.gain.cancelScheduledValues(now)
-    gainNode.gain.setValueAtTime(gainNode.gain.value, now)
-    gainNode.gain.linearRampToValueAtTime(targetVolume, now + durationSec)
+    controller.rampTo(targetVolume, durationSec)
 
     const timeoutId = onComplete ? setTimeout(onComplete, durationSec * 1000 + 50) : null
 
-    this.activeFades.set(channelId, { channelId, gainNode, timeoutId })
+    this.activeFades.set(channelId, { channelId, controller, timeoutId })
   }
 
   crossfade(
     outId: ChannelId,
-    outGain: GainNode,
+    outController: VolumeController,
     inId: ChannelId,
-    inGain: GainNode,
+    inController: VolumeController,
     targetVolume: number,
     durationSec: number,
     onComplete?: () => void,
   ): void {
-    this.fadeChannel(outId, outGain, 0, durationSec)
-    this.fadeChannel(inId, inGain, targetVolume, durationSec, onComplete)
+    this.fadeChannel(outId, outController, 0, durationSec)
+    this.fadeChannel(inId, inController, targetVolume, durationSec, onComplete)
   }
 
-  setImmediate(gainNode: GainNode, volume: number): void {
-    const now = gainNode.context.currentTime
-    gainNode.gain.cancelScheduledValues(now)
-    gainNode.gain.setValueAtTime(volume, now)
+  setImmediate(controller: VolumeController, volume: number): void {
+    controller.setImmediate(volume)
   }
 
   cancelFade(channelId: ChannelId): void {
@@ -54,9 +51,7 @@ export class CrossfadeManager {
     if (fade.timeoutId !== null) {
       clearTimeout(fade.timeoutId)
     }
-    const now = fade.gainNode.context.currentTime
-    fade.gainNode.gain.cancelScheduledValues(now)
-    fade.gainNode.gain.setValueAtTime(fade.gainNode.gain.value, now)
+    fade.controller.cancelRamp()
     this.activeFades.delete(channelId)
   }
 

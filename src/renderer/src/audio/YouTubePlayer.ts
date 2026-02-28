@@ -11,6 +11,18 @@ const YT_ERROR_MESSAGES: Record<number, string> = {
   150: "This video's owner has disabled embedded playback. Download the audio and add it as a local file instead.",
 }
 
+// Orphaned YouTube iframes that can't be removed yet because doing so
+// triggers YT IFrame API global cleanup that disrupts other active players.
+// They are removed in bulk when all playback stops (safe point).
+const orphanedContainers: HTMLDivElement[] = []
+
+export function removeOrphanedYouTubeContainers(): void {
+  for (const container of orphanedContainers) {
+    container.remove()
+  }
+  orphanedContainers.length = 0
+}
+
 export class YouTubePlayer implements ITrackPlayer {
   private player: YTPlayer | null = null
   private container: HTMLDivElement | null = null
@@ -94,7 +106,8 @@ export class YouTubePlayer implements ITrackPlayer {
   }
 
   stop(): void {
-    this.player?.stopVideo()
+    // Intentionally no-op. Calling stopVideo() triggers YouTube IFrame API
+    // global state changes that can disrupt other active players on the page.
   }
 
   setVolume(volume: number): void {
@@ -104,6 +117,14 @@ export class YouTubePlayer implements ITrackPlayer {
   getDuration(): number | undefined {
     const dur = this.player?.getDuration()
     return dur !== undefined && dur > 0 ? dur : undefined
+  }
+
+  hasEnded(): boolean {
+    try {
+      return this.player?.getPlayerState() === YTPlayerState.ENDED
+    } catch {
+      return false
+    }
   }
 
   getMediaSource(): MediaElementAudioSourceNode | null {
@@ -121,14 +142,19 @@ export class YouTubePlayer implements ITrackPlayer {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    // Mute so no audio leaks from the orphaned iframe.
     try {
-      this.player?.destroy()
+      this.player?.setVolume(0)
     } catch {
-      // Player may already be destroyed
+      // Player may already be in a bad state — ignore.
     }
     this.player = null
     if (this.container) {
-      this.container.remove()
+      // Do NOT remove the iframe now. Removing a YouTube iframe triggers
+      // YT IFrame API global cleanup that disrupts other active players
+      // sharing the same window.YT instance. Instead, park it and let the
+      // AudioEngine remove all orphans at a safe point (when idle).
+      orphanedContainers.push(this.container)
       this.container = null
     }
     this.endedCallback = null

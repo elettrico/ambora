@@ -74,6 +74,10 @@ export class LocalPlayer implements ITrackPlayer {
     return Number.isFinite(dur) ? dur : undefined
   }
 
+  hasEnded(): boolean {
+    return this.audio.ended
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setVolume(_volume: number): void {
     // Volume controlled via GainNode
