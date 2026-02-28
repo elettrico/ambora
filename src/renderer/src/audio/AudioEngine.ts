@@ -226,7 +226,17 @@ export class AudioEngine {
 
   private getNextTrackIndex(): number {
     if (!this.currentClimate || this.currentClimate.tracks.length === 0) return 0
-    return (this.currentTrackIndex + 1) % this.currentClimate.tracks.length
+    const trackCount = this.currentClimate.tracks.length
+
+    if (useAudioStore.getState().isShuffled && trackCount > 1) {
+      let randomIndex: number
+      do {
+        randomIndex = Math.floor(Math.random() * trackCount)
+      } while (randomIndex === this.currentTrackIndex)
+      return randomIndex
+    }
+
+    return (this.currentTrackIndex + 1) % trackCount
   }
 
   private getTrackFingerprint(climate: Climate): string {

@@ -14,6 +14,7 @@ function getPlaybackState(): PlaybackState {
     isPlaying: audio.isPlaying,
     volume: audio.volume,
     isFadingToSilence: audio.isFadingToSilence,
+    isShuffled: audio.isShuffled,
     fadeAnimations: audio.fadeAnimations,
   }
 }
@@ -41,6 +42,7 @@ export function useRemoteSync(): void {
         state.activeTrackId !== prev.activeTrackId ||
         state.volume !== prev.volume ||
         state.isFadingToSilence !== prev.isFadingToSilence ||
+        state.isShuffled !== prev.isShuffled ||
         state.fadeAnimations !== prev.fadeAnimations
 
       if (changed) {
@@ -94,6 +96,10 @@ export function useRemoteSync(): void {
           const volume = Math.max(0, Math.min(100, command.payload.volume))
           audioStore.setVolume(volume)
           engine.setVolume(volume)
+          break
+        }
+        case 'toggle-shuffle': {
+          audioStore.toggleShuffle()
           break
         }
       }

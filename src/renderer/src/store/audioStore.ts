@@ -14,6 +14,7 @@ interface AudioStore {
   activeClimateId: string | null
   activeTrackId: string | null
   isFadingToSilence: boolean
+  isShuffled: boolean
   fadeAnimations: FadeAnimation[]
 
   setIsPlaying: (isPlaying: boolean) => void
@@ -21,6 +22,7 @@ interface AudioStore {
   setActiveClimateId: (id: string | null) => void
   setActiveTrackId: (id: string | null) => void
   setIsFadingToSilence: (isFading: boolean) => void
+  toggleShuffle: () => void
   startFadeAnimation: (animation: FadeAnimation) => void
   clearAllFadeAnimations: () => void
 }
@@ -31,6 +33,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   activeClimateId: null,
   activeTrackId: null,
   isFadingToSilence: false,
+  isShuffled: false,
   fadeAnimations: [],
 
   setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -38,6 +41,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   setActiveClimateId: (id) => set({ activeClimateId: id }),
   setActiveTrackId: (id) => set({ activeTrackId: id }),
   setIsFadingToSilence: (isFading) => set({ isFadingToSilence: isFading }),
+  toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
   startFadeAnimation: (animation) =>
     set((state) => ({
       fadeAnimations: [

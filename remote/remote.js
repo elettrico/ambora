@@ -234,6 +234,13 @@
       ['line', { x1: '22', x2: '16', y1: '9', y2: '15' }],
       ['line', { x1: '16', x2: '22', y1: '9', y2: '15' }],
     ],
+    Shuffle: [
+      ['path', { d: 'M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H18' }],
+      ['path', { d: 'm18 2 4 4-4 4' }],
+      ['path', { d: 'M2 6h1.9c1.5 0 2.9.9 3.6 2.2' }],
+      ['path', { d: 'M22 18l-4 4-4-4' }],
+      ['path', { d: 'M16.8 13.6c.6 1 1.6 1.6 2.8 1.8H22' }],
+    ],
     WifiOff: [
       ['path', { d: 'M12 20h.01' }],
       ['path', { d: 'M8.5 16.429a5 5 0 0 1 7 0' }],
@@ -288,6 +295,7 @@
       isPlaying: false,
       volume: 80,
       isFadingToSilence: false,
+      isShuffled: false,
       fadeAnimations: [],
     },
     connected: false,
@@ -304,6 +312,7 @@
     dom.nowPlayingDot = document.getElementById('now-playing-dot')
     dom.btnSkip = document.getElementById('btn-skip')
     dom.btnPlayPause = document.getElementById('btn-play-pause')
+    dom.btnShuffle = document.getElementById('btn-shuffle')
     dom.btnMute = document.getElementById('btn-mute')
     dom.volumeSlider = document.getElementById('volume-slider')
     dom.disconnectedOverlay = document.getElementById('disconnected-overlay')
@@ -522,6 +531,13 @@
     dom.btnSkip.innerHTML = icon('SkipForward', 20)
     dom.btnSkip.disabled = !hasClimate
 
+    // Shuffle
+    if (pb.isShuffled) {
+      dom.btnShuffle.classList.add('active')
+    } else {
+      dom.btnShuffle.classList.remove('active')
+    }
+
     // Volume
     dom.btnMute.innerHTML = pb.volume === 0 ? icon('VolumeX', 20) : icon('Volume2', 20)
     if (!volumeDragging) {
@@ -701,6 +717,17 @@
       volumeDragging = false
     })
 
+    // Shuffle toggle
+    dom.btnShuffle.addEventListener('click', function () {
+      state.playback.isShuffled = !state.playback.isShuffled
+      if (state.playback.isShuffled) {
+        dom.btnShuffle.classList.add('active')
+      } else {
+        dom.btnShuffle.classList.remove('active')
+      }
+      send({ type: 'toggle-shuffle' })
+    })
+
     // Mute toggle
     dom.btnMute.addEventListener('click', function () {
       if (state.playback.volume > 0) {
@@ -726,6 +753,7 @@
     // Set initial icons
     dom.btnPlayPause.innerHTML = icon('Play', 22)
     dom.btnSkip.innerHTML = icon('SkipForward', 20)
+    dom.btnShuffle.innerHTML = icon('Shuffle', 20)
     dom.btnMute.innerHTML = icon('Volume2', 20)
     dom.wifiOffIcon.innerHTML = icon('WifiOff', 48)
 

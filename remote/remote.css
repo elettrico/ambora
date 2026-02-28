@@ -312,6 +312,26 @@ button {
   height: 22px;
 }
 
+.controls__shuffle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.controls__shuffle.active {
+  color: var(--accent);
+}
+
+.controls__shuffle svg {
+  width: 20px;
+  height: 20px;
+}
+
 .controls__mute {
   display: flex;
   align-items: center;

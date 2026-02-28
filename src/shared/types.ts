@@ -44,6 +44,7 @@ export type RemoteCommand =
   | { type: 'play-pause' }
   | { type: 'skip-track' }
   | { type: 'set-volume'; payload: { volume: number } }
+  | { type: 'toggle-shuffle' }
 
 export type RemoteStateMessage =
   | { type: 'full-state'; payload: RemoteFullState }
@@ -64,6 +65,7 @@ export interface PlaybackState {
   isPlaying: boolean
   volume: number
   isFadingToSilence: boolean
+  isShuffled: boolean
   fadeAnimations: RemoteFadeAnimation[]
 }
 

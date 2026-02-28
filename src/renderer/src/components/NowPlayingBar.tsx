@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react'
+import { Pause, Play, Shuffle, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { useAudioStore } from '@/store/audioStore'
@@ -8,7 +8,15 @@ import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { DEFAULTS } from '@/lib/constants'
 
 export function NowPlayingBar(): React.JSX.Element {
-  const { volume, setVolume, isPlaying, activeClimateId, activeTrackId } = useAudioStore()
+  const {
+    volume,
+    setVolume,
+    isPlaying,
+    activeClimateId,
+    activeTrackId,
+    isShuffled,
+    toggleShuffle,
+  } = useAudioStore()
   const previousVolumeRef = useRef<number>(DEFAULTS.volume)
   const { campaigns } = useCampaignStore()
   const audioEngine = useAudioEngine()
@@ -95,6 +103,11 @@ export function NowPlayingBar(): React.JSX.Element {
         </Button>
         <Button variant="ghost" size="icon-sm" disabled={isIdle || !isPlaying} onClick={handleSkip}>
           <SkipForward className="size-[18px]" />
+        </Button>
+        <Button variant="ghost" size="icon-sm" onClick={toggleShuffle}>
+          <Shuffle
+            className={`size-[18px] ${isShuffled ? 'text-accent' : 'text-text-secondary'}`}
+          />
         </Button>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon-sm" onClick={handleMuteToggle}>
