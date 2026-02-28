@@ -30,6 +30,12 @@ interface CampaignStore {
   addTrack: (campaignId: string, climateId: string, track: Omit<Track, 'id' | 'order'>) => void
   removeTrack: (campaignId: string, climateId: string, trackId: string) => void
   reorderTracks: (campaignId: string, climateId: string, trackIds: string[]) => void
+  updateTrackDuration: (
+    campaignId: string,
+    climateId: string,
+    trackId: string,
+    duration: number,
+  ) => void
 
   // Helpers
   getActiveCampaign: () => Campaign | undefined
@@ -231,6 +237,26 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
         updatedAt: now(),
       }
     })
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  updateTrackDuration: (campaignId, climateId, trackId, duration) => {
+    const campaigns = get().campaigns.map((c) =>
+      c.id === campaignId
+        ? {
+            ...c,
+            climates: c.climates.map((cl) =>
+              cl.id === climateId
+                ? {
+                    ...cl,
+                    tracks: cl.tracks.map((t) => (t.id === trackId ? { ...t, duration } : t)),
+                  }
+                : cl,
+            ),
+          }
+        : c,
+    )
     set({ campaigns })
     persist(campaigns)
   },

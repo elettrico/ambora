@@ -100,6 +100,11 @@ export class YouTubePlayer implements ITrackPlayer {
     this.player?.setVolume(Math.round(volume * 100))
   }
 
+  getDuration(): number | undefined {
+    const dur = this.player?.getDuration()
+    return dur !== undefined && dur > 0 ? dur : undefined
+  }
+
   getMediaSource(): MediaElementAudioSourceNode | null {
     return null
   }

@@ -26,6 +26,7 @@ import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { useCampaignStore } from '@/store/campaignStore'
 import type { Climate, Track } from '@/lib/types'
 import { toast } from 'sonner'
+import { getLocalFileDuration } from '@/lib/utils'
 
 interface ClimateDetailProps {
   climate: Climate
@@ -74,17 +75,19 @@ export function ClimateDetail({
     toast.success('Track removed')
   }
 
-  function handleDropFiles(files: File[]): void {
+  async function handleDropFiles(files: File[]): Promise<void> {
     const audioFiles = files.filter((f) => {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
       return ACCEPTED_AUDIO_EXTENSIONS.includes(ext)
     })
     for (const file of audioFiles) {
       const filePath = window.api.getPathForFile(file)
+      const duration = await getLocalFileDuration(filePath)
       addTrack(campaignId, climate.id, {
         source: 'local',
         title: file.name,
         localFilePath: filePath,
+        duration,
       })
     }
     if (audioFiles.length > 0) {

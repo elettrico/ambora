@@ -11,6 +11,7 @@ export interface ITrackPlayer {
   pause(): void
   stop(): void
   setVolume(volume: number): void
+  getDuration(): number | undefined
   getMediaSource(): MediaElementAudioSourceNode | null
   onEnded(callback: () => void): void
   onError(callback: (error: Error) => void): void
@@ -48,6 +49,7 @@ export class AudioEngine {
 
   private volumeUnsub: (() => void) | null = null
   private volumeSyncTimers: Map<ChannelId, number> = new Map()
+  private onDurationAvailable: ((trackId: string, duration: number) => void) | null = null
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -58,6 +60,30 @@ export class AudioEngine {
       AudioEngine.instance = new AudioEngine()
     }
     return AudioEngine.instance
+  }
+
+  setOnDurationAvailable(callback: (trackId: string, duration: number) => void): void {
+    this.onDurationAvailable = callback
+  }
+
+  private reportDuration(track: Track, player: ITrackPlayer): void {
+    if (track.duration !== undefined) return
+
+    const tryReport = (): void => {
+      const dur = player.getDuration()
+      if (dur !== undefined && dur > 0) {
+        this.onDurationAvailable?.(track.id, dur)
+      }
+    }
+
+    // Try immediately (works for local files)
+    tryReport()
+
+    // Retry for YouTube where getDuration() may return 0 until playback starts
+    if (track.source === 'youtube') {
+      setTimeout(tryReport, 1000)
+      setTimeout(tryReport, 3000)
+    }
   }
 
   private ensureContext(): AudioContext {
@@ -208,6 +234,8 @@ export class AudioEngine {
       toast.error(`Playback error: ${err.message}`)
       this.handleTrackEnded()
     })
+
+    this.reportDuration(track, player)
 
     return true
   }

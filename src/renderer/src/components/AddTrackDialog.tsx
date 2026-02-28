@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { Track } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { cn, getLocalFileDuration } from '@/lib/utils'
 
 interface AddTrackDialogProps {
   open: boolean
@@ -85,14 +85,16 @@ export function AddTrackDialog({
     onOpenChange(false)
   }
 
-  function handleFiles(files: FileList | null): void {
+  async function handleFiles(files: FileList | null): Promise<void> {
     if (!files) return
     for (const file of Array.from(files)) {
       const filePath = window.api.getPathForFile(file)
+      const duration = await getLocalFileDuration(filePath)
       onAddTrack({
         source: 'local',
         title: file.name,
         localFilePath: filePath,
+        duration,
       })
     }
     onOpenChange(false)

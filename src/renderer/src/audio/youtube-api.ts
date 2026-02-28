@@ -11,6 +11,7 @@ export interface YTPlayer {
   getVolume(): number
   destroy(): void
   getPlayerState(): number
+  getDuration(): number
 }
 
 export interface YTPlayerOptions {
