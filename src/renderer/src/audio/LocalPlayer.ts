@@ -69,6 +69,11 @@ export class LocalPlayer implements ITrackPlayer {
     this.audio.currentTime = 0
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setVolume(_volume: number): void {
+    // Volume controlled via GainNode
+  }
+
   getMediaSource(): MediaElementAudioSourceNode | null {
     return this.mediaSource
   }

@@ -11,6 +11,8 @@ const api = {
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   registerAudioPath: (filePath: string): Promise<string> =>
     ipcRenderer.invoke('audio:register-path', filePath),
+  getYouTubeTitle: (videoUrl: string): Promise<string | null> =>
+    ipcRenderer.invoke('youtube:get-title', videoUrl),
 
   getServerInfo: (): Promise<{ port: number; localIP: string }> =>
     ipcRenderer.invoke('server:get-info'),

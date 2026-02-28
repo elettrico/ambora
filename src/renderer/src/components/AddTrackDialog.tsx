@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload } from 'lucide-react'
 import {
   Dialog,
@@ -35,20 +35,53 @@ export function AddTrackDialog({
 }: AddTrackDialogProps): React.JSX.Element {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
+  const [fetchedTitle, setFetchedTitle] = useState<string | null>(null)
+  const [isFetchingTitle, setIsFetchingTitle] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const videoId = extractVideoId(youtubeUrl)
   const isValidYoutube = videoId !== null
 
+  useEffect(() => {
+    if (!isValidYoutube || !youtubeUrl) return
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      window.api
+        .getYouTubeTitle(youtubeUrl)
+        .then((title) => {
+          if (!cancelled) setFetchedTitle(title)
+        })
+        .catch(() => {
+          if (!cancelled) setFetchedTitle(null)
+        })
+        .finally(() => {
+          if (!cancelled) setIsFetchingTitle(false)
+        })
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [youtubeUrl, isValidYoutube])
+
+  function handleUrlChange(url: string): void {
+    setYoutubeUrl(url)
+    setFetchedTitle(null)
+    setIsFetchingTitle(extractVideoId(url) !== null && url.length > 0)
+  }
+
   function handleAddYoutube(): void {
     if (!videoId) return
     onAddTrack({
       source: 'youtube',
-      title: `YouTube - ${videoId}`,
+      title: fetchedTitle ?? `YouTube - ${videoId}`,
       youtubeUrl,
       youtubeVideoId: videoId,
     })
     setYoutubeUrl('')
+    setFetchedTitle(null)
     onOpenChange(false)
   }
 
@@ -92,7 +125,7 @@ export function AddTrackDialog({
               <Input
                 placeholder="https://youtube.com/watch?v=..."
                 value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
+                onChange={(e) => handleUrlChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && isValidYoutube) handleAddYoutube()
                 }}
@@ -103,6 +136,12 @@ export function AddTrackDialog({
             </div>
             {youtubeUrl && !isValidYoutube && (
               <p className="mt-2 text-[13px] text-danger">Invalid YouTube URL</p>
+            )}
+            {isValidYoutube && isFetchingTitle && (
+              <p className="mt-2 text-[13px] text-text-secondary">Fetching title...</p>
+            )}
+            {isValidYoutube && !isFetchingTitle && fetchedTitle && (
+              <p className="mt-2 truncate text-[13px] text-text-secondary">{fetchedTitle}</p>
             )}
           </TabsContent>
           <TabsContent value="local" className="mt-4">

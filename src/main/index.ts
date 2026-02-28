@@ -76,6 +76,19 @@ function registerIpcHandlers(): void {
     audioPathRegistry.set(token, filePath)
     return token
   })
+
+  ipcMain.handle('youtube:get-title', async (_event, videoUrl: string) => {
+    try {
+      const response = await net.fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`,
+      )
+      if (!response.ok) return null
+      const data = (await response.json()) as { title?: string }
+      return data.title ?? null
+    } catch {
+      return null
+    }
+  })
 }
 
 // Register custom protocol for serving local audio files.

@@ -10,6 +10,7 @@ export interface ITrackPlayer {
   play(): void
   pause(): void
   stop(): void
+  setVolume(volume: number): void
   getMediaSource(): MediaElementAudioSourceNode | null
   onEnded(callback: () => void): void
   onError(callback: (error: Error) => void): void
@@ -46,6 +47,7 @@ export class AudioEngine {
   private pendingActiveChannelId: ChannelId | null = null
 
   private volumeUnsub: (() => void) | null = null
+  private volumeSyncTimers: Map<ChannelId, number> = new Map()
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -119,8 +121,36 @@ export class AudioEngine {
       if (state.volume !== prev.volume && this.engineState === 'playing') {
         const channel = this.getActiveChannel()
         this.crossfadeManager.setImmediate(channel.gainNode, state.volume / 100)
+        if (channel.player?.getMediaSource() === null) {
+          channel.player.setVolume(state.volume / 100)
+        }
       }
     })
+  }
+
+  private startVolumeSync(channelId: ChannelId): void {
+    this.stopVolumeSync(channelId)
+    const channel = this.getChannel(channelId)
+    if (!channel.player || channel.player.getMediaSource() !== null) return
+
+    const tick = (): void => {
+      if (!channel.player || channel.player.getMediaSource() !== null) {
+        this.volumeSyncTimers.delete(channelId)
+        return
+      }
+      const gainValue = channel.gainNode.gain.value
+      channel.player.setVolume(gainValue)
+      this.volumeSyncTimers.set(channelId, requestAnimationFrame(tick))
+    }
+    this.volumeSyncTimers.set(channelId, requestAnimationFrame(tick))
+  }
+
+  private stopVolumeSync(channelId: ChannelId): void {
+    const timer = this.volumeSyncTimers.get(channelId)
+    if (timer !== undefined) {
+      cancelAnimationFrame(timer)
+      this.volumeSyncTimers.delete(channelId)
+    }
   }
 
   private createPlayer(track: Track): ITrackPlayer {
@@ -138,6 +168,7 @@ export class AudioEngine {
   }
 
   private disposeChannel(channel: Channel): void {
+    this.stopVolumeSync(channel.id)
     if (channel.player) {
       channel.player.stop()
       channel.player.dispose()
@@ -170,6 +201,7 @@ export class AudioEngine {
 
     this.connectPlayer(player, channel.gainNode)
     player.play()
+    this.startVolumeSync(channel.id)
 
     player.onEnded(() => this.handleTrackEnded())
     player.onError((err) => {
@@ -267,6 +299,8 @@ export class AudioEngine {
 
   private goIdle(): void {
     this.crossfadeManager.cancelAll()
+    this.stopVolumeSync('A')
+    this.stopVolumeSync('B')
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
     this.engineState = 'idle'
@@ -478,11 +512,16 @@ export class AudioEngine {
     if (this.engineState === 'playing') {
       const channel = this.getActiveChannel()
       this.crossfadeManager.setImmediate(channel.gainNode, volume / 100)
+      if (channel.player?.getMediaSource() === null) {
+        channel.player.setVolume(volume / 100)
+      }
     }
   }
 
   dispose(): void {
     this.crossfadeManager.cancelAll()
+    this.stopVolumeSync('A')
+    this.stopVolumeSync('B')
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
     this.volumeUnsub?.()
