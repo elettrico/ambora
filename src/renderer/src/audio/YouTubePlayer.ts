@@ -77,6 +77,7 @@ export class YouTubePlayer implements ITrackPlayer {
             clearTimeout(timeout)
             const message = YT_ERROR_MESSAGES[event.data] ?? `YouTube error (code ${event.data})`
             if (this.disposed) return
+            reject(new Error(message))
             this.errorCallback?.(new Error(message))
           },
         },
