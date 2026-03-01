@@ -5,6 +5,7 @@ import type { Campaign } from '../shared/types'
 
 const DATA_DIR = join(app.getPath('userData'), 'ambora-data')
 const CAMPAIGNS_FILE = join(DATA_DIR, 'campaigns.json')
+const LUFS_CACHE_FILE = join(DATA_DIR, 'lufs-cache.json')
 const SAVE_DEBOUNCE_MS = 500
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -61,4 +62,26 @@ export function flushSave(): void {
     writeToDisk(pendingData)
     pendingData = null
   }
+}
+
+export function loadLufsCache(): Record<string, number> {
+  try {
+    ensureDataDir()
+    if (!existsSync(LUFS_CACHE_FILE)) {
+      return {}
+    }
+    const raw = readFileSync(LUFS_CACHE_FILE, 'utf-8')
+    const data: unknown = JSON.parse(raw)
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      return {}
+    }
+    return data as Record<string, number>
+  } catch {
+    return {}
+  }
+}
+
+export function saveLufsCache(cache: Record<string, number>): void {
+  ensureDataDir()
+  writeFileSync(LUFS_CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8')
 }

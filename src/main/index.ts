@@ -1,10 +1,19 @@
-import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  protocol,
+  net,
+  desktopCapturer,
+  session,
+} from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { loadCampaigns, saveCampaigns, flushSave } from './data'
+import { loadCampaigns, saveCampaigns, flushSave, loadLufsCache, saveLufsCache } from './data'
 import {
   startServer,
   stopServer,
@@ -77,6 +86,14 @@ function registerIpcHandlers(): void {
     return token
   })
 
+  ipcMain.handle('audio:load-lufs-cache', () => {
+    return loadLufsCache()
+  })
+
+  ipcMain.on('audio:save-lufs-cache', (_event, cache: Record<string, number>) => {
+    saveLufsCache(cache)
+  })
+
   ipcMain.handle('youtube:get-title', async (_event, videoUrl: string) => {
     try {
       const response = await net.fetch(
@@ -120,6 +137,20 @@ app.whenReady().then(() => {
       return new Response('Not found', { status: 404 })
     }
     return net.fetch(pathToFileURL(filePath).href)
+  })
+
+  // Allow renderer to capture system audio via getDisplayMedia for YouTube AGC
+  session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
+    try {
+      const sources = await desktopCapturer.getSources({ types: ['screen'] })
+      if (sources.length === 0) {
+        callback({})
+        return
+      }
+      callback({ video: sources[0], audio: 'loopback' })
+    } catch {
+      callback({})
+    }
   })
 
   registerIpcHandlers()

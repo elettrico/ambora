@@ -7,6 +7,10 @@ import {
   DirectVolumeController,
   type VolumeController,
 } from './VolumeController'
+import { LufsCache } from './LufsCache'
+import { analyzeLufs, computeGainCorrection } from './LufsAnalyzer'
+import { NormalizationChain } from './NormalizationChain'
+import { YouTubeAGC } from './YouTubeAGC'
 import { useAudioStore } from '@/store/audioStore'
 import type { Climate, Track } from '@/lib/types'
 
@@ -67,6 +71,9 @@ export class AudioEngine {
   private volumeUnsub: (() => void) | null = null
   private onDurationAvailable: ((trackId: string, duration: number) => void) | null = null
   private climateSnapshots = new Map<string, ClimatePlaybackSnapshot>()
+  private lufsCache = new LufsCache()
+  private channelNormChains = new Map<ChannelId, NormalizationChain>()
+  private youtubeAGC = new YouTubeAGC()
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -130,6 +137,7 @@ export class AudioEngine {
       }
 
       this.subscribeToVolumeChanges()
+      this.lufsCache.loadFromDisk()
     }
 
     if (this.audioContext.state === 'suspended') {
@@ -198,10 +206,14 @@ export class AudioEngine {
     return new DirectVolumeController(player)
   }
 
-  private connectPlayer(player: ITrackPlayer, gainNode: GainNode): void {
+  private connectPlayer(player: ITrackPlayer, channel: Channel): void {
     const source = player.getMediaSource()
     if (source) {
-      source.connect(gainNode)
+      const ctx = this.audioContext!
+      const chain = new NormalizationChain(ctx)
+      source.connect(chain.input)
+      chain.output.connect(channel.gainNode)
+      this.channelNormChains.set(channel.id, chain)
     }
   }
 
@@ -211,6 +223,11 @@ export class AudioEngine {
         channel.volumeController.dispose()
       }
       channel.volumeController = null
+    }
+    const normChain = this.channelNormChains.get(channel.id)
+    if (normChain) {
+      normChain.dispose()
+      this.channelNormChains.delete(channel.id)
     }
     if (channel.player) {
       channel.player.stop()
@@ -298,7 +315,7 @@ export class AudioEngine {
       return false
     }
 
-    this.connectPlayer(player, channel.gainNode)
+    this.connectPlayer(player, channel)
 
     const controller = this.createVolumeController(player, channel.gainNode)
     channel.volumeController = controller
@@ -320,7 +337,61 @@ export class AudioEngine {
 
     this.reportDuration(track, player)
 
+    // Apply LUFS normalization for local files
+    if (track.source === 'local' && track.localFilePath) {
+      this.applyNormalization(channel.id, track.localFilePath)
+    }
+
     return true
+  }
+
+  private applyNormalization(channelId: ChannelId, filePath: string): void {
+    const chain = this.channelNormChains.get(channelId)
+    if (!chain) return
+
+    const cachedLufs = this.lufsCache.get(filePath)
+    if (cachedLufs !== undefined) {
+      const { gainCorrection } = computeGainCorrection(cachedLufs)
+      chain.setNormalizationGain(gainCorrection)
+      return
+    }
+
+    // Fire-and-forget background analysis
+    if (!this.audioContext) return
+    const ctx = this.audioContext
+    analyzeLufs(ctx, filePath)
+      .then((result) => {
+        this.lufsCache.set(filePath, result.integratedLufs)
+        // Only apply if this chain is still active
+        const currentChain = this.channelNormChains.get(channelId)
+        if (currentChain === chain) {
+          chain.setNormalizationGain(result.gainCorrection, 0.5)
+        }
+      })
+      .catch(() => {
+        // Analysis failed — leave gain at 1.0 (no normalization)
+      })
+  }
+
+  private startYouTubeAGC(channel: Channel): void {
+    if (!this.audioContext || !(channel.volumeController instanceof DirectVolumeController)) return
+
+    const controller = channel.volumeController
+    this.youtubeAGC.start(
+      this.audioContext,
+      (gain) => {
+        // Multiply AGC gain with the user's volume setting
+        if (this.engineState === 'playing' && controller === channel.volumeController) {
+          const userVolume = this.getVolume01()
+          controller.setImmediate(userVolume * gain)
+        }
+      },
+      () => this.getVolume01(),
+    )
+  }
+
+  private stopYouTubeAGC(): void {
+    this.youtubeAGC.stop()
   }
 
   private handleTrackEnded(): void {
@@ -380,12 +451,14 @@ export class AudioEngine {
       const inChannel = this.getChannel(inId)
       const outChannel = this.getActiveChannel()
 
+      this.stopYouTubeAGC()
       const loaded = await this.loadAndPlayOnChannel(inChannel, track)
       if (this.activationSeq !== mySeq) return
       if (loaded) {
         this.engineState = 'crossfading'
         this.pendingActiveChannelId = inId
 
+        const incomingTrackSource = track.source
         this.crossfadeManager.crossfade(
           outChannel.id,
           outChannel.volumeController!,
@@ -400,6 +473,10 @@ export class AudioEngine {
             this.activeChannelId = inId
             this.pendingActiveChannelId = null
             this.engineState = 'playing'
+
+            if (incomingTrackSource === 'youtube') {
+              this.startYouTubeAGC(inChannel)
+            }
             // Track may have ended during crossfade — advance if so
             if (inChannel.player?.hasEnded()) {
               this.handleTrackEnded()
@@ -418,6 +495,7 @@ export class AudioEngine {
   }
 
   private goIdle(): void {
+    this.stopYouTubeAGC()
     this.crossfadeManager.cancelAll()
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
@@ -426,6 +504,7 @@ export class AudioEngine {
     this.engineState = 'idle'
     this.pendingActiveChannelId = null
     this.isActivationLoading = false
+
     this.currentClimate = null
     this.currentTrackIndex = 0
     useAudioStore.getState().clearAllFadeAnimations()
@@ -490,6 +569,10 @@ export class AudioEngine {
       if (loaded) {
         channel.state = 'active'
         this.engineState = 'playing'
+
+        if (track.source === 'youtube') {
+          this.startYouTubeAGC(channel)
+        }
         const store = useAudioStore.getState()
         store.clearAllFadeAnimations()
         store.startFadeAnimation({
@@ -526,6 +609,7 @@ export class AudioEngine {
         isFadingToSilence: false,
       })
 
+      this.stopYouTubeAGC()
       const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
@@ -554,6 +638,7 @@ export class AudioEngine {
           startedAt: now,
         })
 
+        const incomingTrackSource = track.source
         this.crossfadeManager.crossfade(
           outChannel.id,
           outChannel.volumeController!,
@@ -567,6 +652,10 @@ export class AudioEngine {
             this.activeChannelId = inId
             this.pendingActiveChannelId = null
             this.engineState = 'playing'
+
+            if (incomingTrackSource === 'youtube') {
+              this.startYouTubeAGC(this.getChannel(inId))
+            }
             useAudioStore.getState().clearAllFadeAnimations()
             // Track may have ended during crossfade — advance if so
             const activePlayer = this.getChannel(inId).player
@@ -596,6 +685,7 @@ export class AudioEngine {
   fadeToSilence(): void {
     if (this.engineState !== 'playing') return
 
+    this.stopYouTubeAGC()
     this.saveClimateSnapshot()
     this.engineState = 'fading-to-silence'
     this.updateStore({ isFadingToSilence: true })
@@ -665,10 +755,12 @@ export class AudioEngine {
   }
 
   dispose(): void {
+    this.youtubeAGC.dispose()
     this.crossfadeManager.cancelAll()
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
     removeOrphanedYouTubeContainers()
+    this.lufsCache.dispose()
     this.volumeUnsub?.()
     this.audioContext?.close()
     this.audioContext = null
@@ -676,6 +768,7 @@ export class AudioEngine {
     this.channelB = null
     this.engineState = 'idle'
     this.isActivationLoading = false
+
     this.climateSnapshots.clear()
     AudioEngine.instance = null
   }

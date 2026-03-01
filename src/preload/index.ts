@@ -13,6 +13,10 @@ const api = {
     ipcRenderer.invoke('audio:register-path', filePath),
   getYouTubeTitle: (videoUrl: string): Promise<string | null> =>
     ipcRenderer.invoke('youtube:get-title', videoUrl),
+  loadLufsCache: (): Promise<Record<string, number>> => ipcRenderer.invoke('audio:load-lufs-cache'),
+  saveLufsCache: (cache: Record<string, number>): void => {
+    ipcRenderer.send('audio:save-lufs-cache', cache)
+  },
 
   getServerInfo: (): Promise<{ port: number; localIP: string }> =>
     ipcRenderer.invoke('server:get-info'),

@@ -7,6 +7,8 @@ interface AmboraAPI {
   getPathForFile(file: File): string
   registerAudioPath(filePath: string): Promise<string>
   getYouTubeTitle(videoUrl: string): Promise<string | null>
+  loadLufsCache(): Promise<Record<string, number>>
+  saveLufsCache(cache: Record<string, number>): void
   getServerInfo(): Promise<{ port: number; localIP: string }>
   onRemoteCommand(callback: (command: RemoteCommand) => void): () => void
   sendStateUpdate(message: RemoteStateMessage): void
