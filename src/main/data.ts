@@ -2,10 +2,12 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import type { Campaign } from '../shared/types'
+import { createStarterCampaign } from './starterCampaign'
 
 const DATA_DIR = join(app.getPath('userData'), 'ambora-data')
 const CAMPAIGNS_FILE = join(DATA_DIR, 'campaigns.json')
 const LUFS_CACHE_FILE = join(DATA_DIR, 'lufs-cache.json')
+const STARTER_SEEDED_FILE = join(DATA_DIR, '.starter-seeded')
 const SAVE_DEBOUNCE_MS = 500
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -17,18 +19,33 @@ function ensureDataDir(): void {
   }
 }
 
+function needsStarterSeed(campaigns: Campaign[]): boolean {
+  return campaigns.length === 0 && !existsSync(STARTER_SEEDED_FILE)
+}
+
+function markStarterSeeded(): void {
+  writeFileSync(STARTER_SEEDED_FILE, '', 'utf-8')
+}
+
 export function loadCampaigns(): Campaign[] {
   try {
     ensureDataDir()
-    if (!existsSync(CAMPAIGNS_FILE)) {
-      return []
+    let campaigns: Campaign[] = []
+    if (existsSync(CAMPAIGNS_FILE)) {
+      const raw = readFileSync(CAMPAIGNS_FILE, 'utf-8')
+      const data: unknown = JSON.parse(raw)
+      if (Array.isArray(data)) {
+        campaigns = data as Campaign[]
+      }
     }
-    const raw = readFileSync(CAMPAIGNS_FILE, 'utf-8')
-    const data: unknown = JSON.parse(raw)
-    if (!Array.isArray(data)) {
-      return []
+    if (needsStarterSeed(campaigns)) {
+      campaigns = [createStarterCampaign()]
+      writeToDisk(campaigns)
+      markStarterSeeded()
+    } else if (!existsSync(STARTER_SEEDED_FILE)) {
+      markStarterSeeded()
     }
-    return data as Campaign[]
+    return campaigns
   } catch {
     return []
   }

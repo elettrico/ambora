@@ -49,5 +49,5 @@ export const DEFAULTS = {
   serverPort: 3000,
   minCrossfade: 1,
   maxCrossfade: 10,
-  maxClimates: 10,
+  maxClimates: 16,
 } as const

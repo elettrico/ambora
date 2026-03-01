@@ -15,6 +15,18 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
 }))
 
+const mockStarterCampaign: Campaign = {
+  id: 'starter-id',
+  name: 'Starter Campaign',
+  climates: [],
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z',
+}
+
+vi.mock('../../src/main/starterCampaign', () => ({
+  createStarterCampaign: () => mockStarterCampaign,
+}))
+
 const mockExistsSync = vi.mocked(existsSync)
 const mockReadFileSync = vi.mocked(readFileSync)
 const mockWriteFileSync = vi.mocked(writeFileSync)
@@ -48,12 +60,44 @@ const makeCampaign = (name: string): Campaign => ({
 })
 
 describe('loadCampaigns', () => {
-  it('returns empty array when file does not exist', () => {
+  it('seeds starter campaign when no file and no marker exist', () => {
     mockExistsSync.mockImplementation((path) => {
       if (String(path).endsWith('campaigns.json')) return false
+      if (String(path).endsWith('.starter-seeded')) return false
+      return true // data dir exists
+    })
+    const result = loadCampaigns()
+    expect(result).toEqual([mockStarterCampaign])
+  })
+
+  it('writes campaigns and marker to disk on first seed', () => {
+    mockExistsSync.mockImplementation((path) => {
+      if (String(path).endsWith('campaigns.json')) return false
+      if (String(path).endsWith('.starter-seeded')) return false
       return true
     })
-    expect(loadCampaigns()).toEqual([])
+    loadCampaigns()
+    // First write: campaigns.json, second write: .starter-seeded marker
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(2)
+    const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+    expect(written).toEqual([mockStarterCampaign])
+  })
+
+  it('seeds starter when campaigns.json is empty and no marker exists', () => {
+    mockExistsSync.mockImplementation((path) => {
+      if (String(path).endsWith('.starter-seeded')) return false
+      return true // campaigns.json and data dir exist
+    })
+    mockReadFileSync.mockReturnValue('[]')
+    const result = loadCampaigns()
+    expect(result).toEqual([mockStarterCampaign])
+  })
+
+  it('does not re-seed when marker exists', () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue('[]')
+    const result = loadCampaigns()
+    expect(result).toEqual([])
   })
 
   it('returns parsed campaigns from valid JSON', () => {
