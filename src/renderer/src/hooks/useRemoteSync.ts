@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
+import { useConnectionStore } from '@/store/connectionStore'
 import { AudioEngine } from '@/audio/AudioEngine'
+import { toast } from 'sonner'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
 
 function getPlaybackState(): PlaybackState {
@@ -30,6 +32,22 @@ function getFullState(): RemoteFullState {
 
 export function useRemoteSync(): void {
   useEffect(() => {
+    // Fetch server info and set URL in connection store
+    window.api.getServerInfo().then(({ port, localIP }) => {
+      useConnectionStore.getState().setServerUrl(`http://${localIP}:${port}`)
+    })
+
+    // Subscribe to connection status updates
+    let prevClients = useConnectionStore.getState().connectedClients
+    const unsubConnection = window.api.onConnectionStatus((status) => {
+      const wasZero = prevClients === 0
+      useConnectionStore.getState().setConnectedClients(status.connectedClients)
+      if (wasZero && status.connectedClients > 0) {
+        toast.success('Phone connected')
+      }
+      prevClients = status.connectedClients
+    })
+
     // Push initial full state to main process
     const fullState = getFullState()
     window.api.sendFullState(fullState)
@@ -109,6 +127,7 @@ export function useRemoteSync(): void {
       unsubAudio()
       unsubCampaigns()
       unsubCommands()
+      unsubConnection()
     }
   }, [])
 }

@@ -54,8 +54,17 @@ export function startServer(mainWindow: BrowserWindow): void {
 
   wss = new WebSocketServer({ server: httpServer })
 
+  function notifyConnectionCount(): void {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('server:connection-status', {
+        connectedClients: clients.size,
+      })
+    }
+  }
+
   wss.on('connection', (ws) => {
     clients.add(ws)
+    notifyConnectionCount()
 
     // Send cached state to new connection
     if (cachedState) {
@@ -76,6 +85,7 @@ export function startServer(mainWindow: BrowserWindow): void {
 
     ws.on('close', () => {
       clients.delete(ws)
+      notifyConnectionCount()
     })
   })
 

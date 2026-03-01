@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreVertical, Plus, Smartphone } from 'lucide-react'
+import { MoreVertical, Plus } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,6 +33,7 @@ import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AmboraLogo } from './AmboraLogo'
+import { QRCodePanel } from './QRCodePanel'
 
 function CampaignItem({
   id,
@@ -184,17 +185,7 @@ export function Sidebar(): React.JSX.Element {
         </Button>
       </div>
 
-      <div className="mt-auto border-t border-border-subtle p-4">
-        <div className="rounded-md bg-surface-2 p-4">
-          <div className="flex items-center gap-2">
-            <Smartphone className="size-4 text-text-tertiary" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
-              Connect Phone
-            </p>
-          </div>
-          <p className="mt-1 text-[11px] text-text-tertiary">Start server in settings</p>
-        </div>
-      </div>
+      <QRCodePanel />
 
       <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
         <DialogContent className="max-w-[400px]">

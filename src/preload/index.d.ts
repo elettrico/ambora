@@ -11,6 +11,7 @@ interface AmboraAPI {
   saveLufsCache(cache: Record<string, number>): void
   getServerInfo(): Promise<{ port: number; localIP: string }>
   onRemoteCommand(callback: (command: RemoteCommand) => void): () => void
+  onConnectionStatus(callback: (status: { connectedClients: number }) => void): () => void
   sendStateUpdate(message: RemoteStateMessage): void
   sendFullState(state: RemoteFullState): void
 }

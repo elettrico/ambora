@@ -29,6 +29,18 @@ const api = {
       ipcRenderer.removeListener('remote:command', handler)
     }
   },
+  onConnectionStatus: (callback: (status: { connectedClients: number }) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      status: { connectedClients: number },
+    ): void => {
+      callback(status)
+    }
+    ipcRenderer.on('server:connection-status', handler)
+    return () => {
+      ipcRenderer.removeListener('server:connection-status', handler)
+    }
+  },
   sendStateUpdate: (message: RemoteStateMessage): void => {
     ipcRenderer.send('remote:state-update', message)
   },
