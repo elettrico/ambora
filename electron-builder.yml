@@ -36,8 +36,8 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: Ambora Contributors
+  category: Audio
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false

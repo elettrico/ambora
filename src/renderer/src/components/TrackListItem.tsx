@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { GripVertical, Youtube, Music, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDuration } from '@/lib/utils'
@@ -9,8 +10,22 @@ interface TrackListItemProps {
 }
 
 export function TrackListItem({ track, onDelete }: TrackListItemProps): React.JSX.Element {
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  function handleDelete(): void {
+    setIsRemoving(true)
+    setTimeout(() => onDelete(track.id), 200)
+  }
+
   return (
-    <div className="group flex h-12 min-w-0 items-center gap-2 rounded-md px-2 hover:bg-surface-2">
+    <div
+      className="group flex h-12 min-w-0 items-center gap-2 rounded-md px-2 hover:bg-surface-2"
+      style={{
+        animation: isRemoving
+          ? 'track-fade-out 200ms ease-out forwards'
+          : 'track-fade-in 200ms ease-out',
+      }}
+    >
       <GripVertical className="size-3.5 shrink-0 text-text-tertiary" />
       {track.source === 'youtube' ? (
         <Youtube className="size-4 shrink-0 text-text-secondary" />
@@ -25,7 +40,7 @@ export function TrackListItem({ track, onDelete }: TrackListItemProps): React.JS
         variant="ghost"
         size="icon-xs"
         className="shrink-0 text-text-tertiary hover:text-danger"
-        onClick={() => onDelete(track.id)}
+        onClick={handleDelete}
       >
         <Trash2 className="size-3.5" />
       </Button>

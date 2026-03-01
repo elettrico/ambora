@@ -130,32 +130,32 @@ Track progress with checkboxes. Each step must pass `npm run lint`, `npm run typ
 
 ## Step 9: Polish
 
-- [ ] Animations: climate card hover (150ms), track add (200ms fade-in), track delete (200ms fade-out), climate switch transition on phone (glow fade 400ms)
-- [ ] Track title change animation (fade out 200ms, fade in 300ms with 100ms delay)
-- [ ] Sonner toast notifications: phone connected, YouTube error, track skipped, climate deleted
-- [ ] Empty states: no campaigns ("Create your first campaign"), no climates ("Add a climate to get started"), no tracks ("Add tracks to this climate")
-- [ ] Error handling: YouTube fails → skip + toast, local file missing → skip + mark broken, port in use → try next, phone disconnect → desktop continues
-- [ ] Keyboard accessibility (desktop): all interactive elements focusable, focus rings (2px accent, offset 2px)
-- [ ] Screen reader support: climate cards announce name + track count
-- [ ] `prefers-reduced-motion` on desktop (disable spring animations)
-- [ ] Inline editing for campaign name/description
-- [ ] Min window size enforcement (900x600)
+- [x] Animations: climate card hover (150ms), track add (200ms fade-in), track delete (200ms fade-out), climate switch transition on phone (glow fade 400ms)
+- [x] Track title change animation (fade out 200ms, fade in 300ms with 100ms delay)
+- [x] Sonner toast notifications: phone connected, YouTube error, track skipped, climate deleted
+- [x] Empty states: no campaigns ("Create your first campaign"), no climates ("Add a climate to get started"), no tracks ("Add tracks to this climate")
+- [x] Error handling: YouTube fails → skip + toast, local file missing → skip + mark broken, port in use → try next, phone disconnect → desktop continues
+- [x] Keyboard accessibility (desktop): all interactive elements focusable, focus rings (2px accent, offset 2px)
+- [x] Screen reader support: climate cards announce name + track count
+- [x] `prefers-reduced-motion` on desktop (disable spring animations)
+- [x] Inline editing for campaign name/description
+- [x] Min window size enforcement (900x600)
 
 ## Step 10: Packaging
 
-- [ ] Configure `electron-builder` in `package.json` (app ID, product name, directories)
-- [ ] macOS config: .dmg with background image, icon positions
-- [ ] Windows config: .exe/.msi installer, icon
-- [ ] Linux config: .AppImage + .deb
-- [ ] App icons: generate from SVG for all platforms (icns, ico, png)
+- [x] Configure `electron-builder` in `package.json` (app ID, product name, directories)
+- [x] macOS config: .dmg with background image, icon positions
+- [x] Windows config: .exe/.msi installer, icon
+- [x] Linux config: .AppImage + .deb
+- [x] App icons: generate from SVG for all platforms (icns, ico, png)
 - [ ] Verify `npm run dist` produces working installers on current platform
 - [ ] Test packaged app: launches, plays audio, phone remote connects
-- [ ] Final lint/typecheck/build pass with 0 warnings/errors
+- [x] Final lint/typecheck/build pass with 0 warnings/errors
 
 ---
 
 ## Current Status
 
-**Active Step:** Not started
-**Branch:** (not yet initialized as git repo)
+**Active Step:** Steps 9-10 complete (pending dist verification)
+**Branch:** main
 **Last Updated:** 2026-02-27

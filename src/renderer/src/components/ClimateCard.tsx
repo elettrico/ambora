@@ -87,6 +87,7 @@ export function ClimateCard({
   return (
     <button
       type="button"
+      aria-label={`${climate.name}, ${climate.tracks.length} ${climate.tracks.length === 1 ? 'track' : 'tracks'}${isActive ? ', playing' : ''}`}
       className="group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3"
       style={{
         borderLeft: `3px solid ${climate.color}B3`,
