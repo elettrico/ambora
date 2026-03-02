@@ -167,6 +167,30 @@ const MOODS: MoodDefinition[] = [
       { title: 'Gala Night', youtubeVideoId: 'ulplqXTp4R0' },
     ],
   },
+  {
+    name: 'Emotional',
+    color: '#A8B0B8',
+    icon: 'Heart',
+    tracks: [
+      { title: 'Last Goodbye', youtubeVideoId: 'mFsQpCjRyvY' },
+      { title: 'Melancholic Journey', youtubeVideoId: '3nsyBktjdYs' },
+      { title: 'Farewell', youtubeVideoId: 'ofRMvTxQCHI' },
+      { title: 'Emotional Music Mix', youtubeVideoId: 'N-3bhcOVTzM' },
+      { title: 'A Promise', youtubeVideoId: 'sRAXOqNB-UI' },
+    ],
+  },
+  {
+    name: 'Adventure Begins',
+    color: '#3B8DD4',
+    icon: 'Mountain',
+    tracks: [
+      { title: 'The Adventure Begins', youtubeVideoId: 'Jikm8CCRbdM' },
+      { title: 'A New Adventure', youtubeVideoId: 'vdTD0BIKsMQ' },
+      { title: 'The Journey Begins', youtubeVideoId: 'fIH24cYfQCw' },
+      { title: 'A New Dawn', youtubeVideoId: 'FT4QX_9NhAY' },
+      { title: 'Wildlands Wanderings', youtubeVideoId: 'RQJiDxIiWAc' },
+    ],
+  },
 ]
 
 function createTrack(def: { title: string; youtubeVideoId: string }, order: number): Track {
