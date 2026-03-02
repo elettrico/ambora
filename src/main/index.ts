@@ -29,6 +29,7 @@ const audioPathRegistry = new Map<string, string>()
 function createWindow(): BrowserWindow {
   // Create the browser window.
   const win = new BrowserWindow({
+    title: `Ambora ${is.dev ? '(dev)' : `v${app.getVersion()}`}`,
     width: 900,
     height: 670,
     minWidth: 900,
