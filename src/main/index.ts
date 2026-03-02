@@ -56,7 +56,7 @@ function createWindow(): BrowserWindow {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadURL('app://renderer/')
   }
 
   return win
@@ -115,6 +115,7 @@ function registerIpcHandlers(): void {
 // Must be called before app is ready.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local-audio', privileges: { stream: true, supportFetchAPI: true } },
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ])
 
 // This method will be called when Electron has finished
@@ -138,6 +139,21 @@ app.whenReady().then(() => {
     const filePath = audioPathRegistry.get(token)
     if (!filePath) {
       return new Response('Not found', { status: 404 })
+    }
+    return net.fetch(pathToFileURL(filePath).href)
+  })
+
+  // Serve renderer files via custom app:// protocol so production builds
+  // get a proper origin (instead of file:// null origin) for YouTube embeds.
+  const rendererDir = join(__dirname, '../renderer')
+  protocol.handle('app', (request) => {
+    let pathname = new URL(request.url).pathname
+    if (pathname === '/' || pathname === '') {
+      pathname = '/index.html'
+    }
+    const filePath = join(rendererDir, pathname)
+    if (!filePath.startsWith(rendererDir)) {
+      return new Response('Forbidden', { status: 403 })
     }
     return net.fetch(pathToFileURL(filePath).href)
   })

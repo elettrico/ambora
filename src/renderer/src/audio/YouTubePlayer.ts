@@ -9,6 +9,7 @@ const YT_ERROR_MESSAGES: Record<number, string> = {
   100: 'Video not found or removed',
   101: "This video's owner has disabled embedded playback. Download the audio and add it as a local file instead.",
   150: "This video's owner has disabled embedded playback. Download the audio and add it as a local file instead.",
+  153: "This video's owner has disabled embedded playback. Download the audio and add it as a local file instead.",
 }
 
 // Orphaned YouTube iframes that can't be removed yet because doing so
