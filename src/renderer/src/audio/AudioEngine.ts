@@ -548,7 +548,11 @@ export class AudioEngine {
 
     // Restore from snapshot if available, otherwise start at track 0
     const snapshot = this.getClimateSnapshot(climate)
-    const startTrackIndex = snapshot ? snapshot.trackIndex % sorted.length : 0
+    const startTrackIndex = snapshot
+      ? snapshot.trackIndex % sorted.length
+      : useAudioStore.getState().isShuffled && sorted.length > 1
+        ? Math.floor(Math.random() * sorted.length)
+        : 0
     const startPositionSec = snapshot?.positionSec ?? 0
 
     this.currentClimate = climate

@@ -33,7 +33,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   activeClimateId: null,
   activeTrackId: null,
   isFadingToSilence: false,
-  isShuffled: false,
+  isShuffled: true,
   fadeAnimations: [],
 
   setIsPlaying: (isPlaying) => set({ isPlaying }),
