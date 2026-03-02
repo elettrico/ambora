@@ -11,6 +11,7 @@ interface CampaignStore {
   loadCampaigns: () => Promise<void>
 
   // Campaign CRUD
+  importCampaign: (campaign: Campaign) => void
   createCampaign: (name: string, description?: string) => Campaign
   updateCampaign: (id: string, updates: Partial<Pick<Campaign, 'name' | 'description'>>) => void
   deleteCampaign: (id: string) => void
@@ -58,6 +59,12 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   loadCampaigns: async () => {
     const campaigns = await window.api.getCampaigns()
     set({ campaigns, isLoaded: true })
+  },
+
+  importCampaign: (campaign) => {
+    const campaigns = [...get().campaigns, campaign]
+    set({ campaigns })
+    persist(campaigns)
   },
 
   createCampaign: (name, description) => {

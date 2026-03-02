@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreVertical, Plus } from 'lucide-react'
+import { Download, MoreVertical, Plus, AlertTriangle } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,20 +32,21 @@ import { useCampaignStore } from '@/store/campaignStore'
 import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { serializeCampaignForExport, deserializeCampaignFromImport } from '@/lib/campaignExport'
+import type { Campaign } from '@/lib/types'
 import { AmboraLogo } from './AmboraLogo'
 import { QRCodePanel } from './QRCodePanel'
 
 function CampaignItem({
-  id,
-  name,
+  campaign,
   isActive,
   onSelect,
 }: {
-  id: string
-  name: string
+  campaign: Campaign
   isActive: boolean
   onSelect: () => void
 }): React.JSX.Element {
+  const { id, name } = campaign
   const { updateCampaign, deleteCampaign } = useCampaignStore()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -62,6 +63,18 @@ function CampaignItem({
     onSave: (newName) => updateCampaign(id, { name: newName }),
   })
 
+  async function handleExport(): Promise<void> {
+    try {
+      const appVersion = await window.api.getAppVersion()
+      const json = serializeCampaignForExport(campaign, appVersion)
+      const suggestedName = `${campaign.name.replace(/[^a-zA-Z0-9 _-]/g, '')}.ambora`
+      const saved = await window.api.exportCampaign(json, suggestedName)
+      if (saved) toast.success('Campaign exported')
+    } catch {
+      toast.error('Failed to export campaign')
+    }
+  }
+
   function handleDelete(): void {
     deleteCampaign(id)
     toast.success('Campaign deleted')
@@ -71,7 +84,7 @@ function CampaignItem({
     <>
       <div
         className={cn(
-          'group flex items-center gap-2 rounded-md px-3 py-2 text-[14px] transition-colors',
+          'group flex items-center gap-1 overflow-hidden rounded-md px-3 py-2 text-[14px] transition-colors',
           isActive ? 'bg-accent-muted text-text-primary' : 'text-text-secondary hover:bg-surface-3',
         )}
       >
@@ -94,13 +107,14 @@ function CampaignItem({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              className="shrink-0 text-text-tertiary hover:text-text-primary"
             >
               <MoreVertical className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="right">
             <DropdownMenuItem onClick={startRenameEditing}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExport}>Export</DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
               Delete
             </DropdownMenuItem>
@@ -129,10 +143,15 @@ function CampaignItem({
 }
 
 export function Sidebar(): React.JSX.Element {
-  const { campaigns, activeCampaignId, setActiveCampaign, createCampaign } = useCampaignStore()
+  const { campaigns, activeCampaignId, setActiveCampaign, createCampaign, importCampaign } =
+    useCampaignStore()
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  const [importPreview, setImportPreview] = useState<{
+    campaign: Campaign
+    warnings: string[]
+  } | null>(null)
 
   function handleCreate(): void {
     const trimmed = newName.trim()
@@ -143,6 +162,29 @@ export function Sidebar(): React.JSX.Element {
     setNewDescription('')
     setNewDialogOpen(false)
     toast.success('Campaign created')
+  }
+
+  async function handleImportFile(): Promise<void> {
+    try {
+      const raw = await window.api.importCampaign()
+      if (!raw) return
+      const result = deserializeCampaignFromImport(raw)
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+      setImportPreview({ campaign: result.campaign, warnings: result.warnings })
+    } catch {
+      toast.error('Failed to read import file')
+    }
+  }
+
+  function handleConfirmImport(): void {
+    if (!importPreview) return
+    importCampaign(importPreview.campaign)
+    setActiveCampaign(importPreview.campaign.id)
+    toast.success(`Imported "${importPreview.campaign.name}"`)
+    setImportPreview(null)
   }
 
   return (
@@ -160,13 +202,12 @@ export function Sidebar(): React.JSX.Element {
         </p>
       </div>
 
-      <ScrollArea className="flex-1 px-2">
+      <ScrollArea className="flex-1 px-2 [&_[data-slot=scroll-area-viewport]>div]:!block">
         <div className="flex flex-col gap-0.5">
           {campaigns.map((c) => (
             <CampaignItem
               key={c.id}
-              id={c.id}
-              name={c.name}
+              campaign={c}
               isActive={c.id === activeCampaignId}
               onSelect={() => setActiveCampaign(c.id)}
             />
@@ -174,7 +215,7 @@ export function Sidebar(): React.JSX.Element {
         </div>
       </ScrollArea>
 
-      <div className="px-3 py-2">
+      <div className="flex flex-col gap-0.5 px-3 py-2">
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-text-secondary"
@@ -182,6 +223,14 @@ export function Sidebar(): React.JSX.Element {
         >
           <Plus className="size-4" />
           New Campaign
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-text-secondary"
+          onClick={handleImportFile}
+        >
+          <Download className="size-4" />
+          Import Campaign
         </Button>
       </div>
 
@@ -220,6 +269,69 @@ export function Sidebar(): React.JSX.Element {
             <Button onClick={handleCreate} disabled={!newName.trim()}>
               Create
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={importPreview !== null}
+        onOpenChange={(open) => !open && setImportPreview(null)}
+      >
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Import Campaign</DialogTitle>
+            <DialogDescription>Review the campaign before importing.</DialogDescription>
+          </DialogHeader>
+          {importPreview && (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-[14px] font-medium text-text-primary">
+                  {importPreview.campaign.name}
+                </p>
+                {importPreview.campaign.description && (
+                  <p className="text-[13px] text-text-secondary">
+                    {importPreview.campaign.description}
+                  </p>
+                )}
+                <p className="text-[13px] text-text-secondary">
+                  {importPreview.campaign.climates.length} climate
+                  {importPreview.campaign.climates.length !== 1 ? 's' : ''}
+                  {' / '}
+                  {importPreview.campaign.climates.reduce(
+                    (sum, cl) => sum + cl.tracks.length,
+                    0,
+                  )}{' '}
+                  track
+                  {importPreview.campaign.climates.reduce(
+                    (sum, cl) => sum + cl.tracks.length,
+                    0,
+                  ) !== 1
+                    ? 's'
+                    : ''}
+                </p>
+              </div>
+              {importPreview.warnings.length > 0 && (
+                <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                  <div className="flex items-center gap-2 text-[13px] font-medium text-amber-400">
+                    <AlertTriangle className="size-4" />
+                    Warnings
+                  </div>
+                  <ul className="flex flex-col gap-1">
+                    {importPreview.warnings.map((w) => (
+                      <li key={w} className="text-[12px] text-amber-300/80">
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setImportPreview(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmImport}>Import</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

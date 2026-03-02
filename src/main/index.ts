@@ -5,13 +5,16 @@ import {
   ipcMain,
   protocol,
   net,
+  dialog,
   desktopCapturer,
   session,
 } from 'electron'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'path'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { AMBORA_FILE_FILTER } from '../shared/exportTypes'
 import icon from '../../resources/icon.png?asset'
 import { loadCampaigns, saveCampaigns, flushSave, loadLufsCache, saveLufsCache } from './data'
 import {
@@ -99,6 +102,32 @@ function registerIpcHandlers(): void {
 
   ipcMain.on('audio:save-lufs-cache', (_event, cache: Record<string, number>) => {
     saveLufsCache(cache)
+  })
+
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion()
+  })
+
+  ipcMain.handle(
+    'campaign:export',
+    async (_event, json: string, suggestedName: string): Promise<boolean> => {
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath: suggestedName,
+        filters: [AMBORA_FILE_FILTER],
+      })
+      if (canceled || !filePath) return false
+      writeFileSync(filePath, json, 'utf-8')
+      return true
+    },
+  )
+
+  ipcMain.handle('campaign:import', async (): Promise<string | null> => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      filters: [AMBORA_FILE_FILTER],
+      properties: ['openFile'],
+    })
+    if (canceled || filePaths.length === 0) return null
+    return readFileSync(filePaths[0], 'utf-8')
   })
 
   ipcMain.handle('youtube:get-title', async (_event, videoUrl: string) => {

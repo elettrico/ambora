@@ -18,6 +18,11 @@ const api = {
     ipcRenderer.send('audio:save-lufs-cache', cache)
   },
 
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
+  exportCampaign: (json: string, suggestedName: string): Promise<boolean> =>
+    ipcRenderer.invoke('campaign:export', json, suggestedName),
+  importCampaign: (): Promise<string | null> => ipcRenderer.invoke('campaign:import'),
+
   getServerInfo: (): Promise<{ port: number; localIP: string }> =>
     ipcRenderer.invoke('server:get-info'),
   onRemoteCommand: (callback: (command: RemoteCommand) => void): (() => void) => {

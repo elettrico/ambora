@@ -9,6 +9,9 @@ interface AmboraAPI {
   getYouTubeTitle(videoUrl: string): Promise<string | null>
   loadLufsCache(): Promise<Record<string, number>>
   saveLufsCache(cache: Record<string, number>): void
+  getAppVersion(): Promise<string>
+  exportCampaign(json: string, suggestedName: string): Promise<boolean>
+  importCampaign(): Promise<string | null>
   getServerInfo(): Promise<{ port: number; localIP: string }>
   onRemoteCommand(callback: (command: RemoteCommand) => void): () => void
   onConnectionStatus(callback: (status: { connectedClients: number }) => void): () => void
