@@ -871,7 +871,7 @@ All files below must be created as part of the initial project scaffolding, **be
 ```
 MIT License
 
-Copyright (c) 2026 Ambora Contributors
+Copyright (c) 2026 Jonathan Leibiusky
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

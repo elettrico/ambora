@@ -71,7 +71,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ## License
 
-[MIT](LICENSE) — Ambora Contributors
+[MIT](LICENSE) — Jonathan Leibiusky (@xetorthio)
 
 ## Acknowledgments
 

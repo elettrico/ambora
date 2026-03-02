@@ -36,7 +36,7 @@ linux:
   target:
     - AppImage
     - deb
-  maintainer: Ambora Contributors
+  maintainer: Jonathan Leibiusky (@xetorthio)
   category: Audio
 appImage:
   artifactName: ${name}-${version}.${ext}
