@@ -44,7 +44,17 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run ${{ matrix.script }} -- --publish always
+      - run: npm run ${{ matrix.script }}
+
+      - name: Upload artifacts to release
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(dist/*.{dmg,zip,exe,blockmap,AppImage,deb,rpm,yml,yaml})
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "${{ github.ref_name }}" "${files[@]}" \
+              --repo ${{ github.repository }} --clobber
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
