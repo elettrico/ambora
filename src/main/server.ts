@@ -12,8 +12,13 @@ const PORT = 3000
 let httpServer: ReturnType<typeof createServer> | null = null
 let wss: WebSocketServer | null = null
 let cachedState: RemoteFullState | null = null
+let mainWindow: BrowserWindow | null = null
 
 const clients = new Set<WebSocket>()
+
+export function setMainWindow(win: BrowserWindow): void {
+  mainWindow = win
+}
 
 export function getLocalIP(): string {
   const interfaces = networkInterfaces()
@@ -42,63 +47,77 @@ export function updateCachedState(state: RemoteFullState): void {
   cachedState = state
 }
 
-export function startServer(mainWindow: BrowserWindow): void {
-  const expressApp = express()
+export function startServer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const expressApp = express()
 
-  // Serve phone remote static files
-  const remotePath = is.dev ? join(__dirname, '../../remote') : join(app.getAppPath(), '../remote')
-
-  expressApp.use(express.static(remotePath))
-
-  httpServer = createServer(expressApp)
-
-  wss = new WebSocketServer({ server: httpServer })
-
-  function notifyConnectionCount(): void {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('server:connection-status', {
-        connectedClients: clients.size,
-      })
-    }
-  }
-
-  wss.on('connection', (ws) => {
-    clients.add(ws)
-    notifyConnectionCount()
-
-    // Send cached state to new connection
-    if (cachedState) {
-      const msg: RemoteStateMessage = { type: 'full-state', payload: cachedState }
-      ws.send(JSON.stringify(msg))
+    // In production, serve the renderer build at /desktop/ so the
+    // BrowserWindow can load from http://localhost:3000/desktop/ and
+    // get a proper HTTP origin that YouTube accepts for embedding.
+    if (!is.dev) {
+      const rendererPath = join(__dirname, '../renderer')
+      expressApp.use('/desktop', express.static(rendererPath))
     }
 
-    ws.on('message', (raw) => {
-      try {
-        const command = JSON.parse(raw.toString())
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('remote:command', command)
-        }
-      } catch {
-        // Ignore malformed messages
+    // Serve phone remote static files
+    const remotePath = is.dev
+      ? join(__dirname, '../../remote')
+      : join(app.getAppPath(), '../remote')
+
+    expressApp.use(express.static(remotePath))
+
+    httpServer = createServer(expressApp)
+
+    wss = new WebSocketServer({ server: httpServer })
+
+    function notifyConnectionCount(): void {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('server:connection-status', {
+          connectedClients: clients.size,
+        })
       }
-    })
-
-    ws.on('close', () => {
-      clients.delete(ws)
-      notifyConnectionCount()
-    })
-  })
-
-  httpServer.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`[server] Port ${PORT} is already in use`)
-    } else {
-      console.error('[server] Server error:', err)
     }
-  })
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`[server] Listening on http://0.0.0.0:${PORT}`)
+    wss.on('connection', (ws) => {
+      clients.add(ws)
+      notifyConnectionCount()
+
+      // Send cached state to new connection
+      if (cachedState) {
+        const msg: RemoteStateMessage = { type: 'full-state', payload: cachedState }
+        ws.send(JSON.stringify(msg))
+      }
+
+      ws.on('message', (raw) => {
+        try {
+          const command = JSON.parse(raw.toString())
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('remote:command', command)
+          }
+        } catch {
+          // Ignore malformed messages
+        }
+      })
+
+      ws.on('close', () => {
+        clients.delete(ws)
+        notifyConnectionCount()
+      })
+    })
+
+    httpServer.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`[server] Port ${PORT} is already in use`)
+      } else {
+        console.error('[server] Server error:', err)
+      }
+      reject(err)
+    })
+
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`[server] Listening on http://0.0.0.0:${PORT}`)
+      resolve()
+    })
   })
 }
 

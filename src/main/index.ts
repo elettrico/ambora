@@ -20,6 +20,7 @@ import {
   broadcastToClients,
   updateCachedState,
   getLocalIP,
+  setMainWindow,
 } from './server'
 
 let mainWindow: BrowserWindow | null = null
@@ -53,10 +54,12 @@ function createWindow(): BrowserWindow {
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
+  // Production loads from the Express server so the renderer gets a proper
+  // HTTP origin that YouTube accepts for embedding (avoids error 153).
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadURL('app://renderer/')
+    win.loadURL('http://localhost:3000/desktop/')
   }
 
   return win
@@ -115,13 +118,12 @@ function registerIpcHandlers(): void {
 // Must be called before app is ready.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local-audio', privileges: { stream: true, supportFetchAPI: true } },
-  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ])
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
@@ -143,21 +145,6 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).href)
   })
 
-  // Serve renderer files via custom app:// protocol so production builds
-  // get a proper origin (instead of file:// null origin) for YouTube embeds.
-  const rendererDir = join(__dirname, '../renderer')
-  protocol.handle('app', (request) => {
-    let pathname = new URL(request.url).pathname
-    if (pathname === '/' || pathname === '') {
-      pathname = '/index.html'
-    }
-    const filePath = join(rendererDir, pathname)
-    if (!filePath.startsWith(rendererDir)) {
-      return new Response('Forbidden', { status: 403 })
-    }
-    return net.fetch(pathToFileURL(filePath).href)
-  })
-
   // Allow renderer to capture system audio via getDisplayMedia for YouTube AGC
   session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
     try {
@@ -174,15 +161,19 @@ app.whenReady().then(() => {
 
   registerIpcHandlers()
 
+  // Start the Express server first so the renderer can load from
+  // http://localhost:3000/desktop/ in production.
+  await startServer()
+
   mainWindow = createWindow()
-  startServer(mainWindow)
+  setMainWindow(mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow()
-      startServer(mainWindow)
+      setMainWindow(mainWindow)
     }
   })
 })
