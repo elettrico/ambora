@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Background radial glow -->
+    <radialGradient id="bgGlow" cx="50%" cy="42%" r="60%">
+      <stop offset="0%" stop-color="#1A1A22"/>
+      <stop offset="100%" stop-color="#0C0C0E"/>
+    </radialGradient>
+
+    <!-- Accent glow behind logomark -->
+    <radialGradient id="accentGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#7B93F5" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Channel A gradient -->
+    <linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#6659D9" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Channel B gradient -->
+    <linearGradient id="gB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#7B93F5" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Crossfade glow -->
+    <radialGradient id="crossfadeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#95A8F8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#95A8F8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Badge gradient -->
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7B93F5" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#6659D9" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGlow)"/>
+
+  <!-- Subtle top-center accent glow -->
+  <ellipse cx="600" cy="200" rx="400" ry="280" fill="url(#accentGlow)"/>
+
+  <!-- Logomark -->
+  <g transform="translate(600, 185)">
+    <!-- Soft glow behind the mark -->
+    <ellipse cx="0" cy="0" rx="100" ry="100" fill="url(#crossfadeGlow)"/>
+
+    <!-- Channel A: Left arc cluster -->
+    <g opacity="0.85">
+      <path d="M -18,58 A 68,68 0 0,1 -18,-58" fill="none" stroke="url(#gA)" stroke-width="4" stroke-linecap="round" opacity="0.4"/>
+      <path d="M -14,44 A 52,52 0 0,1 -14,-44" fill="none" stroke="url(#gA)" stroke-width="4.5" stroke-linecap="round" opacity="0.65"/>
+      <path d="M -10,28 A 34,34 0 0,1 -10,-28" fill="none" stroke="url(#gA)" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    </g>
+
+    <!-- Channel B: Right arc cluster -->
+    <g opacity="0.85">
+      <path d="M 10,28 A 34,34 0 0,0 10,-28" fill="none" stroke="url(#gB)" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+      <path d="M 14,44 A 52,52 0 0,0 14,-44" fill="none" stroke="url(#gB)" stroke-width="4.5" stroke-linecap="round" opacity="0.65"/>
+      <path d="M 18,58 A 68,68 0 0,0 18,-58" fill="none" stroke="url(#gB)" stroke-width="4" stroke-linecap="round" opacity="0.4"/>
+    </g>
+
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="8" fill="#7B93F5" opacity="0.15"/>
+    <circle cx="0" cy="0" r="4" fill="#EAEAED" opacity="0.9"/>
+  </g>
+
+  <!-- "AMBORA" wordmark below logo -->
+  <text x="600" y="290" text-anchor="middle"
+    font-family="'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="32" font-weight="300" letter-spacing="0.3em" fill="#EAEAED" opacity="0.95"
+  >AMBORA</text>
+
+  <!-- Headline -->
+  <text x="600" y="370" text-anchor="middle"
+    font-family="'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="36" font-weight="600" fill="#EAEAED"
+  >Atmospheric Music for Your</text>
+  <text x="600" y="415" text-anchor="middle"
+    font-family="'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="36" font-weight="600" fill="#EAEAED"
+  >Tabletop RPG Sessions</text>
+
+  <!-- Sub-headline -->
+  <text x="600" y="460" text-anchor="middle"
+    font-family="'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="18" font-weight="400" fill="#9494A0"
+  >Control session music from your phone. One-tap climate switching with smooth crossfades.</text>
+
+  <!-- "Free & Open Source" badge/pill -->
+  <g transform="translate(600, 520)">
+    <rect x="-105" y="-18" width="210" height="36" rx="18" ry="18"
+      fill="url(#badgeGrad)" stroke="#7B93F5" stroke-width="1" stroke-opacity="0.35"/>
+    <text x="0" y="6" text-anchor="middle"
+      font-family="'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+      font-size="14" font-weight="500" letter-spacing="0.06em" fill="#7B93F5"
+    >Free &amp; Open Source</text>
+  </g>
+
+  <!-- Subtle bottom accent line -->
+  <line x1="555" y1="570" x2="645" y2="570" stroke="#7B93F5" stroke-width="1" opacity="0.2"/>
+</svg>
