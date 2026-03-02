@@ -13,6 +13,7 @@ const COMPRESSOR_RELEASE = 0.25 // 250ms
 export class NormalizationChain {
   private normGain: GainNode
   private compressor: DynamicsCompressorNode
+  private analyser: AnalyserNode
 
   constructor(audioContext: AudioContext) {
     this.normGain = audioContext.createGain()
@@ -25,7 +26,12 @@ export class NormalizationChain {
     this.compressor.attack.value = COMPRESSOR_ATTACK
     this.compressor.release.value = COMPRESSOR_RELEASE
 
+    this.analyser = audioContext.createAnalyser()
+    this.analyser.fftSize = 256
+    this.analyser.smoothingTimeConstant = 0.8
+
     this.normGain.connect(this.compressor)
+    this.compressor.connect(this.analyser)
   }
 
   get input(): AudioNode {
@@ -33,7 +39,19 @@ export class NormalizationChain {
   }
 
   get output(): AudioNode {
-    return this.compressor
+    return this.analyser
+  }
+
+  getAnalyser(): AnalyserNode {
+    return this.analyser
+  }
+
+  getNormalizationGainValue(): number {
+    return this.normGain.gain.value
+  }
+
+  getCompressorReduction(): number {
+    return this.compressor.reduction
   }
 
   setNormalizationGain(linearGain: number, rampDuration = 0.05): void {
@@ -50,5 +68,6 @@ export class NormalizationChain {
   dispose(): void {
     this.normGain.disconnect()
     this.compressor.disconnect()
+    this.analyser.disconnect()
   }
 }

@@ -14,6 +14,13 @@ import { YouTubeAGC } from './YouTubeAGC'
 import { useAudioStore } from '@/store/audioStore'
 import type { Climate, Track } from '@/lib/types'
 
+export interface NormalizationInfo {
+  type: 'lufs' | 'agc' | 'none'
+  gainDb: number
+  compressorReductionDb: number
+  analyser: AnalyserNode | null
+}
+
 export interface ITrackPlayer {
   load(track: Track): Promise<void>
   play(): void
@@ -752,6 +759,41 @@ export class AudioEngine {
         this.crossfadeManager.setImmediate(channel.volumeController, volume / 100)
       }
     }
+  }
+
+  getNormalizationInfo(): NormalizationInfo {
+    const none: NormalizationInfo = {
+      type: 'none',
+      gainDb: 0,
+      compressorReductionDb: 0,
+      analyser: null,
+    }
+    if (this.engineState === 'idle') return none
+
+    // During crossfade, prefer the incoming channel
+    const channelId = this.pendingActiveChannelId ?? this.activeChannelId
+
+    // Check for local file normalization chain
+    const chain = this.channelNormChains.get(channelId)
+    if (chain) {
+      const linearGain = chain.getNormalizationGainValue()
+      const gainDb = linearGain > 0 ? 20 * Math.log10(linearGain) : -Infinity
+      return {
+        type: 'lufs',
+        gainDb,
+        compressorReductionDb: chain.getCompressorReduction(),
+        analyser: chain.getAnalyser(),
+      }
+    }
+
+    // Check for YouTube AGC
+    if (this.youtubeAGC.isActive()) {
+      const linearGain = this.youtubeAGC.getCurrentGain()
+      const gainDb = linearGain > 0 ? 20 * Math.log10(linearGain) : -Infinity
+      return { type: 'agc', gainDb, compressorReductionDb: 0, analyser: null }
+    }
+
+    return none
   }
 
   dispose(): void {

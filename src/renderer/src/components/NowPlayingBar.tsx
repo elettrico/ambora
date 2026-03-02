@@ -5,6 +5,7 @@ import { Slider } from '@/components/ui/slider'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
+import { NormalizationIndicator } from '@/components/NormalizationIndicator'
 import { DEFAULTS } from '@/lib/constants'
 
 export function NowPlayingBar(): React.JSX.Element {
@@ -96,6 +97,8 @@ export function NowPlayingBar(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      <NormalizationIndicator />
 
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon-sm" disabled={isIdle} onClick={handlePlayPause}>

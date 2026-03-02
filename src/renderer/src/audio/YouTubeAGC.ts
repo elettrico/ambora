@@ -92,6 +92,10 @@ export class YouTubeAGC {
     return this.active
   }
 
+  getCurrentGain(): number {
+    return this.currentGain
+  }
+
   private tick = (): void => {
     if (!this.active || !this.analyser || !this.getVolume01) return
 
