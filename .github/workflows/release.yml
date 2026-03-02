@@ -44,6 +44,10 @@ jobs:
 
       - run: npm ci
 
+      - name: Set version from tag
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+
       - run: npm run ${{ matrix.script }} -- --publish never
 
       - name: Upload artifacts to release
