@@ -59,6 +59,16 @@ const FADE_IN_DURATION = 1
 const FADE_TO_SILENCE_DURATION = 3
 const TRACK_CROSSFADE_DURATION = 2
 
+// Run a low-priority callback when the browser is idle, bounded by a timeout so
+// it still runs promptly under sustained load. Falls back to a short timeout.
+function scheduleIdle(cb: () => void): void {
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => cb(), { timeout: 2000 })
+  } else {
+    setTimeout(cb, 200)
+  }
+}
+
 export class AudioEngine {
   private static instance: AudioEngine | null = null
 
@@ -346,14 +356,14 @@ export class AudioEngine {
 
     // Apply LUFS normalization for local files
     if (track.source === 'local' && track.localFilePath) {
-      this.applyNormalization(channel.id, track.localFilePath)
+      this.applyNormalization(channel, player, track.localFilePath)
     }
 
     return true
   }
 
-  private applyNormalization(channelId: ChannelId, filePath: string): void {
-    const chain = this.channelNormChains.get(channelId)
+  private applyNormalization(channel: Channel, player: ITrackPlayer, filePath: string): void {
+    const chain = this.channelNormChains.get(channel.id)
     if (!chain) return
 
     const cachedLufs = this.lufsCache.get(filePath)
@@ -363,21 +373,27 @@ export class AudioEngine {
       return
     }
 
-    // Fire-and-forget background analysis
+    // Fire-and-forget background analysis. Analysis reads and decodes the whole
+    // file, so defer it until the browser is idle: this keeps the second read
+    // off the track-start path (where it would compete with establishing
+    // playback), and skips tracks the channel has already moved past.
     if (!this.audioContext) return
     const ctx = this.audioContext
-    analyzeLufs(ctx, filePath)
-      .then((result) => {
-        this.lufsCache.set(filePath, result.integratedLufs)
-        // Only apply if this chain is still active
-        const currentChain = this.channelNormChains.get(channelId)
-        if (currentChain === chain) {
-          chain.setNormalizationGain(result.gainCorrection, 0.5)
-        }
-      })
-      .catch(() => {
-        // Analysis failed — leave gain at 1.0 (no normalization)
-      })
+    scheduleIdle(() => {
+      if (channel.player !== player) return // channel advanced to another track
+      analyzeLufs(ctx, filePath)
+        .then((result) => {
+          this.lufsCache.set(filePath, result.integratedLufs)
+          // Only apply if this chain is still driving this same player
+          const currentChain = this.channelNormChains.get(channel.id)
+          if (currentChain === chain && channel.player === player) {
+            chain.setNormalizationGain(result.gainCorrection, 0.5)
+          }
+        })
+        .catch(() => {
+          // Analysis failed — leave gain at 1.0 (no normalization)
+        })
+    })
   }
 
   private startYouTubeAGC(channel: Channel): void {

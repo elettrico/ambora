@@ -27,7 +27,10 @@ import {
 } from './server'
 
 let mainWindow: BrowserWindow | null = null
+// token -> absolute file path, and the reverse index so repeated requests for
+// the same file reuse one token instead of growing the registry unbounded.
 const audioPathRegistry = new Map<string, string>()
+const audioTokenByPath = new Map<string, string>()
 
 // Map a file extension to a media MIME type so the renderer's <audio>
 // element / FFmpeg demuxer gets an accurate content type.
@@ -117,8 +120,11 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('audio:register-path', (_event, filePath: string) => {
+    const existing = audioTokenByPath.get(filePath)
+    if (existing) return existing
     const token = randomUUID()
     audioPathRegistry.set(token, filePath)
+    audioTokenByPath.set(filePath, token)
     return token
   })
 
