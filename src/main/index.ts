@@ -9,9 +9,9 @@ import {
   desktopCapturer,
   session,
 } from 'electron'
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'path'
-import { pathToFileURL } from 'node:url'
+import { createReadStream, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { Readable } from 'node:stream'
+import { extname, join } from 'path'
 import { randomUUID } from 'node:crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { AMBORA_FILE_FILTER } from '../shared/exportTypes'
@@ -28,6 +28,32 @@ import {
 
 let mainWindow: BrowserWindow | null = null
 const audioPathRegistry = new Map<string, string>()
+
+// Map a file extension to a media MIME type so the renderer's <audio>
+// element / FFmpeg demuxer gets an accurate content type.
+function audioMimeForPath(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.mp3':
+      return 'audio/mpeg'
+    case '.m4a':
+    case '.aac':
+    case '.mp4':
+      return 'audio/mp4'
+    case '.flac':
+      return 'audio/flac'
+    case '.ogg':
+    case '.oga':
+      return 'audio/ogg'
+    case '.opus':
+      return 'audio/opus'
+    case '.wav':
+      return 'audio/wav'
+    case '.webm':
+      return 'audio/webm'
+    default:
+      return 'application/octet-stream'
+  }
+}
 
 function createWindow(): BrowserWindow {
   // Create the browser window.
@@ -172,7 +198,67 @@ app.whenReady().then(async () => {
     if (!filePath) {
       return new Response('Not found', { status: 404 })
     }
-    return net.fetch(pathToFileURL(filePath).href)
+
+    let fileSize: number
+    try {
+      fileSize = statSync(filePath).size
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+
+    const contentType = audioMimeForPath(filePath)
+    const toWebStream = (start: number, end: number): ReadableStream =>
+      Readable.toWeb(createReadStream(filePath, { start, end })) as unknown as ReadableStream
+
+    // Honor HTTP Range requests. Chromium's <audio> element / FFmpeg demuxer
+    // relies on range requests to seek and to progressively read the file;
+    // returning the whole file (200) for a range request causes intermittent
+    // PIPELINE_ERROR_READ ("data source error") on some files. See the media
+    // pipeline docs: a streamed media source MUST support 206 Partial Content.
+    const rangeHeader = request.headers.get('range')
+    if (rangeHeader) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim())
+      if (match && (match[1] !== '' || match[2] !== '')) {
+        let start: number
+        let end: number
+        if (match[1] === '') {
+          // Suffix range: last N bytes.
+          start = Math.max(0, fileSize - Number(match[2]))
+          end = fileSize - 1
+        } else {
+          start = Number(match[1])
+          end = match[2] === '' ? fileSize - 1 : Math.min(Number(match[2]), fileSize - 1)
+        }
+
+        if (start > end || start >= fileSize) {
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${fileSize}` },
+          })
+        }
+
+        return new Response(toWebStream(start, end), {
+          status: 206,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': String(end - start + 1),
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+          },
+        })
+      }
+    }
+
+    // No (or unparseable) range: return the whole file, but advertise range
+    // support so the media pipeline knows it may seek on later requests.
+    return new Response(toWebStream(0, fileSize - 1), {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': String(fileSize),
+        'Accept-Ranges': 'bytes',
+      },
+    })
   })
 
   // Allow renderer to capture system audio via getDisplayMedia for YouTube AGC
