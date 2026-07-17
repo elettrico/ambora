@@ -13,6 +13,7 @@ export default defineConfig(
       '**/out',
       'src/renderer/src/components/ui/**',
       'remote/**',
+      'build/**',
     ],
   },
   tseslint.configs.recommended,

@@ -2,6 +2,10 @@ appId: com.ambora.app
 productName: Ambora
 directories:
   buildResources: build
+# Ensures a valid ad-hoc signature on unsigned macOS builds so Gatekeeper does
+# not report the downloaded app as "damaged". No-op once Developer ID signing
+# (CSC_LINK) is configured. See build/afterSign.cjs.
+afterSign: build/afterSign.cjs
 files:
   - '!**/.vscode/*'
   - '!src/*'

@@ -17,6 +17,34 @@
 - **Fully offline** — No internet required for local file playback (YouTube needs connectivity)
 - **Cross-platform** — macOS, Windows, and Linux
 
+## Install
+
+Download the installer for your platform from the [latest release](https://github.com/xetorthio/ambora/releases/latest).
+
+### macOS
+
+Ambora is not yet signed with an Apple Developer ID or notarized, so macOS
+Gatekeeper blocks it on first launch. After downloading and moving `Ambora.app`
+to your Applications folder:
+
+- **Recommended:** right-click (or Control-click) `Ambora.app` → **Open**, then
+  confirm **Open** in the dialog. You only need to do this once.
+- If macOS still refuses, remove the download-quarantine flag from Terminal
+  (adjust the path if the app is elsewhere), then open it normally:
+
+  ```bash
+  xattr -cr /Applications/Ambora.app
+  ```
+
+> **Note:** builds before v0.2.1 could report _"Ambora.app is damaged and can't be
+> opened"_ due to a code-signing bug in the release pipeline. That is fixed as of
+> v0.2.1 — if you still see it, download the latest release.
+
+### Windows
+
+Windows SmartScreen may warn that the app is from an unknown publisher. Click
+**More info → Run anyway**.
+
 ## Quick Start
 
 ### Prerequisites
