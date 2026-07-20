@@ -58,6 +58,11 @@ interface ClimatePlaybackSnapshot {
 const FADE_IN_DURATION = 1
 const FADE_TO_SILENCE_DURATION = 3
 const TRACK_CROSSFADE_DURATION = 2
+// Extra lead time (on top of the crossfade length) for loading the next track so
+// it is ready to overlap the outgoing one instead of starting from silence.
+const NEAR_END_PRELOAD_MARGIN = 1
+// How often to poll the active track's position to detect the near-end window.
+const POSITION_POLL_MS = 250
 
 // Run a low-priority callback when the browser is idle, bounded by a timeout so
 // it still runs promptly under sustained load. Falls back to a short timeout.
@@ -91,6 +96,8 @@ export class AudioEngine {
   private lufsCache = new LufsCache()
   private channelNormChains = new Map<ChannelId, NormalizationChain>()
   private youtubeAGC = new YouTubeAGC()
+  private positionInterval: ReturnType<typeof setInterval> | null = null
+  private autoAdvancing = false
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -155,6 +162,7 @@ export class AudioEngine {
 
       this.subscribeToVolumeChanges()
       this.lufsCache.loadFromDisk()
+      this.startPositionMonitor()
     }
 
     if (this.audioContext.state === 'suspended') {
@@ -306,6 +314,7 @@ export class AudioEngine {
     channel: Channel,
     track: Track,
     seekToSec?: number,
+    loadSeq?: number,
   ): Promise<boolean> {
     if (channel.player) {
       if (channel.volumeController instanceof DirectVolumeController) {
@@ -325,7 +334,11 @@ export class AudioEngine {
       await player.load(track)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load track'
-      toast.error(`Skipping "${track.title}": ${message}`)
+      // Suppress the toast when a newer activation superseded this load (e.g. the
+      // user skipped tracks rapidly) — the aborted load is expected, not a failure.
+      if (loadSeq === undefined || this.activationSeq === loadSeq) {
+        toast.error(`Skipping "${track.title}": ${message}`)
+      }
       player.dispose()
       channel.player = null
       channel.state = 'inactive'
@@ -417,6 +430,46 @@ export class AudioEngine {
     this.youtubeAGC.stop()
   }
 
+  private startPositionMonitor(): void {
+    if (this.positionInterval !== null) return
+    this.positionInterval = setInterval(() => this.checkNearEnd(), POSITION_POLL_MS)
+  }
+
+  private stopPositionMonitor(): void {
+    if (this.positionInterval === null) return
+    clearInterval(this.positionInterval)
+    this.positionInterval = null
+  }
+
+  // Detects when the active track is approaching its end and starts the crossfade
+  // to the next track early, so the two overlap (a real crossfade) instead of the
+  // next track fading in only after the current one has fully stopped. Tracks with
+  // an unknown duration or shorter than the crossfade window fall back to the
+  // `ended`-triggered advance in handleTrackEnded().
+  private checkNearEnd(): void {
+    if (this.engineState !== 'playing' || this.autoAdvancing || !this.currentClimate) return
+
+    const player = this.getActiveChannel().player
+    if (!player) return
+
+    const duration = player.getDuration()
+    if (duration === undefined || !Number.isFinite(duration) || duration <= 0) return
+
+    const crossfade = this.currentClimate.crossfadeDuration
+    // Only worth an overlapping crossfade if the track is longer than the window.
+    if (duration <= crossfade + NEAR_END_PRELOAD_MARGIN) return
+
+    const remaining = duration - player.getCurrentTime()
+    if (remaining > crossfade + NEAR_END_PRELOAD_MARGIN) return
+
+    this.autoAdvancing = true
+    void this.advanceToTrack(this.getNextTrackIndex(), crossfade)
+      .catch(() => {})
+      .finally(() => {
+        this.autoAdvancing = false
+      })
+  }
+
   private handleTrackEnded(): void {
     if (this.engineState !== 'playing' || this.isActivationLoading) {
       return
@@ -450,7 +503,10 @@ export class AudioEngine {
     this.engineState = 'playing'
   }
 
-  private async advanceToTrack(nextIndex: number): Promise<void> {
+  private async advanceToTrack(
+    nextIndex: number,
+    crossfadeDuration: number = TRACK_CROSSFADE_DURATION,
+  ): Promise<void> {
     if (!this.currentClimate) return
     const mySeq = this.activationSeq
 
@@ -475,11 +531,25 @@ export class AudioEngine {
       const outChannel = this.getActiveChannel()
 
       this.stopYouTubeAGC()
-      const loaded = await this.loadAndPlayOnChannel(inChannel, track)
+      const loaded = await this.loadAndPlayOnChannel(inChannel, track, undefined, mySeq)
       if (this.activationSeq !== mySeq) return
       if (loaded) {
         this.engineState = 'crossfading'
         this.pendingActiveChannelId = inId
+
+        // Clamp the crossfade to the outgoing track's remaining time: a manual
+        // skip (lots of time left) stays snappy at the requested length, while a
+        // near-end auto-advance fades out exactly as the track ends instead of
+        // overrunning into silence.
+        let fade = crossfadeDuration
+        const outPlayer = outChannel.player
+        if (outPlayer) {
+          const outDuration = outPlayer.getDuration()
+          if (outDuration !== undefined && Number.isFinite(outDuration) && outDuration > 0) {
+            const outRemaining = outDuration - outPlayer.getCurrentTime()
+            if (outRemaining > 0.3) fade = Math.min(fade, outRemaining)
+          }
+        }
 
         const incomingTrackSource = track.source
         this.crossfadeManager.crossfade(
@@ -488,7 +558,7 @@ export class AudioEngine {
           inChannel.id,
           inChannel.volumeController!,
           this.getVolume01(),
-          TRACK_CROSSFADE_DURATION,
+          fade,
           () => {
             if (this.activationSeq !== mySeq) return
             this.disposeChannel(outChannel)
@@ -519,6 +589,7 @@ export class AudioEngine {
 
   private goIdle(): void {
     this.stopYouTubeAGC()
+    this.autoAdvancing = false
     this.crossfadeManager.cancelAll()
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
@@ -590,7 +661,7 @@ export class AudioEngine {
         isFadingToSilence: false,
       })
 
-      const loaded = await this.loadAndPlayOnChannel(channel, track, startPositionSec)
+      const loaded = await this.loadAndPlayOnChannel(channel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
       if (loaded) {
@@ -637,7 +708,7 @@ export class AudioEngine {
       })
 
       this.stopYouTubeAGC()
-      const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec)
+      const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
       if (loaded) {
@@ -818,6 +889,8 @@ export class AudioEngine {
 
   dispose(): void {
     this.youtubeAGC.dispose()
+    this.stopPositionMonitor()
+    this.autoAdvancing = false
     this.crossfadeManager.cancelAll()
     if (this.channelA) this.disposeChannel(this.channelA)
     if (this.channelB) this.disposeChannel(this.channelB)
