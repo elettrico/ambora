@@ -1,12 +1,15 @@
 /**
  * Build a unique local-audio:// URL for a registered path token.
  *
- * A per-load nonce query keeps Chromium from coalescing / caching concurrent
- * loads of the same token (probe + playback + ambient fetch), which can surface
- * as intermittent MEDIA_ERR_SRC_NOT_SUPPORTED (code 4). The main-process handler
- * ignores the query and keys only on the path token.
+ * With `standard: true` scheme privileges, Chromium treats
+ * `local-audio:///<token>` as hostname=<token>, pathname="/", which broke
+ * token lookup (issue #22). Use an explicit host and put the token in the path:
+ *   local-audio://media/<token>?r=<nonce>
+ *
+ * The per-load nonce keeps Chromium from coalescing / caching concurrent loads
+ * of the same token. The main-process handler ignores the query.
  */
 export function localAudioUrl(token: string): string {
   const nonce = crypto.randomUUID()
-  return `local-audio:///${token}?r=${nonce}`
+  return `local-audio://media/${encodeURIComponent(token)}?r=${nonce}`
 }
