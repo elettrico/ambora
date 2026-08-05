@@ -1,5 +1,9 @@
 import type { ITrackPlayer } from './AudioEngine'
 import type { Track } from '@/lib/types'
+import { localAudioUrl } from '@/lib/localAudioUrl'
+
+const LOAD_TIMEOUT_MS = 30_000
+const MAX_LOAD_ATTEMPTS = 2
 
 export class LocalPlayer implements ITrackPlayer {
   private audio: HTMLAudioElement
@@ -17,6 +21,8 @@ export class LocalPlayer implements ITrackPlayer {
 
     this.audio.addEventListener('error', () => {
       if (this.disposed) return
+      // Load-time errors are handled by the load() promise; this catches mid-play.
+      if (!this.mediaSource) return
       const code = this.audio.error?.code
       const message = this.audio.error?.message ?? 'Unknown playback error'
       this.errorCallback?.(new Error(`Audio error (code ${code}): ${message}`))
@@ -29,16 +35,41 @@ export class LocalPlayer implements ITrackPlayer {
     }
 
     const token = await window.api.registerAudioPath(track.localFilePath)
-    this.audio.src = `local-audio:///${token}`
+    let lastError: Error | null = null
 
-    if (!this.mediaSource) {
-      this.mediaSource = this.audioContext.createMediaElementSource(this.audio)
+    for (let attempt = 1; attempt <= MAX_LOAD_ATTEMPTS; attempt++) {
+      if (this.disposed) {
+        throw new Error('Player was disposed during load')
+      }
+      try {
+        await this.loadOnce(token)
+        return
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        // Retry once on format/src-not-supported — often a poisoned concurrent load.
+        const isFormat =
+          lastError.message.includes('(code 4)') ||
+          lastError.message.includes('Format error') ||
+          lastError.message.includes('MEDIA_ELEMENT_ERROR')
+        if (!isFormat || attempt >= MAX_LOAD_ATTEMPTS) break
+      }
     }
 
-    await new Promise<void>((resolve, reject) => {
+    throw lastError ?? new Error('Failed to load audio file')
+  }
+
+  private loadOnce(token: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
       const onReady = (): void => {
         cleanup()
-        resolve()
+        try {
+          if (!this.mediaSource) {
+            this.mediaSource = this.audioContext.createMediaElementSource(this.audio)
+          }
+          resolve()
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)))
+        }
       }
       const onError = (): void => {
         cleanup()
@@ -46,19 +77,27 @@ export class LocalPlayer implements ITrackPlayer {
         const message = this.audio.error?.message ?? 'Failed to load audio file'
         reject(new Error(`Audio error (code ${code}): ${message}`))
       }
+      const onTimeout = (): void => {
+        cleanup()
+        reject(new Error('Audio load timed out'))
+      }
       const cleanup = (): void => {
+        clearTimeout(timer)
         this.audio.removeEventListener('canplaythrough', onReady)
         this.audio.removeEventListener('error', onError)
       }
 
+      const timer = setTimeout(onTimeout, LOAD_TIMEOUT_MS)
       this.audio.addEventListener('canplaythrough', onReady, { once: true })
       this.audio.addEventListener('error', onError, { once: true })
+      // Attach listeners before assigning src so we never miss a fast error.
+      this.audio.src = localAudioUrl(token)
       this.audio.load()
     })
   }
 
   play(): void {
-    this.audio.play()
+    void this.audio.play()
   }
 
   pause(): void {

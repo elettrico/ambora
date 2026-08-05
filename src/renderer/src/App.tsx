@@ -17,6 +17,16 @@ function App(): React.JSX.Element {
     loadCampaigns()
   }, [loadCampaigns])
 
+  // Warm the YouTube IFrame API in the background so the first YT track isn't
+  // blocked on a cold 10s script download during play.
+  useEffect(() => {
+    void import('@/audio/youtube-api').then(({ loadYouTubeAPI }) => {
+      void loadYouTubeAPI().catch(() => {
+        // Offline / blocked — playback will retry and surface the error.
+      })
+    })
+  }, [])
+
   useRemoteSync()
   useAmbientSync()
 

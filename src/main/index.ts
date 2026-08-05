@@ -209,7 +209,19 @@ function registerIpcHandlers(): void {
 // outright and the caller only sees "Failed to fetch". The <audio> element path
 // is unaffected either way — media loads are no-cors.
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'local-audio', privileges: { stream: true, supportFetchAPI: true, corsEnabled: true } },
+  {
+    scheme: 'local-audio',
+    privileges: {
+      // `standard` + `secure` are required for reliable Chromium media loads on
+      // custom schemes (without them, some files intermittently fail to demux
+      // with MEDIA_ERR_SRC_NOT_SUPPORTED). See electron#51442.
+      standard: true,
+      secure: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
 ])
 
 // This method will be called when Electron has finished
@@ -231,8 +243,14 @@ app.whenReady().then(async () => {
   protocol.handle('local-audio', (request) => {
     // Present on every response, including errors: without it a fetch() caller
     // sees a generic "Failed to fetch" instead of the real status.
-    const cors = { 'Access-Control-Allow-Origin': '*' }
+    // no-store: concurrent HTMLAudio / fetch consumers share a token path;
+    // caching by URL can poison a load after another consumer aborts.
+    const cors = {
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store',
+    }
 
+    // Ignore ?r= nonce (and any other query) — identity is the path token only.
     const token = new URL(request.url).pathname.replace(/^\/+/, '')
     const filePath = audioPathRegistry.get(token)
     if (!filePath) {
