@@ -9,6 +9,7 @@ import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { DEFAULTS } from '@/lib/constants'
 import type { Campaign } from '@/lib/types'
 import { toast } from 'sonner'
+import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 
 interface ClimateGridProps {
   campaign: Campaign
@@ -52,21 +53,25 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
     }
   }
 
-  function handleDropFiles(climateId: string, files: File[]): void {
+  async function handleDropFiles(climateId: string, files: File[]): Promise<void> {
     const audioFiles = files.filter((f) => {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
       return ACCEPTED_AUDIO_EXTENSIONS.includes(ext)
     })
+    let added = 0
     for (const file of audioFiles) {
-      const filePath = window.api.getPathForFile(file)
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
       addTrack(campaign.id, climateId, {
         source: 'local',
-        title: file.name,
-        localFilePath: filePath,
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
       })
+      added++
     }
-    if (audioFiles.length > 0) {
-      toast.success(`${audioFiles.length} track${audioFiles.length > 1 ? 's' : ''} added`)
+    if (added > 0) {
+      toast.success(`${added} track${added > 1 ? 's' : ''} added`)
     }
   }
 

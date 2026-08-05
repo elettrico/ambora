@@ -101,8 +101,12 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 [MIT](LICENSE) — Jonathan Leibiusky (@xetorthio)
 
+Bundled FFmpeg/ffprobe binaries are separate subprocesses with their own
+licenses — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Acknowledgments
 
 - [shadcn/ui](https://ui.shadcn.com/) for the component library
 - [Lucide](https://lucide.dev/) for the icon set
 - [electron-vite](https://electron-vite.org/) for the build tooling
+- [FFmpeg](https://ffmpeg.org/) for loudness analysis and audio probing

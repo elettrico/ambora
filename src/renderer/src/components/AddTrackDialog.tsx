@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { Track } from '@/lib/types'
-import { cn, getLocalFileDuration } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 
 interface AddTrackDialogProps {
   open: boolean
@@ -87,17 +88,21 @@ export function AddTrackDialog({
 
   async function handleFiles(files: FileList | null): Promise<void> {
     if (!files) return
+    let added = 0
     for (const file of Array.from(files)) {
-      const filePath = window.api.getPathForFile(file)
-      const duration = await getLocalFileDuration(filePath)
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
       onAddTrack({
         source: 'local',
-        title: file.name,
-        localFilePath: filePath,
-        duration,
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
       })
+      added++
     }
-    onOpenChange(false)
+    if (added > 0) {
+      onOpenChange(false)
+    }
   }
 
   function handleDrop(e: React.DragEvent): void {

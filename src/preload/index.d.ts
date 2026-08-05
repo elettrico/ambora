@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Campaign, RemoteCommand, RemoteStateMessage, RemoteFullState } from '../shared/types'
+import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
 interface AmboraAPI {
   platform: NodeJS.Platform
@@ -10,6 +11,9 @@ interface AmboraAPI {
   getYouTubeTitle(videoUrl: string): Promise<string | null>
   loadLufsCache(): Promise<Record<string, number>>
   saveLufsCache(cache: Record<string, number>): void
+  analyzeLufs(filePath: string, requestId: string): Promise<LufsAnalyzeResult>
+  cancelLufs(requestId: string): void
+  probeAudioFile(filePath: string): Promise<AudioProbeResult>
   getAppVersion(): Promise<string>
   exportCampaign(json: string, suggestedName: string): Promise<boolean>
   importCampaign(): Promise<string | null>

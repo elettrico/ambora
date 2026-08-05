@@ -15,6 +15,9 @@ const TEXT_TERTIARY = '#5c5c68'
 const SMOOTHING_ATTACK = 0.6
 const SMOOTHING_RELEASE = 0.4
 
+/** Meter refresh — 10–15fps is enough for this indicator and cuts renderer work. */
+const METER_FRAME_MS = 1000 / 12
+
 export function NormalizationIndicator(): React.JSX.Element | null {
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const activeTrackId = useAudioStore((s) => s.activeTrackId)
@@ -26,14 +29,18 @@ export function NormalizationIndicator(): React.JSX.Element | null {
   const smoothedLevel = useRef(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
   const timeDomainBuffer = useRef<Float32Array<ArrayBuffer> | null>(null)
+  const lastPaintMs = useRef(0)
+  const gradientRef = useRef<CanvasGradient | null>(null)
 
   useEffect(() => {
     if (!isPlaying || !activeTrackId) return
 
     const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     smoothedLevel.current = 0
+    lastPaintMs.current = 0
+    gradientRef.current = null
 
-    function tick(): void {
+    function tick(now: number): void {
       const engine = AudioEngine.getInstance()
       const info = engine.getNormalizationInfo()
 
@@ -96,36 +103,45 @@ export function NormalizationIndicator(): React.JSX.Element | null {
       const coeff = rawLevel > smoothedLevel.current ? SMOOTHING_ATTACK : SMOOTHING_RELEASE
       smoothedLevel.current += (rawLevel - smoothedLevel.current) * coeff
 
-      ctx.clearRect(0, 0, CANVAS_PX_W, CANVAS_PX_H)
+      const shouldPaint =
+        isReducedMotion || now - lastPaintMs.current >= METER_FRAME_MS || lastPaintMs.current === 0
 
-      if (isReducedMotion) {
-        ctx.fillStyle = ACCENT
-        ctx.beginPath()
-        ctx.arc(CANVAS_PX_H / 2, CANVAS_PX_H / 2, CANVAS_PX_H / 2, 0, Math.PI * 2)
-        ctx.fill()
-      } else {
-        const fillWidth = smoothedLevel.current * CANVAS_PX_W
-        if (fillWidth > 0) {
-          const gradient = ctx.createLinearGradient(0, 0, CANVAS_PX_W, 0)
-          gradient.addColorStop(0, ACCENT)
-          gradient.addColorStop(1, `${ACCENT}40`)
-          ctx.fillStyle = gradient
-          const r = CANVAS_PX_H / 2
+      if (shouldPaint) {
+        lastPaintMs.current = now
+        ctx.clearRect(0, 0, CANVAS_PX_W, CANVAS_PX_H)
+
+        if (isReducedMotion) {
+          ctx.fillStyle = ACCENT
           ctx.beginPath()
-          ctx.roundRect(0, 0, fillWidth, CANVAS_PX_H, r)
+          ctx.arc(CANVAS_PX_H / 2, CANVAS_PX_H / 2, CANVAS_PX_H / 2, 0, Math.PI * 2)
           ctx.fill()
+        } else {
+          const fillWidth = smoothedLevel.current * CANVAS_PX_W
+          if (fillWidth > 0) {
+            if (!gradientRef.current) {
+              const gradient = ctx.createLinearGradient(0, 0, CANVAS_PX_W, 0)
+              gradient.addColorStop(0, ACCENT)
+              gradient.addColorStop(1, `${ACCENT}40`)
+              gradientRef.current = gradient
+            }
+            ctx.fillStyle = gradientRef.current
+            const r = CANVAS_PX_H / 2
+            ctx.beginPath()
+            ctx.roundRect(0, 0, fillWidth, CANVAS_PX_H, r)
+            ctx.fill()
+          }
         }
       }
 
       if (isReducedMotion) {
-        timeoutRef.current = setTimeout(tick, 500)
+        timeoutRef.current = setTimeout(() => tick(performance.now()), 500)
       } else {
         rafRef.current = requestAnimationFrame(tick)
       }
     }
 
     if (isReducedMotion) {
-      timeoutRef.current = setTimeout(tick, 100)
+      timeoutRef.current = setTimeout(() => tick(performance.now()), 100)
     } else {
       rafRef.current = requestAnimationFrame(tick)
     }

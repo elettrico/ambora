@@ -28,7 +28,8 @@ import { useCampaignStore } from '@/store/campaignStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { ACCEPTED_AUDIO, AMBIENT_DEFAULTS } from '@/lib/constants'
-import { cn, formatDuration, getLocalFileDuration } from '@/lib/utils'
+import { cn, formatDuration } from '@/lib/utils'
+import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import type { AmbientClip, AmbientClipOrder, AmbientLayer, AmbientMode } from '@/lib/types'
 
 const MODES: { value: AmbientMode; label: string }[] = [
@@ -142,11 +143,17 @@ export function AmbientLayerRow({
     if (!files) return
     const added: Omit<AmbientClip, 'id' | 'order'>[] = []
     for (const file of Array.from(files)) {
-      const localFilePath = window.api.getPathForFile(file)
-      const duration = await getLocalFileDuration(localFilePath)
-      added.push({ title: file.name, localFilePath, duration })
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
+      added.push({
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
+      })
     }
-    addAmbientClips(campaignId, climateId, layer.id, added)
+    if (added.length > 0) {
+      addAmbientClips(campaignId, climateId, layer.id, added)
+    }
   }
 
   function handleDrop(e: React.DragEvent): void {

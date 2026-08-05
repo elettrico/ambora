@@ -32,7 +32,7 @@ import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { probeLocalTrack } from '@/audio/probeTrack'
 import type { Campaign, Climate, Track } from '@/lib/types'
 import { toast } from 'sonner'
-import { getLocalFileDuration } from '@/lib/utils'
+import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 
 interface ClimateDetailProps {
   climate: Climate
@@ -145,18 +145,20 @@ export function ClimateDetail({
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
       return ACCEPTED_AUDIO_EXTENSIONS.includes(ext)
     })
+    let added = 0
     for (const file of audioFiles) {
-      const filePath = window.api.getPathForFile(file)
-      const duration = await getLocalFileDuration(filePath)
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
       addTrack(campaignId, climate.id, {
         source: 'local',
-        title: file.name,
-        localFilePath: filePath,
-        duration,
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
       })
+      added++
     }
-    if (audioFiles.length > 0) {
-      toast.success(`${audioFiles.length} track${audioFiles.length > 1 ? 's' : ''} added`)
+    if (added > 0) {
+      toast.success(`${added} track${added > 1 ? 's' : ''} added`)
     }
   }
 

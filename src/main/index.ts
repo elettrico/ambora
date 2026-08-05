@@ -25,6 +25,8 @@ import {
   getLocalIP,
   setMainWindow,
 } from './server'
+import { analyzeLufs, cancelLufs } from './lufsAnalyze'
+import { probeAudioFile } from './audioProbe'
 
 let mainWindow: BrowserWindow | null = null
 // token -> absolute file path, and the reverse index so repeated requests for
@@ -134,6 +136,29 @@ function registerIpcHandlers(): void {
 
   ipcMain.on('audio:save-lufs-cache', (_event, cache: Record<string, number>) => {
     saveLufsCache(cache)
+  })
+
+  ipcMain.handle('audio:analyze-lufs', (_event, filePath: string, requestId: string) => {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      return { ok: false, reason: 'Missing file path' }
+    }
+    if (typeof requestId !== 'string' || requestId.length === 0) {
+      return { ok: false, reason: 'Missing request id' }
+    }
+    return analyzeLufs(filePath, requestId)
+  })
+
+  ipcMain.on('audio:cancel-lufs', (_event, requestId: string) => {
+    if (typeof requestId === 'string' && requestId.length > 0) {
+      cancelLufs(requestId)
+    }
+  })
+
+  ipcMain.handle('audio:probe-file', (_event, filePath: string) => {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      return { ok: false, reason: 'Missing file path' }
+    }
+    return probeAudioFile(filePath)
   })
 
   ipcMain.handle('app:get-version', () => {

@@ -16,6 +16,8 @@ interface AudioStore {
   activeTrackId: string | null
   isFadingToSilence: boolean
   isShuffled: boolean
+  /** True while a user-initiated climate/track load is in flight. */
+  isTrackLoading: boolean
   fadeAnimations: FadeAnimation[]
   /**
    * Per-layer state for the active climate, keyed by layer id. Ephemeral by
@@ -32,6 +34,7 @@ interface AudioStore {
   setActiveClimateId: (id: string | null) => void
   setActiveTrackId: (id: string | null) => void
   setIsFadingToSilence: (isFading: boolean) => void
+  setIsTrackLoading: (loading: boolean) => void
   toggleShuffle: () => void
   startFadeAnimation: (animation: FadeAnimation) => void
   clearAllFadeAnimations: () => void
@@ -50,6 +53,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   activeTrackId: null,
   isFadingToSilence: false,
   isShuffled: true,
+  isTrackLoading: false,
   fadeAnimations: [],
   ambientRuntime: {},
   auditioningLayerId: null,
@@ -59,6 +63,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   setActiveClimateId: (id) => set({ activeClimateId: id }),
   setActiveTrackId: (id) => set({ activeTrackId: id }),
   setIsFadingToSilence: (isFading) => set({ isFadingToSilence: isFading }),
+  setIsTrackLoading: (isTrackLoading) => set({ isTrackLoading }),
   toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
   startFadeAnimation: (animation) =>
     set((state) => ({

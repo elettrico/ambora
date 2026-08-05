@@ -13,7 +13,7 @@ interface ClimateCardProps {
   fadeAnimation?: FadeAnimation
   onClick: () => void
   onPlay: () => void
-  onDropFiles: (climateId: string, files: File[]) => void
+  onDropFiles: (climateId: string, files: File[]) => void | Promise<void>
 }
 
 function hasAudioFiles(dt: DataTransfer): boolean {

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Pause, Play, Shuffle, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, Pause, Play, Shuffle, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { useAudioStore } from '@/store/audioStore'
@@ -16,6 +16,7 @@ export function NowPlayingBar(): React.JSX.Element {
     activeClimateId,
     activeTrackId,
     isShuffled,
+    isTrackLoading,
     toggleShuffle,
   } = useAudioStore()
   const previousVolumeRef = useRef<number>(DEFAULTS.volume)
@@ -46,6 +47,7 @@ export function NowPlayingBar(): React.JSX.Element {
   const isIdle = !climateName
 
   function handlePlayPause(): void {
+    if (isTrackLoading) return
     if (isPlaying) {
       audioEngine.fadeToSilence()
     } else {
@@ -54,7 +56,8 @@ export function NowPlayingBar(): React.JSX.Element {
   }
 
   function handleSkip(): void {
-    audioEngine.nextTrack()
+    if (isTrackLoading) return
+    void audioEngine.nextTrack()
   }
 
   function handleMuteToggle(): void {
@@ -103,6 +106,15 @@ export function NowPlayingBar(): React.JSX.Element {
                 </>
               )
             )}
+            {isTrackLoading && (
+              <>
+                <span className="text-[13px] text-text-tertiary">&middot;</span>
+                <span className="flex items-center gap-1 text-[13px] text-text-tertiary">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Loading
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -110,13 +122,18 @@ export function NowPlayingBar(): React.JSX.Element {
       <NormalizationIndicator />
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon-sm" disabled={isIdle} onClick={handlePlayPause}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={isIdle || isTrackLoading}
+          onClick={handlePlayPause}
+        >
           {isPlaying ? <Pause className="size-[18px]" /> : <Play className="size-[18px]" />}
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled={isIdle || !isPlaying || !hasTracks}
+          disabled={isIdle || !isPlaying || !hasTracks || isTrackLoading}
           onClick={handleSkip}
         >
           <SkipForward className="size-[18px]" />
