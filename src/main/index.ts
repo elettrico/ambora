@@ -27,6 +27,7 @@ import {
 } from './server'
 import { analyzeLufs, cancelLufs } from './lufsAnalyze'
 import { probeAudioFile } from './audioProbe'
+import { tokenFromLocalAudioUrl } from '../shared/localAudioUrl'
 
 let mainWindow: BrowserWindow | null = null
 // token -> absolute file path, and the reverse index so repeated requests for
@@ -251,8 +252,10 @@ app.whenReady().then(async () => {
     }
 
     // Ignore ?r= nonce (and any other query) — identity is the path token only.
-    const token = new URL(request.url).pathname.replace(/^\/+/, '')
-    const filePath = audioPathRegistry.get(token)
+    // See tokenFromLocalAudioUrl: with standard:true, Chromium may place the
+    // token in hostname for legacy /// URLs; canonical form is //media/<token>.
+    const token = tokenFromLocalAudioUrl(request.url)
+    const filePath = token ? audioPathRegistry.get(token) : undefined
     if (!filePath) {
       return new Response('Not found', { status: 404, headers: cors })
     }
