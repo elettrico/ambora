@@ -1,4 +1,5 @@
 import { getAudioContext } from './audioContext'
+import { localAudioUrl } from '@/lib/localAudioUrl'
 import { AmbientClipSelector, nextDelaySec, sortedClips } from './ambientScheduling'
 import { audioLog, extOf } from './audioLog'
 import { useAudioStore } from '@/store/audioStore'
@@ -122,10 +123,34 @@ export class AmbientEngine {
 
   private bufferCache = new Map<string, AudioBuffer>()
   private decoding = new Map<string, Promise<AudioBuffer | null>>()
+  /** Cap parallel full-file decodes so climate switches don't spike CPU/memory. */
+  private decodeInFlight = 0
+  private decodeWaiters: Array<() => void> = []
   private volumeUnsub: (() => void) | null = null
 
   private auditionSource: AudioBufferSourceNode | null = null
   private onClipDuration: ((localFilePath: string, duration: number) => void) | null = null
+
+  private static readonly MAX_PARALLEL_DECODES = 2
+
+  private async acquireDecodeSlot(): Promise<void> {
+    if (this.decodeInFlight < AmbientEngine.MAX_PARALLEL_DECODES) {
+      this.decodeInFlight++
+      return
+    }
+    await new Promise<void>((resolve) => {
+      this.decodeWaiters.push(() => {
+        this.decodeInFlight++
+        resolve()
+      })
+    })
+  }
+
+  private releaseDecodeSlot(): void {
+    this.decodeInFlight = Math.max(0, this.decodeInFlight - 1)
+    const next = this.decodeWaiters.shift()
+    if (next) next()
+  }
 
   static getInstance(): AmbientEngine {
     if (!AmbientEngine.instance) {
@@ -220,10 +245,11 @@ export class AmbientEngine {
   }
 
   private async decodeClip(clip: AmbientClip): Promise<AudioBuffer | null> {
+    await this.acquireDecodeSlot()
     try {
       const ctx = this.ensureGraph()
       const token = await window.api.registerAudioPath(clip.localFilePath)
-      const response = await fetch(`local-audio:///${token}`)
+      const response = await fetch(localAudioUrl(token))
       if (!response.ok) {
         throw new Error(`Failed to read file (HTTP ${String(response.status)})`)
       }
@@ -249,12 +275,18 @@ export class AmbientEngine {
       return null
     } finally {
       this.decoding.delete(clip.localFilePath)
+      this.releaseDecodeSlot()
     }
   }
 
-  /** Warm the cache for a climate so the first trigger isn't gated on file I/O. */
+  /**
+   * Warm the cache for a climate so the first trigger isn't gated on file I/O.
+   * Decodes are concurrency-limited; we only kick off enabled layers up front
+   * (disabled layers decode on first enable / audition).
+   */
   private preload(layers: readonly AmbientLayer[]): void {
     for (const layer of layers) {
+      if (!layer.enabled) continue
       for (const clip of layer.clips) {
         if (!this.bufferCache.has(clip.localFilePath)) {
           void this.getBuffer(clip)

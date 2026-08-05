@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { localAudioUrl } from '@/lib/localAudioUrl'
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
@@ -19,7 +20,7 @@ export async function getLocalFileDuration(filePath: string): Promise<number | u
   const token = await window.api.registerAudioPath(filePath)
   const audio = new Audio()
   audio.preload = 'metadata'
-  audio.src = `local-audio:///${token}`
+  audio.src = localAudioUrl(token)
 
   return new Promise<number | undefined>((resolve) => {
     let settled = false

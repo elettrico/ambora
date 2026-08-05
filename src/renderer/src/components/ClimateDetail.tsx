@@ -69,9 +69,10 @@ export function ClimateDetail({
   const ambientLayerCount = (climate.ambientLayers ?? []).length
 
   // Proactively probe local files for decodability so unplayable tracks are
-  // flagged before playback. Runs on open and whenever the track list changes
-  // (adding a file re-runs this and probes just the new one). Sequential to keep
-  // it gentle, and deduped via the store's `probed` set.
+  // flagged before playback. Uses main-process ffprobe (same allowlist as import)
+  // so climate open does not spin HTMLAudioElements against local-audio://.
+  // Runs on open and whenever the track list changes. Sequential to keep it
+  // gentle, and deduped via the store's `probed` set.
   useEffect(() => {
     const localTracks = climate.tracks
       .filter((t) => t.source === 'local' && t.localFilePath)
