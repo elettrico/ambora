@@ -8,7 +8,7 @@ import {
   type VolumeController,
 } from './VolumeController'
 import { LufsCache } from './LufsCache'
-import { analyzeLufs, computeGainCorrection } from './LufsAnalyzer'
+import { computeGainCorrection } from './LufsAnalyzer'
 import { NormalizationChain } from './NormalizationChain'
 import { YouTubeAGC } from './YouTubeAGC'
 import { ShuffleBag, nextSequentialIndex } from './trackSelection'
@@ -113,6 +113,8 @@ export class AudioEngine {
   private failedTrackIds = new Set<string>()
   private shuffleBag = new ShuffleBag()
   private ambient = AmbientEngine.getInstance()
+  /** In-flight main-process LUFS job id — cancelled when the channel advances. */
+  private activeLufsRequestId: string | null = null
 
   private constructor() {
     this.crossfadeManager = new CrossfadeManager()
@@ -210,6 +212,7 @@ export class AudioEngine {
       activeClimateId: string | null
       activeTrackId: string | null
       isFadingToSilence: boolean
+      isTrackLoading: boolean
     }>,
   ): void {
     const store = useAudioStore.getState()
@@ -218,6 +221,7 @@ export class AudioEngine {
     if (updates.activeTrackId !== undefined) store.setActiveTrackId(updates.activeTrackId)
     if (updates.isFadingToSilence !== undefined)
       store.setIsFadingToSilence(updates.isFadingToSilence)
+    if (updates.isTrackLoading !== undefined) store.setIsTrackLoading(updates.isTrackLoading)
   }
 
   private subscribeToVolumeChanges(): void {
@@ -430,6 +434,13 @@ export class AudioEngine {
     return true
   }
 
+  private cancelActiveLufs(): void {
+    if (this.activeLufsRequestId) {
+      window.api.cancelLufs(this.activeLufsRequestId)
+      this.activeLufsRequestId = null
+    }
+  }
+
   private applyNormalization(channel: Channel, player: ITrackPlayer, filePath: string): void {
     const chain = this.channelNormChains.get(channel.id)
     if (!chain) return
@@ -441,27 +452,49 @@ export class AudioEngine {
       return
     }
 
-    // Fire-and-forget background analysis. Analysis reads and decodes the whole
-    // file, so defer it until the browser is idle: this keeps the second read
-    // off the track-start path (where it would compete with establishing
-    // playback), and skips tracks the channel has already moved past.
-    if (!this.audioContext) return
-    const ctx = this.audioContext
+    // Fire-and-forget: FFmpeg ebur128 runs in the main process (off the renderer
+    // thread). Cancel any previous job so rapid switches don't pile up work.
+    this.cancelActiveLufs()
+    const requestId = crypto.randomUUID()
+    this.activeLufsRequestId = requestId
+
     scheduleIdle(() => {
-      if (channel.player !== player) return // channel advanced to another track
-      analyzeLufs(ctx, filePath)
+      if (channel.player !== player || this.activeLufsRequestId !== requestId) {
+        if (this.activeLufsRequestId === requestId) {
+          window.api.cancelLufs(requestId)
+          this.activeLufsRequestId = null
+        }
+        return
+      }
+
+      void window.api
+        .analyzeLufs(filePath, requestId)
         .then((result) => {
+          if (this.activeLufsRequestId === requestId) {
+            this.activeLufsRequestId = null
+          }
+          if (!result.ok) {
+            if (!result.cancelled) {
+              audioLog('lufs', 'analysis-failed', {
+                localFilePath: filePath,
+                ext: extOf(filePath),
+                detail: result.reason,
+              })
+            }
+            return
+          }
           this.lufsCache.set(filePath, result.integratedLufs)
+          const { gainCorrection } = computeGainCorrection(result.integratedLufs)
           // Only apply if this chain is still driving this same player
           const currentChain = this.channelNormChains.get(channel.id)
           if (currentChain === chain && channel.player === player) {
-            chain.setNormalizationGain(result.gainCorrection, 0.5)
+            chain.setNormalizationGain(gainCorrection, 0.5)
           }
         })
         .catch((err) => {
-          // Analysis failed — leave gain at 1.0 (no normalization). Logged (not
-          // surfaced) so a LUFS-path decode error is distinguishable from a real
-          // playback failure when triaging console noise.
+          if (this.activeLufsRequestId === requestId) {
+            this.activeLufsRequestId = null
+          }
           audioLog('lufs', 'analysis-failed', {
             localFilePath: filePath,
             ext: extOf(filePath),
@@ -713,17 +746,26 @@ export class AudioEngine {
       activeClimateId: null,
       activeTrackId: null,
       isFadingToSilence: false,
+      isTrackLoading: false,
     })
   }
 
   async activateClimate(climate: Climate, startTrackId?: string): Promise<void> {
+    const storeState = useAudioStore.getState()
+
     // Already playing this climate — no-op. An explicit track request (startTrackId)
     // always takes effect, even when this climate is already the active one.
     if (
       !startTrackId &&
-      useAudioStore.getState().activeClimateId === climate.id &&
+      storeState.activeClimateId === climate.id &&
       (this.engineState === 'playing' || this.engineState === 'ambient')
     ) {
+      return
+    }
+
+    // Ignore duplicate play clicks while this climate is still loading, unless the
+    // user asked for a specific track (that should supersede via activationSeq).
+    if (!startTrackId && this.isActivationLoading && storeState.activeClimateId === climate.id) {
       return
     }
 
@@ -741,6 +783,7 @@ export class AudioEngine {
     const previousState = this.engineState
     const mySeq = ++this.activationSeq
     this.isActivationLoading = true
+    this.updateStore({ isTrackLoading: true })
 
     this.ensureContext()
 
@@ -815,6 +858,7 @@ export class AudioEngine {
       const loaded = await this.loadAndPlayOnChannel(channel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
+      this.updateStore({ isTrackLoading: false })
       if (loaded) {
         channel.state = 'active'
         this.engineState = 'playing'
@@ -866,6 +910,7 @@ export class AudioEngine {
       const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
       this.isActivationLoading = false
+      this.updateStore({ isTrackLoading: false })
       if (loaded) {
         this.engineState = 'crossfading'
         this.pendingActiveChannelId = inId
@@ -931,6 +976,7 @@ export class AudioEngine {
   private activateAmbientOnly(climate: Climate): void {
     const mySeq = ++this.activationSeq
     this.isActivationLoading = false
+    this.updateStore({ isTrackLoading: false })
     this.ensureContext()
 
     const wasPlayingMusic = this.engineState === 'playing' || this.engineState === 'crossfading'
@@ -1005,14 +1051,17 @@ export class AudioEngine {
     }
 
     if (this.engineState !== 'playing') return
+    if (this.autoAdvancing || useAudioStore.getState().isTrackLoading) return
     ++this.activationSeq
     // Hold the guard for the load so a near-end poll tick can't start a second,
     // competing advance while this user-initiated skip is still loading.
     this.autoAdvancing = true
+    this.updateStore({ isTrackLoading: true })
     try {
       await this.advanceToTrack(this.getNextTrackIndex())
     } finally {
       this.autoAdvancing = false
+      this.updateStore({ isTrackLoading: false })
     }
   }
 
@@ -1031,12 +1080,15 @@ export class AudioEngine {
     }
 
     if (this.engineState !== 'playing') return
+    if (this.autoAdvancing || useAudioStore.getState().isTrackLoading) return
     ++this.activationSeq
     this.autoAdvancing = true
+    this.updateStore({ isTrackLoading: true })
     try {
       await this.advanceToTrack(trackIndex)
     } finally {
       this.autoAdvancing = false
+      this.updateStore({ isTrackLoading: false })
     }
   }
 
@@ -1200,6 +1252,7 @@ export class AudioEngine {
   dispose(): void {
     this.ambient.dispose()
     this.youtubeAGC.dispose()
+    this.cancelActiveLufs()
     this.stopPositionMonitor()
     this.autoAdvancing = false
     this.crossfadeManager.cancelAll()
@@ -1218,6 +1271,7 @@ export class AudioEngine {
     this.failedTrackIds.clear()
     this.shuffleBag.reset()
     this.climateSnapshots.clear()
+    useAudioStore.getState().setIsTrackLoading(false)
     AudioEngine.instance = null
   }
 }

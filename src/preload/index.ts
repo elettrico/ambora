@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { Campaign, RemoteCommand, RemoteStateMessage, RemoteFullState } from '../shared/types'
+import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
 // Custom APIs for renderer
 const api = {
@@ -18,6 +19,13 @@ const api = {
   saveLufsCache: (cache: Record<string, number>): void => {
     ipcRenderer.send('audio:save-lufs-cache', cache)
   },
+  analyzeLufs: (filePath: string, requestId: string): Promise<LufsAnalyzeResult> =>
+    ipcRenderer.invoke('audio:analyze-lufs', filePath, requestId),
+  cancelLufs: (requestId: string): void => {
+    ipcRenderer.send('audio:cancel-lufs', requestId)
+  },
+  probeAudioFile: (filePath: string): Promise<AudioProbeResult> =>
+    ipcRenderer.invoke('audio:probe-file', filePath),
 
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
   exportCampaign: (json: string, suggestedName: string): Promise<boolean> =>

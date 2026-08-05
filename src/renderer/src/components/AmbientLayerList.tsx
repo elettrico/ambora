@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { AmbientLayerRow } from '@/components/AmbientLayerRow'
 import { useCampaignStore } from '@/store/campaignStore'
 import { ACCEPTED_AUDIO_EXTENSIONS, AMBIENT_DEFAULTS } from '@/lib/constants'
-import { getLocalFileDuration } from '@/lib/utils'
+import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import type { Campaign, Climate } from '@/lib/types'
 
 /** "wind-howling-loop.wav" → "wind-howling-loop" */
@@ -48,20 +48,28 @@ export function AmbientLayerList({ campaign, climate }: AmbientLayerListProps): 
     })
 
     let created = 0
+    let hitLimit = false
     for (const file of audioFiles) {
-      const localFilePath = window.api.getPathForFile(file)
-      const duration = await getLocalFileDuration(localFilePath)
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
       const layer = createAmbientLayer(campaign.id, climate.id, nameFromFile(file.name), [
-        { title: file.name, localFilePath, duration },
+        {
+          title: validated.title,
+          localFilePath: validated.localFilePath,
+          duration: validated.duration,
+        },
       ])
-      if (!layer) break
+      if (!layer) {
+        hitLimit = true
+        break
+      }
       created++
     }
 
     if (created > 0) {
       toast.success(`${String(created)} ambient layer${created > 1 ? 's' : ''} added`)
     }
-    if (created < audioFiles.length) {
+    if (hitLimit) {
       toast.error(`A climate can have at most ${String(AMBIENT_DEFAULTS.maxLayers)} ambient layers`)
     }
   }
