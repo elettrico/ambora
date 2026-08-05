@@ -111,22 +111,22 @@ spctl --assess --type execute --verbose=4 /Applications/Ambora.app
 xcrun stapler validate /Applications/Ambora.app
 ```
 
-## FFmpeg / ffprobe binaries
+## FFmpeg binary
 
-Packaged builds include `ffmpeg` and `ffprobe` (asar-unpacked) for loudness
-analysis and import probing. See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)
-for license notes.
+Packaged builds include `ffmpeg` (asar-unpacked) for loudness analysis and
+import probing. See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) for
+license notes.
 
-`ffmpeg-static` / `ffprobe-static` download a binary for the **host** platform at
-`npm install` time. Each release matrix job therefore needs its own
-`npm ci`/`npm install` on that runner (or an explicit reinstall of those packages
-for the target `npm_config_platform` / `npm_config_arch`) so the artifact does
-not ship the wrong architecture. Do not reuse a macOS `node_modules` tree when
-packaging Windows or Linux.
+`ffmpeg-static` downloads a binary for the **host** platform at `npm install`
+time. Each release matrix job therefore needs its own `npm ci`/`npm install` on
+that runner (or an explicit reinstall of that package for the target
+`npm_config_platform` / `npm_config_arch`) so the artifact does not ship the
+wrong architecture. Do not reuse a macOS `node_modules` tree when packaging
+Windows or Linux.
 
-Installer size grows by tens of MB per platform because of these helpers.
+Installer size grows by tens of MB per platform because of this helper.
 
-On ad-hoc macOS builds, `build/afterSign.cjs` codesigns the unpacked helpers
+On ad-hoc macOS builds, `build/afterSign.cjs` codesigns the unpacked helper
 before re-signing the `.app`. Developer ID builds rely on electron-builder's
 normal deep signing of asarUnpack contents.
 

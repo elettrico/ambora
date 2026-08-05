@@ -1,5 +1,9 @@
 /**
- * ffprobe-based codec/format probe for local audio import validation.
+ * Codec/format probe for local audio import validation.
+ *
+ * Uses the bundled ffmpeg binary (not ffprobe-static): the darwin/arm64
+ * ffprobe-static artifact is actually an x86_64 binary, which fails to spawn on
+ * Apple Silicon without Rosetta (errno -86) and blocks every local import.
  *
  * Allowlist is tuned to what Chromium's media pipeline typically accepts for
  * Ambora's <audio> / decodeAudioData paths — not every codec FFmpeg can decode.
@@ -7,7 +11,7 @@
 
 import { spawn } from 'node:child_process'
 import type { AudioProbeResult } from '../shared/audioTools'
-import { getFfprobePath } from './ffmpegPaths'
+import { getFfmpegPath } from './ffmpegPaths'
 
 /** Codecs Chromium is expected to play via local-audio:// for music/ambient. */
 export const ALLOWED_AUDIO_CODECS = new Set([
@@ -65,71 +69,87 @@ export function evaluateCodecAllowlist(codec: string | undefined | null): AudioP
   return { ok: true, codec }
 }
 
-interface FfprobeStream {
-  codec_type?: string
-  codec_name?: string
-  sample_fmt?: string
+export interface FfmpegProbeInfo {
+  codec?: string
   channels?: number
-  duration?: string
+  durationSec?: number
 }
 
-interface FfprobeJson {
-  streams?: FfprobeStream[]
-  format?: { duration?: string }
+/**
+ * Parse stream metadata from `ffmpeg -i` stderr.
+ * Exported for unit tests.
+ */
+export function parseFfmpegProbeStderr(stderr: string): FfmpegProbeInfo {
+  // Stream #0:0: Audio: pcm_s24le ([1][0][0][0] / 0x0001), 48000 Hz, 2 channels, ...
+  // Stream #0:0[0x1](eng): Audio: aac (LC), 44100 Hz, stereo, fltp
+  const audioMatch = /Stream #\d+:\d+(?:\[[^\]]*\])?(?:\([^)]*\))?: Audio:\s*([a-zA-Z0-9_]+)/.exec(
+    stderr,
+  )
+  const codec = audioMatch?.[1]
+
+  let channels: number | undefined
+  const channelsMatch = /,\s*(\d+)\s+channels?/.exec(stderr)
+  if (channelsMatch) {
+    channels = Number(channelsMatch[1])
+  } else if (/,\s*mono,/i.test(stderr)) {
+    channels = 1
+  } else if (/,\s*stereo,/i.test(stderr)) {
+    channels = 2
+  }
+
+  let durationSec: number | undefined
+  const durationMatch = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(stderr)
+  if (durationMatch) {
+    const hours = Number(durationMatch[1])
+    const minutes = Number(durationMatch[2])
+    const seconds = Number(durationMatch[3])
+    const total = hours * 3600 + minutes * 60 + seconds
+    if (Number.isFinite(total) && total > 0) durationSec = total
+  }
+
+  return { codec, channels, durationSec }
 }
 
-function runFfprobeJson(filePath: string): Promise<FfprobeJson> {
+function runFfmpegProbe(filePath: string): Promise<FfmpegProbeInfo> {
   return new Promise((resolve, reject) => {
-    let ffprobePath: string
+    let ffmpegPath: string
     try {
-      ffprobePath = getFfprobePath()
+      ffmpegPath = getFfmpegPath()
     } catch (error) {
-      reject(error instanceof Error ? error : new Error('ffprobe unavailable'))
+      reject(error instanceof Error ? error : new Error('ffmpeg unavailable'))
       return
     }
 
-    const args = [
-      '-v',
-      'error',
-      '-select_streams',
-      'a:0',
-      '-show_entries',
-      'stream=codec_type,codec_name,sample_fmt,channels,duration:format=duration',
-      '-of',
-      'json',
-      filePath,
-    ]
-
-    const child = spawn(ffprobePath, args, { windowsHide: true })
-    let stdout = ''
+    // -t 0 avoids decoding the whole file; we only need container/stream headers.
+    const args = ['-hide_banner', '-i', filePath, '-t', '0', '-f', 'null', '-']
+    const child = spawn(ffmpegPath, args, { windowsHide: true })
     let stderr = ''
-    child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
-    child.stdout.on('data', (c: string) => {
-      stdout += c
-    })
     child.stderr.on('data', (c: string) => {
       stderr += c
     })
+    child.stdout.resume()
     child.on('error', reject)
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `ffprobe exited with code ${String(code)}`))
+    child.on('close', () => {
+      // ffmpeg often exits non-zero when probing; stderr still has the metadata.
+      if (/Invalid data found|No such file|Permission denied|Error opening/i.test(stderr)) {
+        reject(new Error(stderr.trim().split('\n').pop() || 'ffmpeg could not open file'))
         return
       }
-      try {
-        resolve(JSON.parse(stdout) as FfprobeJson)
-      } catch {
-        reject(new Error('ffprobe returned invalid JSON'))
+      const info = parseFfmpegProbeStderr(stderr)
+      if (!info.codec) {
+        reject(new Error(stderr.trim() || 'ffmpeg produced no audio stream info'))
+        return
       }
+      resolve(info)
     })
   })
 }
 
 export async function probeAudioFile(filePath: string): Promise<AudioProbeResult> {
-  let json: FfprobeJson
+  let info: FfmpegProbeInfo
   try {
-    json = await runFfprobeJson(filePath)
+    info = await runFfmpegProbe(filePath)
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
     return {
@@ -140,23 +160,13 @@ export async function probeAudioFile(filePath: string): Promise<AudioProbeResult
     }
   }
 
-  const stream =
-    json.streams?.find((s) => s.codec_type === 'audio') ?? json.streams?.[0] ?? undefined
-  const codec = stream?.codec_name
-  const base = evaluateCodecAllowlist(codec)
+  const base = evaluateCodecAllowlist(info.codec)
   if (!base.ok) return base
-
-  const durationRaw = stream?.duration ?? json.format?.duration
-  const durationSec = durationRaw !== undefined ? Number(durationRaw) : undefined
 
   return {
     ok: true,
     codec: base.codec,
-    sampleFmt: stream?.sample_fmt,
-    channels: stream?.channels,
-    durationSec:
-      durationSec !== undefined && Number.isFinite(durationSec) && durationSec > 0
-        ? durationSec
-        : undefined,
+    channels: info.channels,
+    durationSec: info.durationSec,
   }
 }

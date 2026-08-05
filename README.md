@@ -101,8 +101,8 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 [MIT](LICENSE) — Jonathan Leibiusky (@xetorthio)
 
-Bundled FFmpeg/ffprobe binaries are separate subprocesses with their own
-licenses — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Bundled FFmpeg binaries are separate subprocesses with their own licenses — see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Acknowledgments
 
