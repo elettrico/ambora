@@ -1,8 +1,12 @@
 /**
- * Resolve paths to the bundled ffmpeg / ffprobe binaries.
+ * Resolve path to the bundled ffmpeg binary.
  *
- * In development they live under node_modules. In a packaged app electron-builder
- * unpacks them next to the asar (`app.asar.unpacked`) so they remain executable.
+ * In development it lives under node_modules. In a packaged app electron-builder
+ * unpacks it next to the asar (`app.asar.unpacked`) so it remains executable.
+ *
+ * Import probing and LUFS analysis both use this binary (we no longer ship
+ * ffprobe-static — its darwin/arm64 build was an x86_64 binary and broke Apple
+ * Silicon imports).
  */
 
 import { existsSync } from 'node:fs'
@@ -38,30 +42,6 @@ export function getFfmpegPath(): string {
   const found = firstExisting(candidates)
   if (!found) {
     throw new Error(`ffmpeg binary not found (tried: ${candidates.join(', ')})`)
-  }
-  return found
-}
-
-export function getFfprobePath(): string {
-  const mod = require('ffprobe-static') as { path: string }
-  const raw = mod.path
-  if (!raw) {
-    throw new Error('ffprobe-static binary path is unavailable')
-  }
-
-  const candidates = [
-    unpackAsarPath(raw),
-    raw,
-    join(
-      process.resourcesPath,
-      'ffprobe',
-      process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe',
-    ),
-  ]
-
-  const found = firstExisting(candidates)
-  if (!found) {
-    throw new Error(`ffprobe binary not found (tried: ${candidates.join(', ')})`)
   }
   return found
 }

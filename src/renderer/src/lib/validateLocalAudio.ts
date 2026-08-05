@@ -1,6 +1,6 @@
 /**
- * Validate a local audio file for import via main-process ffprobe allowlist.
- * Returns a duration when ffprobe reports one; otherwise falls back to the
+ * Validate a local audio file for import via main-process FFmpeg allowlist.
+ * Returns a duration when FFmpeg reports one; otherwise falls back to the
  * Chromium metadata probe used elsewhere.
  */
 

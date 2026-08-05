@@ -1,5 +1,5 @@
 /**
- * Proactive decodability probe for local audio files via main-process ffprobe
+ * Proactive decodability probe for local audio files via main-process FFmpeg
  * (same allowlist as import). Avoids spinning up HTMLAudioElements on climate
  * open, which contended with playback on the shared local-audio:// token URL.
  *

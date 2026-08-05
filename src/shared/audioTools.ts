@@ -1,5 +1,5 @@
 /**
- * Shared types for main↔renderer audio tooling (FFmpeg LUFS + ffprobe).
+ * Shared types for main↔renderer audio tooling (FFmpeg LUFS + import probe).
  */
 
 /** First N seconds analyzed for integrated loudness (matches prior PCM window). */
