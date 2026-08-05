@@ -181,7 +181,18 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          files=(dist/*.{dmg,zip,exe,blockmap,AppImage,deb,rpm,yml,yaml})
+          # Exclude names every matrix cell emits identically — concurrent
+          # uploads of the same ReleaseAsset name race even with --clobber and
+          # fail the job after the real installers may already have been built
+          # (see v0.7.2 macos-arm64: builder-debug.yml → HTTP 422).
+          candidates=(dist/*.{dmg,zip,exe,blockmap,AppImage,deb,rpm,yml,yaml})
+          files=()
+          for f in "${candidates[@]}"; do
+            case "$(basename "$f")" in
+              builder-debug.yml|builder-effective-config.yaml) continue ;;
+            esac
+            files+=("$f")
+          done
           if [ ${#files[@]} -gt 0 ]; then
             gh release upload "${{ github.ref_name }}" "${files[@]}" \
               --repo ${{ github.repository }} --clobber
