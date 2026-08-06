@@ -163,6 +163,9 @@ releases. Windows and Linux get 30; both normally finish in about five minutes.
   wins and the file describes only that architecture. Harmless today — nothing
   consumes it, as the app has no auto-updater. It would need fixing before
   adding `electron-updater`.
+- **`builder-debug.yml` is not uploaded** — every matrix cell emits the same
+  filename, and concurrent `gh release upload` of identical names races (HTTP 422) even with `--clobber`. The installers are what matter; debug YAML stays
+  in the job logs / `dist/` on the runner.
 - **The `.dmg` is not itself signed or stapled** — only the `.app` inside it is.
   electron-builder notarizes the app, then packs the stapled app into the disk
   image. Gatekeeper assesses the app on launch, so this is cosmetic, but a
