@@ -8,8 +8,13 @@ export type {
   AmbientClipOrder,
   AmbientLayerRuntime,
   AppState,
+  LoadCampaignsResult,
   RemoteCommand,
   RemoteStateMessage,
   RemoteFullState,
+  RemoteCampaign,
+  RemoteClimate,
+  RemoteTrack,
+  RemoteAmbientLayer,
   PlaybackState,
 } from '../../../shared/types'

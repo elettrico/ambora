@@ -33,26 +33,31 @@ jobs:
           # notarization submissions queue at Apple in parallel. Building both in
           # one job would serialise them, and the wait is measured in hours.
           # macos-latest is Apple Silicon; electron-builder cross-builds the x64
-          # app and signs it there just as happily.
+          # app and signs it there just as happily — but ffmpeg-static downloads
+          # for the *host* arch at npm ci, so the x64 job must reinstall it.
           - os: macos-latest
             name: macos-arm64
             script: dist:mac
             args: --arm64
+            ffmpeg_arch: arm64
             timeout: 240
           - os: macos-latest
             name: macos-x64
             script: dist:mac
             args: --x64
+            ffmpeg_arch: x64
             timeout: 240
           - os: windows-latest
             name: windows
             script: dist:win
             args: ''
+            ffmpeg_arch: ''
             timeout: 30
           - os: ubuntu-latest
             name: linux
             script: dist:linux
             args: ''
+            ffmpeg_arch: ''
             timeout: 30
 
     runs-on: ${{ matrix.os }}
@@ -70,6 +75,35 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # ffmpeg-static's postinstall downloads a binary for the runner's host
+      # architecture. When we cross-build macOS x64 on Apple Silicon, that leaves
+      # an arm64 helper in node_modules — which electron-builder then packs into
+      # the Intel app (verified broken in v0.7.2). Force the target binary here.
+      - name: Install target-architecture FFmpeg
+        if: matrix.ffmpeg_arch != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f node_modules/ffmpeg-static/ffmpeg
+          npm_config_platform=darwin npm_config_arch="${{ matrix.ffmpeg_arch }}" \
+            node node_modules/ffmpeg-static/install.js
+          info="$(file -b node_modules/ffmpeg-static/ffmpeg)"
+          echo "Bundled ffmpeg: $info"
+          case "${{ matrix.ffmpeg_arch }}" in
+            arm64)
+              echo "$info" | grep -q 'arm64' || {
+                echo "::error::Expected arm64 ffmpeg, got: $info"
+                exit 1
+              }
+              ;;
+            x64)
+              echo "$info" | grep -Eq 'x86_64|i386' || {
+                echo "::error::Expected x86_64 ffmpeg for macOS x64, got: $info"
+                exit 1
+              }
+              ;;
+          esac
 
       - name: Set version from tag
         shell: bash
@@ -122,6 +156,40 @@ jobs:
           CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.CSC_KEY_PASSWORD || '' }}
           APPLE_API_KEY_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_KEY_ID || '' }}
           APPLE_API_ISSUER: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
+
+      # Defense in depth: assert the packaged app contains the target-arch
+      # ffmpeg, not whatever the host runner happened to install at npm ci.
+      - name: Verify packaged FFmpeg architecture
+        if: matrix.ffmpeg_arch != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$(find dist -maxdepth 2 -name 'Ambora.app' -print -quit)"
+          if [ -z "$app" ]; then
+            echo "::error::Ambora.app not found; cannot verify ffmpeg architecture"
+            exit 1
+          fi
+          ffmpeg="$app/Contents/Resources/app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg"
+          if [ ! -f "$ffmpeg" ]; then
+            echo "::error::Packaged ffmpeg not found at $ffmpeg"
+            exit 1
+          fi
+          info="$(file -b "$ffmpeg")"
+          echo "Packaged ffmpeg: $info"
+          case "${{ matrix.ffmpeg_arch }}" in
+            arm64)
+              echo "$info" | grep -q 'arm64' || {
+                echo "::error::Packaged ffmpeg is not arm64: $info"
+                exit 1
+              }
+              ;;
+            x64)
+              echo "$info" | grep -Eq 'x86_64|i386' || {
+                echo "::error::Packaged ffmpeg is not x86_64: $info"
+                exit 1
+              }
+              ;;
+          esac
 
       # Gates the release. When the signing secrets are configured, a build that
       # failed to sign or notarize must fail here — otherwise the publish job

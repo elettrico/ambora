@@ -22,9 +22,9 @@ beforeEach(async () => {
 
 describe('loadCampaigns', () => {
   it('loads campaigns from IPC and sets isLoaded', async () => {
-    mockApi.getCampaigns.mockResolvedValue([
-      { id: '1', name: 'Test', climates: [], createdAt: '', updatedAt: '' },
-    ])
+    mockApi.getCampaigns.mockResolvedValue({
+      campaigns: [{ id: '1', name: 'Test', climates: [], createdAt: '', updatedAt: '' }],
+    })
     await useCampaignStore.getState().loadCampaigns()
     expect(useCampaignStore.getState().campaigns).toHaveLength(1)
     expect(useCampaignStore.getState().isLoaded).toBe(true)

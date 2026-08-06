@@ -23,4 +23,6 @@ Ambora runs a local Express + WebSocket server on your machine for phone remote 
 - No data is transmitted over the internet (except YouTube playback which requires connectivity)
 - Campaign data is stored locally as JSON files in your user data directory
 - The phone remote does not require authentication (it relies on local network trust)
+- The remote protocol sends a sanitized campaign projection — absolute filesystem paths and media tokens are never included
+- WebSocket commands are validated against a known command allowlist with a small max payload
 - No sensitive credentials or tokens are stored by the application

@@ -1,12 +1,18 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { Campaign, RemoteCommand, RemoteStateMessage, RemoteFullState } from '../shared/types'
+import type {
+  Campaign,
+  LoadCampaignsResult,
+  RemoteCommand,
+  RemoteStateMessage,
+  RemoteFullState,
+} from '../shared/types'
 import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
 // Custom APIs for renderer
 const api = {
   platform: process.platform,
-  getCampaigns: (): Promise<Campaign[]> => ipcRenderer.invoke('data:get-campaigns'),
+  getCampaigns: (): Promise<LoadCampaignsResult> => ipcRenderer.invoke('data:get-campaigns'),
   saveCampaigns: (campaigns: Campaign[]): void => {
     ipcRenderer.send('data:save-campaigns', campaigns)
   },

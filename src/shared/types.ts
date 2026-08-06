@@ -93,6 +93,15 @@ export interface AppState {
   isFadingToSilence: boolean
 }
 
+/** Result of loading campaigns from disk (main → renderer via IPC). */
+export interface LoadCampaignsResult {
+  campaigns: Campaign[]
+  /** Primary file was corrupt; campaigns came from the last-known-good backup. */
+  warning?: string
+  /** Campaigns could not be loaded (corrupt primary and missing/bad backup). */
+  error?: string
+}
+
 // WebSocket protocol types
 
 export type RemoteCommand =
@@ -105,10 +114,46 @@ export type RemoteCommand =
   | { type: 'set-layer-volume'; payload: { layerId: string; volume: number } }
   | { type: 'trigger-layer'; payload: { layerId: string } }
 
+/**
+ * Phone-remote projection of a track. Intentionally omits filesystem paths and
+ * YouTube URLs — the remote only needs identity + title for "now playing".
+ */
+export interface RemoteTrack {
+  id: string
+  title: string
+  order: number
+}
+
+/** Phone-remote projection of an ambient layer (no clips / paths). */
+export interface RemoteAmbientLayer {
+  id: string
+  name: string
+  mode: AmbientMode
+  enabled: boolean
+  volume: number
+  order: number
+}
+
+export interface RemoteClimate {
+  id: string
+  name: string
+  color: string
+  icon: string
+  order: number
+  tracks: RemoteTrack[]
+  ambientLayers?: RemoteAmbientLayer[]
+}
+
+export interface RemoteCampaign {
+  id: string
+  name: string
+  climates: RemoteClimate[]
+}
+
 export type RemoteStateMessage =
   | { type: 'full-state'; payload: RemoteFullState }
   | { type: 'playback-update'; payload: PlaybackState }
-  | { type: 'campaigns-update'; payload: { campaigns: Campaign[] } }
+  | { type: 'campaigns-update'; payload: { campaigns: RemoteCampaign[] } }
 
 export interface RemoteFadeAnimation {
   climateId: string
@@ -131,7 +176,7 @@ export interface PlaybackState {
 }
 
 export interface RemoteFullState {
-  campaigns: Campaign[]
+  campaigns: RemoteCampaign[]
   activeCampaignId: string | null
   playback: PlaybackState
 }

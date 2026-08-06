@@ -103,7 +103,7 @@ function createWindow(): BrowserWindow {
 
 function registerIpcHandlers(): void {
   ipcMain.handle('data:get-campaigns', () => {
-    return loadCampaigns()
+    return loadCampaigns() // LoadCampaignsResult
   })
 
   ipcMain.on('data:save-campaigns', (_event, campaigns) => {

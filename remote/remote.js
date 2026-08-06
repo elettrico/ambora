@@ -517,18 +517,19 @@
       var cl = climates[i]
       var isActive = cl.id === state.playback.activeClimateId
       var cardClass = 'climate-card' + (isActive ? ' active' : '')
-      var bgColor = hexToRgba(cl.color, 0.18)
-      var borderColor = isActive ? cl.color : 'transparent'
+      var color = safeColor(cl.color)
+      var bgColor = hexToRgba(color, 0.18)
+      var borderColor = isActive ? color : 'transparent'
 
       html +=
         '<button class="' +
         cardClass +
         '" data-climate-id="' +
-        cl.id +
+        escapeAttr(cl.id) +
         '" style="background:' +
         bgColor +
         ';--card-color:' +
-        cl.color +
+        color +
         ';border-color:' +
         borderColor +
         '">' +
@@ -650,7 +651,8 @@
 
   function buildAmbientPanel(layers) {
     var climate = getActiveClimate()
-    var color = climate ? climate.color : ''
+    var color = climate ? safeColor(climate.color) : SAFE_FALLBACK_COLOR
+    var vol
 
     var layersHtml = ''
     var shotsHtml = ''
@@ -660,7 +662,7 @@
       if (layer.mode === 'oneshot') {
         shotsHtml +=
           '<button class="ambient-shot" data-layer-id="' +
-          layer.id +
+          escapeAttr(layer.id) +
           '" style="--shot-color:' +
           color +
           '">' +
@@ -672,9 +674,14 @@
         continue
       }
 
+      vol =
+        typeof layer.volume === 'number' && isFinite(layer.volume)
+          ? Math.max(0, Math.min(100, layer.volume))
+          : 50
+
       layersHtml +=
         '<div class="ambient-layer" data-layer-id="' +
-        layer.id +
+        escapeAttr(layer.id) +
         '" style="--layer-color:' +
         color +
         '">' +
@@ -689,7 +696,7 @@
         escapeHtml(layer.name) +
         '</span>' +
         '<input class="ambient-layer__volume" type="range" min="0" max="100" value="' +
-        layer.volume +
+        vol +
         '" aria-label="' +
         escapeHtml(layer.name) +
         ' volume">' +
@@ -841,10 +848,19 @@
   }
 
   // ── Helpers ──
+  var HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/
+  var SAFE_FALLBACK_COLOR = '#7B93F5'
+
+  /** Only allow #RRGGBB into styles/attributes — reject CSS injection. */
+  function safeColor(color) {
+    return typeof color === 'string' && HEX_COLOR_RE.test(color) ? color : SAFE_FALLBACK_COLOR
+  }
+
   function hexToRgba(hex, alpha) {
-    var r = parseInt(hex.slice(1, 3), 16)
-    var g = parseInt(hex.slice(3, 5), 16)
-    var b = parseInt(hex.slice(5, 7), 16)
+    var safe = safeColor(hex)
+    var r = parseInt(safe.slice(1, 3), 16)
+    var g = parseInt(safe.slice(3, 5), 16)
+    var b = parseInt(safe.slice(5, 7), 16)
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')'
   }
 
@@ -852,6 +868,15 @@
     var div = document.createElement('div')
     div.appendChild(document.createTextNode(str))
     return div.innerHTML
+  }
+
+  function escapeAttr(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
   }
 
   // ── Volume Slider Interaction Guard ──
