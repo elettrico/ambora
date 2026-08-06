@@ -6,8 +6,11 @@ import { WebSocketServer, WebSocket } from 'ws'
 import { app, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import type { RemoteFullState, RemoteStateMessage } from '../shared/types'
+import { parseRemoteCommand } from '../shared/remoteCommand'
 
 const PORT = 3000
+/** Drop oversized remote messages (commands are tiny JSON). */
+const WS_MAX_PAYLOAD = 64 * 1024
 
 let httpServer: ReturnType<typeof createServer> | null = null
 let wss: WebSocketServer | null = null
@@ -68,7 +71,7 @@ export function startServer(): Promise<void> {
 
     httpServer = createServer(expressApp)
 
-    wss = new WebSocketServer({ server: httpServer })
+    wss = new WebSocketServer({ server: httpServer, maxPayload: WS_MAX_PAYLOAD })
 
     function notifyConnectionCount(): void {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -90,7 +93,9 @@ export function startServer(): Promise<void> {
 
       ws.on('message', (raw) => {
         try {
-          const command = JSON.parse(raw.toString())
+          const parsed: unknown = JSON.parse(raw.toString())
+          const command = parseRemoteCommand(parsed)
+          if (!command) return
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('remote:command', command)
           }

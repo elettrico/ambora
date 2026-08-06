@@ -1,10 +1,16 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { Campaign, RemoteCommand, RemoteStateMessage, RemoteFullState } from '../shared/types'
+import type {
+  Campaign,
+  LoadCampaignsResult,
+  RemoteCommand,
+  RemoteStateMessage,
+  RemoteFullState,
+} from '../shared/types'
 import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
 interface AmboraAPI {
   platform: NodeJS.Platform
-  getCampaigns(): Promise<Campaign[]>
+  getCampaigns(): Promise<LoadCampaignsResult>
   saveCampaigns(campaigns: Campaign[]): void
   getPathForFile(file: File): string
   registerAudioPath(filePath: string): Promise<string>

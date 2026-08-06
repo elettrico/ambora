@@ -1,6 +1,7 @@
 import '@fontsource-variable/inter'
 import { useEffect } from 'react'
 import { Loader2, Map } from 'lucide-react'
+import { toast } from 'sonner'
 import { Sidebar } from '@/components/Sidebar'
 import { CampaignView } from '@/components/CampaignView'
 import { NowPlayingBar } from '@/components/NowPlayingBar'
@@ -14,7 +15,13 @@ function App(): React.JSX.Element {
   const activeCampaign = getActiveCampaign()
 
   useEffect(() => {
-    loadCampaigns()
+    void loadCampaigns().then((result) => {
+      if (result?.error) {
+        toast.error(result.error)
+      } else if (result?.warning) {
+        toast.warning(result.warning)
+      }
+    })
   }, [loadCampaigns])
 
   // Warm the YouTube IFrame API in the background so the first YT track isn't

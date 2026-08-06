@@ -1,5 +1,12 @@
 import { create } from 'zustand'
-import type { AmbientClip, AmbientLayer, Campaign, Climate, Track } from '@/lib/types'
+import type {
+  AmbientClip,
+  AmbientLayer,
+  Campaign,
+  Climate,
+  LoadCampaignsResult,
+  Track,
+} from '@/lib/types'
 import { DEFAULTS, CLIMATE_COLORS, CLIMATE_ICONS, AMBIENT_DEFAULTS } from '@/lib/constants'
 
 interface CampaignStore {
@@ -8,7 +15,7 @@ interface CampaignStore {
   isLoaded: boolean
 
   // Init
-  loadCampaigns: () => Promise<void>
+  loadCampaigns: () => Promise<LoadCampaignsResult>
 
   // Campaign CRUD
   importCampaign: (campaign: Campaign) => void
@@ -139,8 +146,9 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   isLoaded: false,
 
   loadCampaigns: async () => {
-    const campaigns = await window.api.getCampaigns()
-    set({ campaigns, isLoaded: true })
+    const result = await window.api.getCampaigns()
+    set({ campaigns: result.campaigns, isLoaded: true })
+    return result
   },
 
   importCampaign: (campaign) => {

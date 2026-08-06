@@ -5,6 +5,7 @@ import { useConnectionStore } from '@/store/connectionStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
 import { toast } from 'sonner'
+import { toRemoteCampaigns, toRemoteFullState } from '../../../shared/remoteDto'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
 
 function getPlaybackState(): PlaybackState {
@@ -25,11 +26,11 @@ function getPlaybackState(): PlaybackState {
 
 function getFullState(): RemoteFullState {
   const { campaigns, activeCampaignId } = useCampaignStore.getState()
-  return {
+  return toRemoteFullState({
     campaigns,
     activeCampaignId,
     playback: getPlaybackState(),
-  }
+  })
 }
 
 export function useRemoteSync(): void {
@@ -78,7 +79,7 @@ export function useRemoteSync(): void {
       if (state.campaigns !== prev.campaigns || state.activeCampaignId !== prev.activeCampaignId) {
         window.api.sendStateUpdate({
           type: 'campaigns-update',
-          payload: { campaigns: state.campaigns },
+          payload: { campaigns: toRemoteCampaigns(state.campaigns) },
         })
         window.api.sendFullState(getFullState())
       }

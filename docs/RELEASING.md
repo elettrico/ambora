@@ -119,10 +119,15 @@ license notes.
 
 `ffmpeg-static` downloads a binary for the **host** platform at `npm install`
 time. Each release matrix job therefore needs its own `npm ci`/`npm install` on
-that runner (or an explicit reinstall of that package for the target
-`npm_config_platform` / `npm_config_arch`) so the artifact does not ship the
-wrong architecture. Do not reuse a macOS `node_modules` tree when packaging
-Windows or Linux.
+that runner so the artifact does not ship the wrong architecture. Do not reuse
+a macOS `node_modules` tree when packaging Windows or Linux.
+
+macOS is special: both arm64 and x64 jobs run on Apple Silicon (`macos-latest`).
+After `npm ci`, the release workflow deletes the host binary and reinstalls
+`ffmpeg-static` with `npm_config_arch` set to the matrix target (`arm64` or
+`x64`), then asserts `file` on both the `node_modules` binary and the packaged
+`.app`. Without that step, the Intel build ships an arm64 helper (broken in
+v0.7.2).
 
 Installer size grows by tens of MB per platform because of this helper.
 
