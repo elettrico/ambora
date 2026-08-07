@@ -28,9 +28,12 @@ import { useCampaignStore } from '@/store/campaignStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { ACCEPTED_AUDIO, AMBIENT_DEFAULTS } from '@/lib/constants'
+import { parseDelaySec } from '@/lib/parseDelaySec'
 import { cn, formatDuration } from '@/lib/utils'
 import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import type { AmbientClip, AmbientClipOrder, AmbientLayer, AmbientMode } from '@/lib/types'
+
+type DelayField = 'minDelaySec' | 'maxDelaySec'
 
 const MODES: { value: AmbientMode; label: string }[] = [
   { value: 'loop', label: 'Loop' },
@@ -82,6 +85,8 @@ export function AmbientLayerRow({
 
   const [expanded, setExpanded] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [delayDrafts, setDelayDrafts] = useState<Partial<Record<DelayField, string>>>({})
+  const [focusedDelay, setFocusedDelay] = useState<DelayField | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAuditioning = auditioningLayerId === layer.id
@@ -163,22 +168,56 @@ export function AmbientLayerRow({
     void handleFiles(e.dataTransfer.files)
   }
 
-  const delayInput = (field: 'minDelaySec' | 'maxDelaySec', label: string): React.JSX.Element => (
+  function clearDelayDraft(field: DelayField): void {
+    setDelayDrafts((prev) => {
+      if (prev[field] === undefined) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
+  function commitDelay(field: DelayField, raw: string): void {
+    const parsed = parseDelaySec(raw, {
+      min: AMBIENT_DEFAULTS.minDelayBound,
+      max: AMBIENT_DEFAULTS.maxDelayBound,
+    })
+    if (parsed === null) {
+      clearDelayDraft(field)
+      return
+    }
+    updateAmbientLayer(campaignId, climateId, layer.id, { [field]: parsed })
+    clearDelayDraft(field)
+  }
+
+  const delayInput = (field: DelayField, label: string): React.JSX.Element => (
     <label className="flex items-center gap-2">
       <span className="text-[11px] text-text-tertiary">{label}</span>
       <Input
         type="number"
         min={AMBIENT_DEFAULTS.minDelayBound}
         max={AMBIENT_DEFAULTS.maxDelayBound}
-        value={layer[field]}
+        value={
+          focusedDelay === field && delayDrafts[field] !== undefined
+            ? delayDrafts[field]
+            : String(layer[field])
+        }
+        onFocus={() => {
+          setFocusedDelay(field)
+          setDelayDrafts((prev) => ({ ...prev, [field]: String(layer[field]) }))
+        }}
         onChange={(e) => {
-          const parsed = Number(e.target.value)
-          if (!Number.isFinite(parsed)) return
-          const clamped = Math.min(
-            AMBIENT_DEFAULTS.maxDelayBound,
-            Math.max(AMBIENT_DEFAULTS.minDelayBound, Math.round(parsed)),
-          )
-          updateAmbientLayer(campaignId, climateId, layer.id, { [field]: clamped })
+          setDelayDrafts((prev) => ({ ...prev, [field]: e.target.value }))
+        }}
+        onBlur={() => {
+          const raw = delayDrafts[field] ?? String(layer[field])
+          commitDelay(field, raw)
+          setFocusedDelay(null)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur()
+          }
         }}
         className="h-7 w-[72px] text-[13px]"
       />
