@@ -122,6 +122,22 @@ describe('updateAmbientLayer', () => {
     expect(updated.maxDelaySec).toBe(3)
     expect(updated.minDelaySec).toBe(3)
   })
+
+  it('leaves min unchanged when max is raised above it', () => {
+    const { campaignId, climateId } = setup()
+    const layer = useCampaignStore.getState().createAmbientLayer(campaignId, climateId, 'Bells')!
+
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { minDelaySec: 100 })
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { maxDelaySec: 600 })
+
+    const updated = getClimate(campaignId, climateId).ambientLayers![0]
+    expect(updated.minDelaySec).toBe(100)
+    expect(updated.maxDelaySec).toBe(600)
+  })
 })
 
 describe('deleteAmbientLayer and reorderAmbientLayers', () => {
