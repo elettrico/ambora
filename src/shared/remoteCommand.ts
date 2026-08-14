@@ -9,6 +9,7 @@ const REMOTE_COMMAND_TYPES = new Set<RemoteCommand['type']>([
   'set-layer-enabled',
   'set-layer-volume',
   'trigger-layer',
+  'trigger-soundboard',
 ])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -72,6 +73,11 @@ export function parseRemoteCommand(raw: unknown): RemoteCommand | null {
     case 'trigger-layer': {
       if (!isRecord(raw.payload) || !isNonEmptyString(raw.payload.layerId)) return null
       return { type: 'trigger-layer', payload: { layerId: raw.payload.layerId } }
+    }
+
+    case 'trigger-soundboard': {
+      if (!isRecord(raw.payload) || !isNonEmptyString(raw.payload.soundId)) return null
+      return { type: 'trigger-soundboard', payload: { soundId: raw.payload.soundId } }
     }
 
     default:

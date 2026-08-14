@@ -5,6 +5,7 @@ import type {
   Campaign,
   Climate,
   LoadCampaignsResult,
+  SoundboardSound,
   Track,
 } from '@/lib/types'
 import { DEFAULTS, CLIMATE_COLORS, CLIMATE_ICONS, AMBIENT_DEFAULTS } from '@/lib/constants'
@@ -84,6 +85,23 @@ interface CampaignStore {
    * from decoding the file, which is shared across clips and campaigns.
    */
   fillAmbientClipDurations: (localFilePath: string, duration: number) => void
+
+  // Campaign soundboard CRUD
+  addSoundboardSound: (
+    campaignId: string,
+    sound: Omit<SoundboardSound, 'id' | 'order'>,
+  ) => SoundboardSound | null
+  updateSoundboardSound: (
+    campaignId: string,
+    soundId: string,
+    updates: Partial<
+      Pick<
+        SoundboardSound,
+        'name' | 'volume' | 'shortcutKey' | 'icon' | 'iconColor' | 'playbackMode'
+      >
+    >,
+  ) => void
+  deleteSoundboardSound: (campaignId: string, soundId: string) => void
 
   // Helpers
   getActiveCampaign: () => Campaign | undefined
@@ -506,6 +524,55 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     // Every decode would otherwise rewrite the whole campaign list and republish
     // it to the phone, even when nothing was missing.
     if (!changed) return
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  addSoundboardSound: (campaignId, sound) => {
+    const campaign = get().campaigns.find((c) => c.id === campaignId)
+    if (!campaign) return null
+    const current = campaign.soundboard ?? []
+    const created: SoundboardSound = {
+      ...sound,
+      id: crypto.randomUUID(),
+      order: current.length,
+    }
+    const campaigns = get().campaigns.map((c) =>
+      c.id === campaignId ? { ...c, soundboard: [...current, created], updatedAt: now() } : c,
+    )
+    set({ campaigns })
+    persist(campaigns)
+    return created
+  },
+
+  updateSoundboardSound: (campaignId, soundId, updates) => {
+    const campaigns = get().campaigns.map((c) =>
+      c.id === campaignId
+        ? {
+            ...c,
+            soundboard: (c.soundboard ?? []).map((sound) =>
+              sound.id === soundId ? { ...sound, ...updates } : sound,
+            ),
+            updatedAt: now(),
+          }
+        : c,
+    )
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  deleteSoundboardSound: (campaignId, soundId) => {
+    const campaigns = get().campaigns.map((c) =>
+      c.id === campaignId
+        ? {
+            ...c,
+            soundboard: (c.soundboard ?? [])
+              .filter((sound) => sound.id !== soundId)
+              .map((sound, order) => ({ ...sound, order })),
+            updatedAt: now(),
+          }
+        : c,
+    )
     set({ campaigns })
     persist(campaigns)
   },

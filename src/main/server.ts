@@ -67,7 +67,15 @@ export function startServer(): Promise<void> {
       ? join(__dirname, '../../remote')
       : join(app.getAppPath(), '../remote')
 
-    expressApp.use(express.static(remotePath))
+    // The remote is updated together with the desktop app. Avoid leaving a
+    // phone on an older HTML/JS shell that cannot render newly-added state.
+    expressApp.use(
+      express.static(remotePath, {
+        setHeaders(response) {
+          response.setHeader('Cache-Control', 'no-store')
+        },
+      }),
+    )
 
     httpServer = createServer(expressApp)
 

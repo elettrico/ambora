@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { CampaignView } from '@/components/CampaignView'
 import { NowPlayingBar } from '@/components/NowPlayingBar'
 import { EmptyState } from '@/components/EmptyState'
+import { Soundboard } from '@/components/Soundboard'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useRemoteSync } from '@/hooks/useRemoteSync'
 import { useAmbientSync } from '@/hooks/useAmbientSync'
@@ -49,17 +50,20 @@ function App(): React.JSX.Element {
     <div className="flex h-screen flex-col bg-background">
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex flex-1 overflow-y-auto">
-          {activeCampaign ? (
-            <CampaignView campaign={activeCampaign} />
-          ) : (
-            <EmptyState
-              icon={Map}
-              title="No campaign selected"
-              description="Select a campaign from the sidebar or create a new one."
-            />
-          )}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <main className="flex min-h-0 flex-1 overflow-y-auto">
+            {activeCampaign ? (
+              <CampaignView campaign={activeCampaign} />
+            ) : (
+              <EmptyState
+                icon={Map}
+                title="No campaign selected"
+                description="Select a campaign from the sidebar or create a new one."
+              />
+            )}
+          </main>
+          {activeCampaign && <Soundboard campaign={activeCampaign} />}
+        </div>
       </div>
       <NowPlayingBar />
     </div>

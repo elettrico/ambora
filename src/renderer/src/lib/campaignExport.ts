@@ -1,4 +1,11 @@
-import type { AmbientClip, AmbientLayer, Campaign, Climate, Track } from '@/lib/types'
+import type {
+  AmbientClip,
+  AmbientLayer,
+  Campaign,
+  Climate,
+  SoundboardSound,
+  Track,
+} from '@/lib/types'
 import type {
   AmboraExportFile,
   ExportedAmbientClip,
@@ -6,9 +13,10 @@ import type {
   ExportedCampaign,
   ExportedClimate,
   ExportedTrack,
+  ExportedSoundboardSound,
 } from '../../../shared/exportTypes'
 import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
-import { AMBIENT_DEFAULTS } from '@/lib/constants'
+import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
 
 function exportTrack(track: Track): ExportedTrack {
   const exported: ExportedTrack = {
@@ -64,6 +72,21 @@ function exportCampaign(campaign: Campaign): ExportedCampaign {
     climates: campaign.climates.map(exportClimate),
   }
   if (campaign.description) exported.description = campaign.description
+  if (campaign.soundboard?.length) {
+    exported.soundboard = campaign.soundboard.map((sound): ExportedSoundboardSound => {
+      const result: ExportedSoundboardSound = {
+        name: sound.name,
+        volume: sound.volume,
+        playbackMode: sound.playbackMode,
+        order: sound.order,
+      }
+      if (sound.shortcutKey) result.shortcutKey = sound.shortcutKey
+      if (sound.icon) result.icon = sound.icon
+      if (sound.iconColor) result.iconColor = sound.iconColor
+      if (sound.duration !== undefined) result.duration = sound.duration
+      return result
+    })
+  }
   return exported
 }
 
@@ -239,8 +262,38 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
         ? exported.description
         : undefined,
     climates,
+    soundboard: Array.isArray(exported.soundboard)
+      ? exported.soundboard.map((rawSound, order): SoundboardSound => {
+          const sound = rawSound as Record<string, unknown>
+          return {
+            id: crypto.randomUUID(),
+            name: typeof sound.name === 'string' ? sound.name : 'Untitled Sound',
+            // Paths are machine-specific. Keep the row and its assignment so
+            // the user can see what needs to be re-added on this computer.
+            localFilePath: '',
+            volume: typeof sound.volume === 'number' ? sound.volume : SOUNDBOARD_DEFAULTS.volume,
+            shortcutKey: typeof sound.shortcutKey === 'string' ? sound.shortcutKey : undefined,
+            icon: typeof sound.icon === 'string' ? sound.icon : undefined,
+            iconColor: typeof sound.iconColor === 'string' ? sound.iconColor : undefined,
+            playbackMode:
+              sound.playbackMode === 'ignore' ||
+              sound.playbackMode === 'stop' ||
+              sound.playbackMode === 'multiple'
+                ? sound.playbackMode
+                : 'restart',
+            duration: typeof sound.duration === 'number' ? sound.duration : undefined,
+            order: typeof sound.order === 'number' ? sound.order : order,
+          }
+        })
+      : undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
+  }
+
+  if (campaign.soundboard?.length) {
+    warnings.push(
+      `This campaign has ${String(campaign.soundboard.length)} soundboard audio file${campaign.soundboard.length > 1 ? 's' : ''} that must be re-added (file paths are not portable)`,
+    )
   }
 
   return { success: true, campaign, warnings }

@@ -4,6 +4,7 @@ import { useCampaignStore } from '@/store/campaignStore'
 import { useConnectionStore } from '@/store/connectionStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
+import { SoundboardEngine } from '@/audio/SoundboardEngine'
 import { toast } from 'sonner'
 import { toRemoteCampaigns, toRemoteFullState } from '../../../shared/remoteDto'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
@@ -85,6 +86,16 @@ export function useRemoteSync(): void {
       }
     })
 
+    // Soundboard playback lives outside Zustand because it is short-lived audio
+    // runtime. Forward its authoritative start/end events to every phone so the
+    // pad remains lit for the real duration (including desktop/keyboard plays).
+    const unsubSoundboard = SoundboardEngine.getInstance().subscribe((soundId, activity) => {
+      window.api.sendStateUpdate({
+        type: 'soundboard-activity',
+        payload: { soundId, ...activity },
+      })
+    })
+
     // Listen for remote commands from phone
     const unsubCommands = window.api.onRemoteCommand((command) => {
       const engine = AudioEngine.getInstance()
@@ -142,12 +153,21 @@ export function useRemoteSync(): void {
           AmbientEngine.getInstance().triggerLayer(command.payload.layerId)
           break
         }
+        case 'trigger-soundboard': {
+          const campaign = campaignStore.campaigns.find(
+            (item) => item.id === campaignStore.activeCampaignId,
+          )
+          const sound = campaign?.soundboard?.find((item) => item.id === command.payload.soundId)
+          if (sound) void SoundboardEngine.getInstance().trigger(sound)
+          break
+        }
       }
     })
 
     return () => {
       unsubAudio()
       unsubCampaigns()
+      unsubSoundboard()
       unsubCommands()
       unsubConnection()
     }

@@ -3,9 +3,31 @@ export interface Campaign {
   name: string
   description?: string
   climates: Climate[]
+  /** Campaign-wide one-shot effects, available regardless of the active climate. */
+  soundboard?: SoundboardSound[]
   createdAt: string
   updatedAt: string
 }
+
+export interface SoundboardSound {
+  id: string
+  name: string
+  localFilePath: string
+  /** 0-100, relative to the app's master volume. */
+  volume: number
+  /** A single Unicode letter, normalized to lowercase. */
+  shortcutKey?: string
+  /** Lucide icon identifier displayed beside the shortcut letter. */
+  icon?: string
+  /** Optional CSS color for the selected icon. */
+  iconColor?: string
+  /** Behavior when triggered again while this sound is active. */
+  playbackMode: SoundboardPlaybackMode
+  duration?: number
+  order: number
+}
+
+export type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple'
 
 export interface Climate {
   id: string
@@ -113,6 +135,7 @@ export type RemoteCommand =
   | { type: 'set-layer-enabled'; payload: { layerId: string; enabled: boolean } }
   | { type: 'set-layer-volume'; payload: { layerId: string; volume: number } }
   | { type: 'trigger-layer'; payload: { layerId: string } }
+  | { type: 'trigger-soundboard'; payload: { soundId: string } }
 
 /**
  * Phone-remote projection of a track. Intentionally omits filesystem paths and
@@ -148,12 +171,32 @@ export interface RemoteCampaign {
   id: string
   name: string
   climates: RemoteClimate[]
+  soundboard?: RemoteSoundboardSound[]
+}
+
+/** Phone projection of a soundboard item; local paths and authoring controls are omitted. */
+export interface RemoteSoundboardSound {
+  id: string
+  name: string
+  shortcutKey?: string
+  icon?: string
+  iconColor?: string
+  order: number
 }
 
 export type RemoteStateMessage =
   | { type: 'full-state'; payload: RemoteFullState }
   | { type: 'playback-update'; payload: PlaybackState }
   | { type: 'campaigns-update'; payload: { campaigns: RemoteCampaign[] } }
+  | { type: 'soundboard-activity'; payload: RemoteSoundboardActivity }
+
+export interface RemoteSoundboardActivity {
+  soundId: string
+  playing: boolean
+  voiceCount: number
+  startedAtMs?: number
+  durationMs?: number
+}
 
 export interface RemoteFadeAnimation {
   climateId: string

@@ -1,10 +1,8 @@
 /**
- * v2 adds `ambientLayers` to each climate. The bump is deliberate even though
- * the field is optional: an older Ambora would import a v2 file and silently
- * drop the ambience, and "please update the app" is a better outcome than
- * quiet data loss.
+ * v3 adds the campaign soundboard. The bump prevents older Ambora versions from
+ * importing a file while silently dropping its one-shot effects.
  */
-export const AMBORA_FILE_VERSION = 2
+export const AMBORA_FILE_VERSION = 3
 
 export const AMBORA_FILE_FILTER = {
   name: 'Ambora Campaign',
@@ -57,6 +55,18 @@ export interface ExportedCampaign {
   name: string
   description?: string
   climates: ExportedClimate[]
+  soundboard?: ExportedSoundboardSound[]
+}
+
+export interface ExportedSoundboardSound {
+  name: string
+  volume: number
+  shortcutKey?: string
+  icon?: string
+  iconColor?: string
+  playbackMode: 'ignore' | 'stop' | 'restart' | 'multiple'
+  duration?: number
+  order: number
 }
 
 export interface AmboraExportFile {

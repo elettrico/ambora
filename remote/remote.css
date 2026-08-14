@@ -216,6 +216,99 @@ button {
    Sits above Now Playing in normal flow: expanding it shrinks the climate grid
    rather than covering it, so the GM can still see and switch scenes while the
    one-shot pads stay one tap away. */
+
+/* ── Campaign Soundboard ── */
+.soundboard {
+  flex-shrink: 0;
+  border-top: 1px solid var(--surface-2);
+  background: var(--surface-1);
+}
+
+.soundboard__list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.soundboard__list::-webkit-scrollbar {
+  display: none;
+}
+
+.soundboard__key {
+  --sound-color: var(--accent);
+  display: flex;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--surface-3);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--sound-color);
+  font-size: 15px;
+  font-weight: 700;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+  position: relative;
+  isolation: isolate;
+}
+
+.soundboard__key > svg {
+  width: 22px;
+  height: 22px;
+  position: relative;
+  z-index: 1;
+}
+
+.soundboard__key:active,
+.soundboard__key.firing {
+  transform: scale(0.92);
+  border-color: var(--sound-color);
+  background: color-mix(in srgb, var(--sound-color) 18%, var(--surface-2));
+}
+
+.soundboard__key.playing {
+  border-color: var(--sound-color);
+  background: color-mix(in srgb, var(--sound-color) 24%, var(--surface-2));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sound-color) 45%, transparent);
+}
+
+.soundboard__progress {
+  position: absolute;
+  inset: -3px;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    var(--sound-color) 0deg,
+    var(--sound-color) var(--progress-angle, var(--progress-start)),
+    transparent var(--progress-angle, var(--progress-start))
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  animation: soundboard-progress var(--progress-duration) linear forwards;
+}
+
+@property --progress-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes soundboard-progress {
+  from {
+    --progress-angle: var(--progress-start);
+  }
+  to {
+    --progress-angle: 360deg;
+  }
+}
+
 .ambient {
   display: flex;
   flex-direction: column;
@@ -699,6 +792,16 @@ button {
 
   .ambient-shot:active {
     transform: none;
+  }
+
+  .soundboard__key:active,
+  .soundboard__key.firing {
+    transform: none;
+  }
+
+  .soundboard__progress {
+    animation: none;
+    --progress-angle: 360deg;
   }
 
   .ambient-shot,

@@ -66,4 +66,11 @@ describe('parseRemoteCommand', () => {
       }),
     ).toBeNull()
   })
+
+  it('validates soundboard triggers', () => {
+    expect(
+      parseRemoteCommand({ type: 'trigger-soundboard', payload: { soundId: 'sound-1' } }),
+    ).toEqual({ type: 'trigger-soundboard', payload: { soundId: 'sound-1' } })
+    expect(parseRemoteCommand({ type: 'trigger-soundboard', payload: { soundId: '' } })).toBeNull()
+  })
 })

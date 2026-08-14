@@ -254,6 +254,15 @@
     ],
   }
 
+  // Soundboard icons are generated from the same curated Lucide list used by
+  // the desktop. Keeping them in a separate static file avoids a mobile bundle.
+  var soundIcons = window.AMBORA_SOUND_ICONS || {}
+  for (var soundIconName in soundIcons) {
+    if (Object.prototype.hasOwnProperty.call(soundIcons, soundIconName)) {
+      ICONS[soundIconName] = soundIcons[soundIconName]
+    }
+  }
+
   // ── Icon Renderer ──
   function icon(name, size) {
     var s = size || 24
@@ -301,6 +310,7 @@
       fadeAnimations: [],
       ambientRuntime: {},
     },
+    soundboardRuntime: {},
     connected: false,
   }
 
@@ -339,6 +349,8 @@
     dom.ambientIcon = document.getElementById('ambient-icon')
     dom.ambientCount = document.getElementById('ambient-count')
     dom.ambientChevron = document.getElementById('ambient-chevron')
+    dom.soundboard = document.getElementById('soundboard')
+    dom.soundboardList = document.getElementById('soundboard-list')
   }
 
   // ── WebSocket ──
@@ -428,6 +440,7 @@
           renderPlaybackState()
         }
         renderAmbient()
+        renderSoundboard()
         updateFadeAnimations()
         break
 
@@ -437,6 +450,16 @@
         renderClimateGrid()
         renderPlaybackState()
         renderAmbient()
+        renderSoundboard()
+        break
+
+      case 'soundboard-activity':
+        if (msg.payload.playing) {
+          state.soundboardRuntime[msg.payload.soundId] = msg.payload
+        } else {
+          delete state.soundboardRuntime[msg.payload.soundId]
+        }
+        renderSoundboardActivity(msg.payload.soundId)
         break
     }
   }
@@ -448,6 +471,7 @@
     renderClimateGrid()
     renderPlaybackState()
     renderAmbient()
+    renderSoundboard()
     updateFadeAnimations()
   }
 
@@ -647,6 +671,82 @@
 
     updateAmbientValues(layers)
     updateAmbientHandle(layers)
+  }
+
+  function getSoundboardSounds() {
+    var campaign = getActiveCampaign()
+    if (!campaign || !campaign.soundboard) return []
+    return campaign.soundboard
+      .filter(function (sound) {
+        return !!sound.icon || !!sound.shortcutKey
+      })
+      .slice()
+      .sort(function (a, b) {
+        return a.order - b.order
+      })
+  }
+
+  function renderSoundboard() {
+    var sounds = getSoundboardSounds()
+    if (sounds.length === 0) {
+      dom.soundboard.hidden = true
+      dom.soundboardList.innerHTML = ''
+      return
+    }
+
+    dom.soundboard.hidden = false
+    var html = ''
+    for (var i = 0; i < sounds.length; i++) {
+      var sound = sounds[i]
+      var activity = state.soundboardRuntime[sound.id]
+      var playing = activity && activity.playing
+      var visual =
+        sound.icon && ICONS[sound.icon]
+          ? icon(sound.icon, 22)
+          : escapeHtml(String(sound.shortcutKey || '').toLocaleUpperCase())
+      html +=
+        '<button class="soundboard__key' +
+        (playing ? ' playing' : '') +
+        '" data-sound-id="' +
+        escapeAttr(sound.id) +
+        '" aria-label="Play ' +
+        escapeAttr(sound.name) +
+        '" title="' +
+        escapeAttr(sound.name) +
+        '" style="--sound-color:' +
+        safeColor(sound.iconColor || SAFE_FALLBACK_COLOR) +
+        '">' +
+        visual +
+        soundboardProgress(activity) +
+        '</button>'
+    }
+    dom.soundboardList.innerHTML = html
+  }
+
+  function soundboardProgress(activity) {
+    if (!activity || !activity.playing || !activity.startedAtMs || !activity.durationMs) return ''
+    var elapsed = Math.max(0, Date.now() - activity.startedAtMs)
+    var remaining = Math.max(0, activity.durationMs - elapsed)
+    if (remaining === 0) return ''
+    var progress = Math.min(1, elapsed / activity.durationMs)
+    return (
+      '<span class="soundboard__progress" aria-hidden="true" style="--progress-start:' +
+      String(progress * 360) +
+      'deg;--progress-duration:' +
+      String(remaining) +
+      'ms"></span>'
+    )
+  }
+
+  function renderSoundboardActivity(soundId) {
+    var key = dom.soundboardList.querySelector('[data-sound-id="' + CSS.escape(soundId) + '"]')
+    if (!key) return
+    var activity = state.soundboardRuntime[soundId]
+    key.classList.toggle('playing', !!(activity && activity.playing))
+    var oldProgress = key.querySelector('.soundboard__progress')
+    if (oldProgress) oldProgress.parentNode.removeChild(oldProgress)
+    var progressHtml = soundboardProgress(activity)
+    if (progressHtml) key.insertAdjacentHTML('beforeend', progressHtml)
   }
 
   function buildAmbientPanel(layers) {
@@ -1037,6 +1137,21 @@
       flashShot(layerId)
       if (navigator.vibrate) navigator.vibrate(30)
       send({ type: 'trigger-layer', payload: { layerId: layerId } })
+    })
+
+    // Campaign soundboard — one compact row of icon/letter circles.
+    dom.soundboardList.addEventListener('click', function (e) {
+      var key = e.target.closest('.soundboard__key')
+      if (!key) return
+      var soundId = key.getAttribute('data-sound-id')
+      if (!soundId) return
+
+      key.classList.add('firing')
+      setTimeout(function () {
+        key.classList.remove('firing')
+      }, 220)
+      if (navigator.vibrate) navigator.vibrate(30)
+      send({ type: 'trigger-soundboard', payload: { soundId: soundId } })
     })
 
     // Mute toggle

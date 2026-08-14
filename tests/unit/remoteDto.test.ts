@@ -72,6 +72,19 @@ const campaignWithPaths: Campaign = {
       ],
     },
   ],
+  soundboard: [
+    {
+      id: 'sound-1',
+      name: 'Thunder',
+      localFilePath: '/Users/dm/Sounds/thunder.wav',
+      volume: 70,
+      shortcutKey: 't',
+      icon: 'CloudLightning',
+      iconColor: '#7B93F5',
+      playbackMode: 'restart',
+      order: 0,
+    },
+  ],
   createdAt: '2024-01-01T00:00:00.000Z',
   updatedAt: '2024-01-01T00:00:00.000Z',
 }
@@ -104,6 +117,16 @@ describe('toRemoteCampaigns', () => {
                 order: 0,
               },
             ],
+          },
+        ],
+        soundboard: [
+          {
+            id: 'sound-1',
+            name: 'Thunder',
+            shortcutKey: 't',
+            icon: 'CloudLightning',
+            iconColor: '#7B93F5',
+            order: 0,
           },
         ],
       },

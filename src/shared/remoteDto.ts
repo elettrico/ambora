@@ -14,8 +14,21 @@ import type {
   RemoteClimate,
   RemoteFullState,
   RemoteTrack,
+  RemoteSoundboardSound,
+  SoundboardSound,
   Track,
 } from './types'
+
+function toRemoteSound(sound: SoundboardSound): RemoteSoundboardSound {
+  return {
+    id: sound.id,
+    name: sound.name,
+    shortcutKey: sound.shortcutKey,
+    icon: sound.icon,
+    iconColor: sound.iconColor,
+    order: sound.order,
+  }
+}
 
 function toRemoteTrack(track: Track): RemoteTrack {
   return {
@@ -52,11 +65,13 @@ function toRemoteClimate(climate: Climate): RemoteClimate {
 }
 
 export function toRemoteCampaign(campaign: Campaign): RemoteCampaign {
-  return {
+  const remote: RemoteCampaign = {
     id: campaign.id,
     name: campaign.name,
     climates: campaign.climates.map(toRemoteClimate),
   }
+  if (campaign.soundboard?.length) remote.soundboard = campaign.soundboard.map(toRemoteSound)
+  return remote
 }
 
 export function toRemoteCampaigns(campaigns: Campaign[]): RemoteCampaign[] {

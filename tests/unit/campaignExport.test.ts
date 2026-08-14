@@ -90,6 +90,60 @@ describe('serializeCampaignForExport', () => {
   })
 })
 
+describe('soundboard export', () => {
+  const campaign: Campaign = {
+    ...sampleCampaign,
+    soundboard: [
+      {
+        id: 'sound-thunder',
+        name: 'Thunder',
+        localFilePath: '/dm/sfx/thunder.wav',
+        volume: 72,
+        shortcutKey: 'ñ',
+        icon: 'CloudLightning',
+        iconColor: '#7B93F5',
+        playbackMode: 'restart',
+        duration: 3.5,
+        order: 0,
+      },
+    ],
+  }
+
+  it('round-trips settings without ids or machine-specific paths', () => {
+    const json = serializeCampaignForExport(campaign, '0.7.3')
+    const parsed = JSON.parse(json) as AmboraExportFile
+    expect(parsed.campaign.soundboard?.[0]).toEqual({
+      name: 'Thunder',
+      volume: 72,
+      shortcutKey: 'ñ',
+      icon: 'CloudLightning',
+      iconColor: '#7B93F5',
+      playbackMode: 'restart',
+      duration: 3.5,
+      order: 0,
+    })
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.soundboard?.[0]).toMatchObject({
+      name: 'Thunder',
+      localFilePath: '',
+      volume: 72,
+      shortcutKey: 'ñ',
+      icon: 'CloudLightning',
+      iconColor: '#7B93F5',
+      playbackMode: 'restart',
+      duration: 3.5,
+      order: 0,
+    })
+    expect(result.campaign.soundboard?.[0].id).not.toBe('sound-thunder')
+    expect(result.warnings.some((warning) => warning.includes('1 soundboard audio file'))).toBe(
+      true,
+    )
+  })
+})
+
 describe('deserializeCampaignFromImport', () => {
   function makeValidExport(): string {
     return serializeCampaignForExport(sampleCampaign, '0.1.0')
