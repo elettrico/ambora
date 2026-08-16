@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Campaign-wide soundboard with keyboard shortcuts, configurable retrigger modes,
   circular playback indicators, Lucide icons, bulk audio import, and phone remote controls
+- Toggle-based Soundboard Loop mode with synchronized desktop/phone activity,
+  a rotating infinite indicator, and a fixed 400ms stop fade
+- Random 0–20% pitch/speed variation for Soundboard sounds and Ambient Layers,
+  including persisted campaign export/import settings
 - Initial project scaffolding with electron-vite + React + TypeScript
 - Tailwind CSS v4 dark theme with design system
 - shadcn/ui component library

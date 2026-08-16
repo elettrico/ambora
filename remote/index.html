@@ -117,7 +117,17 @@
 
       <!-- Campaign soundboard — compact horizontal pad above playback -->
       <section id="soundboard" class="soundboard" hidden>
-        <div id="soundboard-list" class="soundboard__list"></div>
+        <button
+          id="soundboard-handle"
+          class="soundboard__handle"
+          aria-expanded="false"
+          aria-controls="soundboard-list"
+        >
+          <span class="soundboard__handle-label">Soundboard</span>
+          <span id="soundboard-count" class="soundboard__handle-count"></span>
+          <span id="soundboard-chevron" class="soundboard__handle-chevron"></span>
+        </button>
+        <div id="soundboard-list" class="soundboard__list" hidden></div>
       </section>
 
       <!-- Now Playing -->

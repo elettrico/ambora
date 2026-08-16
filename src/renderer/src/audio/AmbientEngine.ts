@@ -6,6 +6,7 @@ import { useAudioStore } from '@/store/audioStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { AMBIENT_DEFAULTS } from '@/lib/constants'
 import type { AmbientClip, AmbientLayer, AmbientLayerRuntime, Climate } from '@/lib/types'
+import { randomPlaybackRate } from './playbackVariation'
 
 /**
  * Plays a climate's ambient layers alongside — and completely independently of —
@@ -573,6 +574,7 @@ export class AmbientEngine {
 
     const source = ctx.createBufferSource()
     source.buffer = buffer
+    source.playbackRate.value = randomPlaybackRate(layer.pitchVariation)
     source.connect(gain)
     source.addEventListener('ended', () => {
       gain.disconnect()
@@ -705,6 +707,7 @@ export class AmbientEngine {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.loop = loop
+    source.playbackRate.value = randomPlaybackRate(live.layer.pitchVariation)
     source.connect(gain)
 
     const playback: Playback = { source, gain }

@@ -17,6 +17,7 @@ import type {
 } from '../../../shared/exportTypes'
 import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
 import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
+import { clampPitchVariation } from '@/audio/playbackVariation'
 
 function exportTrack(track: Track): ExportedTrack {
   const exported: ExportedTrack = {
@@ -36,6 +37,7 @@ function exportAmbientLayer(layer: AmbientLayer): ExportedAmbientLayer {
     mode: layer.mode,
     enabled: layer.enabled,
     volume: layer.volume,
+    pitchVariation: clampPitchVariation(layer.pitchVariation),
     clipOrder: layer.clipOrder,
     minDelaySec: layer.minDelaySec,
     maxDelaySec: layer.maxDelaySec,
@@ -83,6 +85,7 @@ function exportCampaign(campaign: Campaign): ExportedCampaign {
       if (sound.shortcutKey) result.shortcutKey = sound.shortcutKey
       if (sound.icon) result.icon = sound.icon
       if (sound.iconColor) result.iconColor = sound.iconColor
+      result.pitchVariation = clampPitchVariation(sound.pitchVariation)
       if (sound.duration !== undefined) result.duration = sound.duration
       return result
     })
@@ -223,6 +226,9 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
             mode: l.mode === 'random' || l.mode === 'oneshot' ? l.mode : 'loop',
             enabled: typeof l.enabled === 'boolean' ? l.enabled : true,
             volume: typeof l.volume === 'number' ? l.volume : AMBIENT_DEFAULTS.volume,
+            pitchVariation: clampPitchVariation(
+              typeof l.pitchVariation === 'number' ? l.pitchVariation : undefined,
+            ),
             clips,
             clipOrder:
               l.clipOrder === 'random' || l.clipOrder === 'sequential' ? l.clipOrder : 'shuffle',
@@ -278,9 +284,13 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
             playbackMode:
               sound.playbackMode === 'ignore' ||
               sound.playbackMode === 'stop' ||
-              sound.playbackMode === 'multiple'
+              sound.playbackMode === 'multiple' ||
+              sound.playbackMode === 'loop'
                 ? sound.playbackMode
                 : 'restart',
+            pitchVariation: clampPitchVariation(
+              typeof sound.pitchVariation === 'number' ? sound.pitchVariation : undefined,
+            ),
             duration: typeof sound.duration === 'number' ? sound.duration : undefined,
             order: typeof sound.order === 'number' ? sound.order : order,
           }

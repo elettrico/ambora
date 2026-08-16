@@ -1,7 +1,24 @@
 import { getAudioContext } from './audioContext'
 import { localAudioUrl } from '@/lib/localAudioUrl'
 import { useAudioStore } from '@/store/audioStore'
-import type { SoundboardSound } from '@/lib/types'
+import type { SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
+import { randomPlaybackRate } from './playbackVariation'
+
+const STOP_FADE_SECONDS = 0.03
+const LOOP_STOP_FADE_SECONDS = 0.4
+
+export type SoundboardTriggerAction = 'ignore' | 'stop' | 'restart' | 'start'
+
+export function soundboardTriggerAction(
+  mode: SoundboardPlaybackMode,
+  active: boolean,
+  loading: boolean,
+): SoundboardTriggerAction {
+  if (mode === 'ignore' && (active || loading)) return 'ignore'
+  if ((mode === 'stop' || mode === 'loop') && (active || loading)) return 'stop'
+  if (mode === 'restart') return 'restart'
+  return 'start'
+}
 
 export interface SoundboardActivity {
   playing: boolean
@@ -17,10 +34,10 @@ interface Voice {
   source: AudioBufferSourceNode
   gain: GainNode
   startedAtMs: number
-  durationMs: number
+  durationMs?: number
 }
 
-/** Low-latency, polyphonic playback for campaign-wide one-shot effects. */
+/** Low-latency, polyphonic playback for campaign-wide sound effects. */
 export class SoundboardEngine {
   private static instance: SoundboardEngine | null = null
   private ctx: AudioContext | null = null
@@ -90,12 +107,11 @@ export class SoundboardEngine {
     const mode = sound.playbackMode ?? 'restart'
     const active = (this.voices.get(sound.id)?.size ?? 0) > 0
     const loading = this.pending.has(sound.id)
+    const action = soundboardTriggerAction(mode, active, loading)
 
-    if (mode === 'ignore' && (active || loading)) return
-    if (mode === 'stop' && (active || loading)) {
-      this.generations.set(sound.id, (this.generations.get(sound.id) ?? 0) + 1)
-      this.pending.delete(sound.id)
-      this.stopVoices(sound.id)
+    if (action === 'ignore') return
+    if (action === 'stop') {
+      this.stop(sound.id, mode === 'loop' ? LOOP_STOP_FADE_SECONDS : STOP_FADE_SECONDS)
       return
     }
 
@@ -105,21 +121,32 @@ export class SoundboardEngine {
       this.generations.set(sound.id, generation)
       this.pending.add(sound.id)
     }
-    if (mode === 'restart') this.stopVoices(sound.id)
+    if (action === 'restart') this.stopVoices(sound.id, STOP_FADE_SECONDS)
 
-    const buffer = await this.decode(sound)
+    let buffer: AudioBuffer
+    try {
+      buffer = await this.decode(sound)
+    } catch (error) {
+      if (generation !== null && this.generations.get(sound.id) === generation) {
+        this.pending.delete(sound.id)
+      }
+      throw error
+    }
     if (generation !== null && this.generations.get(sound.id) !== generation) return
     this.pending.delete(sound.id)
 
     const source = ctx.createBufferSource()
     const gain = ctx.createGain()
+    const playbackRate = randomPlaybackRate(sound.pitchVariation)
     const voice: Voice = {
       source,
       gain,
       startedAtMs: Date.now(),
-      durationMs: buffer.duration * 1000,
+      durationMs: mode === 'loop' ? undefined : (buffer.duration / playbackRate) * 1000,
     }
     source.buffer = buffer
+    source.loop = mode === 'loop'
+    source.playbackRate.value = playbackRate
     gain.gain.value = (fullVolume ? 100 : sound.volume) / 100
     source.connect(gain)
     gain.connect(this.masterGain!)
@@ -142,15 +169,26 @@ export class SoundboardEngine {
     source.start()
   }
 
-  private stopVoices(soundId: string): void {
+  stop(soundId: string, fadeSeconds = STOP_FADE_SECONDS): void {
+    this.generations.set(soundId, (this.generations.get(soundId) ?? 0) + 1)
+    this.pending.delete(soundId)
+    this.stopVoices(soundId, fadeSeconds)
+  }
+
+  stopAll(fadeSeconds = STOP_FADE_SECONDS): void {
+    const soundIds = new Set([...this.voices.keys(), ...this.pending])
+    for (const soundId of soundIds) this.stop(soundId, fadeSeconds)
+  }
+
+  private stopVoices(soundId: string, fadeSeconds: number): void {
     const voices = this.voices.get(soundId)
     if (!voices || voices.size === 0 || !this.ctx) return
     const now = this.ctx.currentTime
     for (const voice of voices) {
       voice.gain.gain.cancelScheduledValues(now)
       voice.gain.gain.setValueAtTime(voice.gain.gain.value, now)
-      voice.gain.gain.linearRampToValueAtTime(0, now + 0.03)
-      voice.source.stop(now + 0.03)
+      voice.gain.gain.linearRampToValueAtTime(0, now + fadeSeconds)
+      voice.source.stop(now + fadeSeconds)
     }
   }
 

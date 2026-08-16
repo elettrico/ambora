@@ -41,6 +41,7 @@ describe('createAmbientLayer', () => {
     expect(layer!.mode).toBe('loop')
     expect(layer!.enabled).toBe(true)
     expect(layer!.volume).toBe(AMBIENT_DEFAULTS.volume)
+    expect(layer!.pitchVariation).toBe(0)
     expect(layer!.clipOrder).toBe('shuffle')
     expect(layer!.clips).toEqual([])
     expect(layer!.order).toBe(0)
@@ -95,6 +96,21 @@ describe('updateAmbientLayer', () => {
     expect(updated.mode).toBe('random')
     expect(updated.volume).toBe(35)
     expect(updated.name).toBe('Birds')
+  })
+
+  it('clamps pitch variation to the supported range', () => {
+    const { campaignId, climateId } = setup()
+    const layer = useCampaignStore.getState().createAmbientLayer(campaignId, climateId, 'Drops')!
+
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { pitchVariation: 80 })
+    expect(getClimate(campaignId, climateId).ambientLayers![0].pitchVariation).toBe(20)
+
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { pitchVariation: -4 })
+    expect(getClimate(campaignId, climateId).ambientLayers![0].pitchVariation).toBe(0)
   })
 
   it('pushes max up when min is raised past it', () => {

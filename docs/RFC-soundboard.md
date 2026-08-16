@@ -33,10 +33,12 @@ weapons, doors, and footsteps are useful across many scenes.
 | **Stop**     | A new trigger stops the active sound without starting another.             |
 | **Restart**  | Stops active instances and starts again from the beginning (default).      |
 | **Multiple** | Starts a new independent instance on every trigger; instances may overlap. |
+| **Loop**     | Loops continuously; the next trigger fades it out and stops it.            |
 
-These modes cover the common one-shot behaviours without making the GM manage
-audio voices directly. More specialized behaviours, such as loops or
-press-and-hold playback, remain separate future concepts.
+These modes cover the common playback behaviours without making the GM manage
+audio voices directly. Loop uses a fixed 400ms fade-out and deliberately has no
+editable fade controls. More specialized behaviours, such as press-and-hold
+playback, remain separate future concepts.
 
 ### Keyboard convention
 
@@ -78,7 +80,7 @@ and introduces misleading physical-layout assumptions.
 ### Data model
 
 ```ts
-type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple'
+type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple' | 'loop'
 
 interface SoundboardSound {
   id: string
@@ -89,6 +91,7 @@ interface SoundboardSound {
   icon?: string // curated Lucide identifier
   iconColor?: string // #RRGGBB
   playbackMode: SoundboardPlaybackMode
+  pitchVariation?: number // 0–20, symmetric playback-rate range
   duration?: number
   order: number
 }
@@ -101,7 +104,9 @@ interface Campaign {
 
 `soundboard` is optional, so existing `campaigns.json` files load without a
 migration step. Missing `playbackMode` values from early development data fall
-back to `restart`; the default authored volume is 70%.
+back to `restart`; the default authored volume is 70%. Missing
+`pitchVariation` values behave as 0%, so older campaigns retain their original
+sound.
 
 ### Audio architecture
 
@@ -124,6 +129,17 @@ sound file ──decode once──▶ AudioBuffer cache
 Files are decoded into cached `AudioBuffer`s. Every playback voice receives its
 own source and gain nodes, which makes `multiple` genuinely polyphonic. A short
 30ms gain ramp is used when stopping voices so `stop` and `restart` do not click.
+
+Every new voice also receives a randomized `AudioBufferSourceNode.playbackRate`
+within the authored symmetric range. For example, `pitchVariation: 10` produces
+a value from 0.90× through 1.10×. This changes pitch and duration together. The
+activity duration is divided by the selected rate so finite progress indicators
+still end with the actual voice.
+
+Loop voices choose their randomized playback rate when the loop starts and keep
+it for the full activation. Keeping the rate stable prevents a discontinuity at
+the loop boundary. Stopping and starting the loop creates a new voice and draws
+a new value. Loop stop uses a fixed 400ms fade instead of the normal 30ms choke.
 
 **Master volume governs the soundboard.** Per-sound volume is relative to the
 app master, so the desktop and phone master controls still mean "the complete
@@ -150,7 +166,9 @@ interface SoundboardActivity {
 
 Desktop and phone indicators derive from that runtime event. In `multiple` mode
 the progress ring follows the newest voice, the sound remains active until all
-voices end, and the desktop shows an `xN` badge for overlapping instances.
+voices end, and the desktop shows an `xN` badge for overlapping instances. A
+loop omits `durationMs` and displays a slowly rotating half-ring instead of
+finite progress; reduced-motion mode leaves the half-ring static.
 
 ## Desktop UI
 
@@ -172,8 +190,8 @@ EXPANDED
 ┌────────────────────────────────────────────────────────────┐
 │ Soundboard                         + Folder  + Files   —  ▦ │
 ├────────────────────────────────────────────────────────────┤
-│ ◯ H  Bell       ───●── 70%  Restart  ▶  ⋯ │ ◯ F  Steps … │
-│ ◯ T  Thunder    ─────● 90%  Multiple ▶  ⋯ │ ◯ D  Door  … │
+│ ◯ H  Bell    70%  Restart  Pitch ±5%  ▶  ⋯ │ ◯ F  Steps … │
+│ ◯ T  Rain    60%  Loop     Pitch ±0%  ▶  ⋯ │ ◯ D  Door  … │
 └────────────────────────────────────────────────────────────┘
 
 COMPACT                    HIDDEN
@@ -220,7 +238,8 @@ touch targets.
 
 The circle uses authoritative engine activity rather than a fixed tap flash. It
 lights in the icon color when playback actually begins, displays a circular
-duration indicator, and turns off when the last voice ends. It also reacts when
+duration indicator for finite sounds, and turns off when the last voice ends. A
+loop shows the same rotating half-ring used by the desktop. It also reacts when
 the sound was triggered from the desktop keyboard, not only from the phone.
 
 ## WebSocket protocol
@@ -253,10 +272,10 @@ no-store` so a phone cannot remain on an older UI after the desktop app updates.
 
 ## Campaign export and import
 
-Campaign export format v3 includes soundboard metadata: name, configured
-volume, shortcut, icon, icon color, playback mode, known duration, and order.
-Absolute filesystem paths are deliberately excluded because they are both
-machine-specific and private.
+Campaign export format v4 includes soundboard metadata: name, configured volume,
+shortcut, icon, icon color, playback mode, pitch variation, known duration, and
+order. Absolute filesystem paths are deliberately excluded because they are
+both machine-specific and private.
 
 Import recreates the sound rows and their assignments with an empty local path,
 then warns that the audio files must be re-added on the destination computer.
@@ -272,8 +291,8 @@ These are deliberately outside the first version:
   extraction rules.
 - **Numbers and modifier combinations** — digits remain available for loops or
   other session-level controls; Ctrl, Alt, and Meta semantics are undecided.
-- **Loop and hold modes** — these need lifecycle controls distinct from
-  one-shot retrigger behaviour.
+- **Hold mode** — press-and-hold playback needs input lifecycle rules distinct
+  from the implemented toggle-based Loop mode.
 - **Random sound groups** — use an Ambient Layer today; a campaign-wide effect
   group may be added if a concrete play workflow requires it.
 - **Physical-key assignments** — `KeyboardEvent.code` could be offered as an
@@ -281,3 +300,6 @@ These are deliberately outside the first version:
   portable default.
 - **Remote authoring** — file selection, volume, icons, shortcut assignment, and
   mode editing stay on the computer that owns the files.
+
+Follow-up mixer, sound-group, ducking, and portable campaign proposals are tracked in
+[Planned Audio Features](PLANNED-AUDIO-FEATURES.md).

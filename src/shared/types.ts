@@ -23,11 +23,13 @@ export interface SoundboardSound {
   iconColor?: string
   /** Behavior when triggered again while this sound is active. */
   playbackMode: SoundboardPlaybackMode
+  /** Symmetric random playback-rate range, 0-20%. Changes pitch and speed together. */
+  pitchVariation?: number
   duration?: number
   order: number
 }
 
-export type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple'
+export type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple' | 'loop'
 
 export interface Climate {
   id: string
@@ -69,6 +71,8 @@ export interface AmbientLayer {
   enabled: boolean
   /** 0-100, relative to the master volume. */
   volume: number
+  /** Symmetric random playback-rate range, 0-20%. Changes pitch and speed together. */
+  pitchVariation?: number
   clips: AmbientClip[]
   clipOrder: AmbientClipOrder
   /** Random mode only: delay bounds, measured from when the last clip ended. */

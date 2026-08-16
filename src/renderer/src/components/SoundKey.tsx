@@ -66,7 +66,7 @@ export function SoundKey({
           stroke="var(--color-border)"
           strokeWidth="4"
         />
-        {playing && (
+        {playing && activity?.durationMs && (
           <circle
             cx="20"
             cy="20"
@@ -77,6 +77,19 @@ export function SoundKey({
             strokeLinecap="round"
             strokeDasharray={CIRCUMFERENCE}
             strokeDashoffset={CIRCUMFERENCE * (1 - progress)}
+          />
+        )}
+        {playing && !activity?.durationMs && (
+          <circle
+            className="origin-center animate-[spin_5s_linear_infinite] motion-reduce:animate-none"
+            cx="20"
+            cy="20"
+            r={RADIUS}
+            fill="none"
+            stroke="var(--color-accent)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={`${CIRCUMFERENCE / 2} ${CIRCUMFERENCE / 2}`}
           />
         )}
       </svg>

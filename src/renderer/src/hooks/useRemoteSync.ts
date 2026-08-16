@@ -170,6 +170,7 @@ export function useRemoteSync(): void {
       unsubSoundboard()
       unsubCommands()
       unsubConnection()
+      SoundboardEngine.getInstance().stopAll()
     }
   }, [])
 }

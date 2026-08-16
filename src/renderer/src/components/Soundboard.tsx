@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, FolderPlus, Grid3X3, Maximize2, Play, Plus, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  FolderPlus,
+  Grid3X3,
+  Maximize2,
+  Play,
+  Plus,
+  Square,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { SoundboardEngine, type SoundboardActivity } from '@/audio/SoundboardEngine'
 import { SoundKey } from '@/components/SoundKey'
@@ -81,6 +90,11 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   )
 
   useEffect(() => {
+    const engine = SoundboardEngine.getInstance()
+    return () => engine.stopAll()
+  }, [campaign.id])
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return
 
@@ -136,6 +150,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
         duration: validated.duration,
         volume: SOUNDBOARD_DEFAULTS.volume,
         playbackMode: 'restart',
+        pitchVariation: SOUNDBOARD_DEFAULTS.pitchVariation,
       })
       if (created) createdIds.push(created.id)
     }
@@ -272,11 +287,11 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                   Add local one-shot sounds to this campaign
                 </button>
               ) : (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,520px),1fr))] gap-px bg-border-subtle">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,680px),1fr))] gap-px bg-border-subtle">
                   {sounds.map((sound) => (
                     <div
                       key={sound.id}
-                      className="grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_32px_24px] items-center gap-2 bg-surface-1 px-3"
+                      className="grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_132px_32px_24px] items-center gap-2 bg-surface-1 px-3"
                     >
                       <SoundKey
                         letter={
@@ -328,6 +343,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         <option value="stop">Stop</option>
                         <option value="restart">Restart</option>
                         <option value="multiple">Multiple</option>
+                        <option value="loop">Loop</option>
                       </select>
                       <div className="flex items-center gap-2">
                         <Slider
@@ -341,20 +357,47 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                           {sound.volume}%
                         </span>
                       </div>
+                      <label className="flex items-center gap-2 text-[10px] text-text-tertiary">
+                        <Slider
+                          min={0}
+                          max={20}
+                          step={1}
+                          value={[sound.pitchVariation ?? 0]}
+                          className="w-14 shrink-0"
+                          aria-label={`${sound.name} pitch variation percent`}
+                          onValueChange={([pitchVariation]) =>
+                            updateSoundboardSound(campaign.id, sound.id, { pitchVariation })
+                          }
+                        />
+                        <span className="w-16 whitespace-nowrap text-right tabular-nums">
+                          Pitch ±{sound.pitchVariation ?? 0}%
+                        </span>
+                      </label>
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Play ${sound.name}`}
+                        aria-label={
+                          sound.playbackMode === 'loop' && activityById[sound.id]?.playing
+                            ? `Stop ${sound.name}`
+                            : `Play ${sound.name}`
+                        }
                         onClick={() => void play(sound)}
                       >
-                        <Play className="size-4 fill-current" />
+                        {sound.playbackMode === 'loop' && activityById[sound.id]?.playing ? (
+                          <Square className="size-3.5 fill-current" />
+                        ) : (
+                          <Play className="size-4 fill-current" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-xs"
                         className="text-text-tertiary hover:text-danger"
                         aria-label={`Delete ${sound.name}`}
-                        onClick={() => deleteSoundboardSound(campaign.id, sound.id)}
+                        onClick={() => {
+                          SoundboardEngine.getInstance().stop(sound.id)
+                          deleteSoundboardSound(campaign.id, sound.id)
+                        }}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>

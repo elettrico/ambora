@@ -224,16 +224,45 @@ button {
   background: var(--surface-1);
 }
 
-.soundboard__list {
+.soundboard__handle {
   display: flex;
+  align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  padding: 8px 12px;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
-.soundboard__list::-webkit-scrollbar {
+.soundboard__handle-label {
+  font-weight: 500;
+}
+
+.soundboard__handle-count {
+  flex: 1;
+  text-align: left;
+  opacity: 0.7;
+}
+
+.soundboard__handle-chevron {
+  display: flex;
+  align-items: center;
+}
+
+.soundboard__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 48px);
+  gap: 8px;
+  max-height: min(30dvh, 176px);
+  overflow-y: auto;
+  padding: 8px 12px;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid var(--surface-2);
+}
+
+.soundboard__list[hidden] {
   display: none;
 }
 
@@ -279,19 +308,33 @@ button {
   box-shadow: 0 0 12px color-mix(in srgb, var(--sound-color) 45%, transparent);
 }
 
-.soundboard__progress {
+.soundboard__indicator {
   position: absolute;
   inset: -3px;
   z-index: 2;
   border-radius: 50%;
   pointer-events: none;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+}
+
+.soundboard__progress {
   background: conic-gradient(
     var(--sound-color) 0deg,
     var(--sound-color) var(--progress-angle, var(--progress-start)),
     transparent var(--progress-angle, var(--progress-start))
   );
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
   animation: soundboard-progress var(--progress-duration) linear forwards;
+}
+
+.soundboard__loop {
+  background: conic-gradient(var(--sound-color) 0deg 180deg, transparent 180deg 360deg);
+  animation: soundboard-loop 5s linear infinite;
+}
+
+@keyframes soundboard-loop {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @property --progress-angle {
@@ -802,6 +845,10 @@ button {
   .soundboard__progress {
     animation: none;
     --progress-angle: 360deg;
+  }
+
+  .soundboard__loop {
+    animation: none;
   }
 
   .ambient-shot,

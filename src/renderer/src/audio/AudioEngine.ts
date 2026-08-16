@@ -1125,7 +1125,7 @@ export class AudioEngine {
       FADE_TO_SILENCE_DURATION,
       () => {
         channel.player?.pause()
-        this.updateStore({ isPlaying: false })
+        this.updateStore({ isPlaying: false, isFadingToSilence: false })
         useAudioStore.getState().clearAllFadeAnimations()
       },
     )
@@ -1155,7 +1155,7 @@ export class AudioEngine {
     this.ambient.fadeOut(FADE_TO_SILENCE_DURATION)
     setTimeout(() => {
       if (this.activationSeq !== mySeq) return
-      this.updateStore({ isPlaying: false })
+      this.updateStore({ isPlaying: false, isFadingToSilence: false })
       useAudioStore.getState().clearAllFadeAnimations()
     }, FADE_TO_SILENCE_DURATION * 1000)
   }

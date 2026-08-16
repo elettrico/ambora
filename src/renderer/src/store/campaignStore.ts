@@ -9,6 +9,7 @@ import type {
   Track,
 } from '@/lib/types'
 import { DEFAULTS, CLIMATE_COLORS, CLIMATE_ICONS, AMBIENT_DEFAULTS } from '@/lib/constants'
+import { clampPitchVariation } from '@/audio/playbackVariation'
 
 interface CampaignStore {
   campaigns: Campaign[]
@@ -97,7 +98,7 @@ interface CampaignStore {
     updates: Partial<
       Pick<
         SoundboardSound,
-        'name' | 'volume' | 'shortcutKey' | 'icon' | 'iconColor' | 'playbackMode'
+        'name' | 'volume' | 'shortcutKey' | 'icon' | 'iconColor' | 'playbackMode' | 'pitchVariation'
       >
     >,
   ) => void
@@ -158,6 +159,33 @@ function mapLayer(
   }
 }
 
+function normalizePitchVariation(campaign: Campaign): Campaign {
+  return {
+    ...campaign,
+    ...(campaign.soundboard
+      ? {
+          soundboard: campaign.soundboard.map((sound) =>
+            sound.pitchVariation === undefined
+              ? sound
+              : { ...sound, pitchVariation: clampPitchVariation(sound.pitchVariation) },
+          ),
+        }
+      : {}),
+    climates: campaign.climates.map((climate) => ({
+      ...climate,
+      ...(climate.ambientLayers
+        ? {
+            ambientLayers: climate.ambientLayers.map((layer) =>
+              layer.pitchVariation === undefined
+                ? layer
+                : { ...layer, pitchVariation: clampPitchVariation(layer.pitchVariation) },
+            ),
+          }
+        : {}),
+    })),
+  }
+}
+
 export const useCampaignStore = create<CampaignStore>((set, get) => ({
   campaigns: [],
   activeCampaignId: null,
@@ -165,12 +193,13 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
 
   loadCampaigns: async () => {
     const result = await window.api.getCampaigns()
-    set({ campaigns: result.campaigns, isLoaded: true })
-    return result
+    const campaigns = result.campaigns.map(normalizePitchVariation)
+    set({ campaigns, isLoaded: true })
+    return { ...result, campaigns }
   },
 
   importCampaign: (campaign) => {
-    const campaigns = [...get().campaigns, campaign]
+    const campaigns = [...get().campaigns, normalizePitchVariation(campaign)]
     set({ campaigns })
     persist(campaigns)
   },
@@ -391,6 +420,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       mode: 'loop',
       enabled: true,
       volume: AMBIENT_DEFAULTS.volume,
+      pitchVariation: AMBIENT_DEFAULTS.pitchVariation,
       clips: clips.map((clip, i) => ({ ...clip, id: crypto.randomUUID(), order: i })),
       clipOrder: 'shuffle',
       minDelaySec: AMBIENT_DEFAULTS.minDelaySec,
@@ -411,6 +441,9 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     const campaigns = mapClimate(get().campaigns, campaignId, climateId, (cl) =>
       mapLayer(cl, layerId, (layer) => {
         const next = { ...layer, ...updates }
+        if (updates.pitchVariation !== undefined) {
+          next.pitchVariation = clampPitchVariation(updates.pitchVariation)
+        }
         // Keep the window valid however the two fields are edited, so scheduling
         // never sees max < min.
         if (updates.minDelaySec !== undefined && next.maxDelaySec < next.minDelaySec) {
@@ -546,12 +579,16 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   },
 
   updateSoundboardSound: (campaignId, soundId, updates) => {
+    const safeUpdates =
+      updates.pitchVariation === undefined
+        ? updates
+        : { ...updates, pitchVariation: clampPitchVariation(updates.pitchVariation) }
     const campaigns = get().campaigns.map((c) =>
       c.id === campaignId
         ? {
             ...c,
             soundboard: (c.soundboard ?? []).map((sound) =>
-              sound.id === soundId ? { ...sound, ...updates } : sound,
+              sound.id === soundId ? { ...sound, ...safeUpdates } : sound,
             ),
             updatedAt: now(),
           }

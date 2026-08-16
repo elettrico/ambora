@@ -287,6 +287,12 @@ export function AmbientLayerRow({
 
         <span className="shrink-0 text-[11px] text-text-tertiary">{modeSummary(layer)}</span>
 
+        {(layer.pitchVariation ?? 0) > 0 && (
+          <span className="shrink-0 text-[11px] text-text-tertiary">
+            Pitch ±{layer.pitchVariation}%
+          </span>
+        )}
+
         {clips.length === 0 ? (
           <TooltipProvider>
             <Tooltip>
@@ -442,6 +448,21 @@ export function AmbientLayerRow({
                 </span>
               </div>
             )}
+            <label className="flex min-w-[220px] items-center gap-3">
+              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                Pitch ±{layer.pitchVariation ?? 0}%
+              </span>
+              <Slider
+                min={0}
+                max={20}
+                step={1}
+                value={[layer.pitchVariation ?? 0]}
+                aria-label={`${layer.name} pitch variation percent`}
+                onValueChange={([pitchVariation]) =>
+                  updateAmbientLayer(campaignId, climateId, layer.id, { pitchVariation })
+                }
+              />
+            </label>
           </div>
 
           {clips.length > 1 && (

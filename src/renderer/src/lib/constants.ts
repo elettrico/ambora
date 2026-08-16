@@ -59,6 +59,7 @@ export const AMBIENT_DEFAULTS = {
   minDelayBound: 1,
   maxDelayBound: 600,
   maxLayers: 12,
+  pitchVariation: 0,
   /** Fade applied when a single layer is toggled, so loops don't click. */
   toggleFadeSec: 0.4,
 } as const
@@ -66,6 +67,7 @@ export const AMBIENT_DEFAULTS = {
 export const SOUNDBOARD_DEFAULTS = {
   volume: 70,
   maxSounds: 26,
+  pitchVariation: 0,
 } as const
 
 export const SOUNDBOARD_ICONS = [

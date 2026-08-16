@@ -317,6 +317,8 @@
   // ── Ambient Drawer State ──
   var AMBIENT_OPEN_KEY = 'ambora.ambient.open'
   var ambientOpen = false
+  var SOUNDBOARD_OPEN_KEY = 'ambora.soundboard.open'
+  var soundboardOpen = false
   // Signature of the rendered layer set. The panel is only rebuilt when this
   // changes, so a state push can't yank a slider out from under a dragging thumb.
   var ambientSignature = null
@@ -350,6 +352,9 @@
     dom.ambientCount = document.getElementById('ambient-count')
     dom.ambientChevron = document.getElementById('ambient-chevron')
     dom.soundboard = document.getElementById('soundboard')
+    dom.soundboardHandle = document.getElementById('soundboard-handle')
+    dom.soundboardCount = document.getElementById('soundboard-count')
+    dom.soundboardChevron = document.getElementById('soundboard-chevron')
     dom.soundboardList = document.getElementById('soundboard-list')
   }
 
@@ -695,6 +700,7 @@
     }
 
     dom.soundboard.hidden = false
+    dom.soundboardCount.textContent = String(sounds.length)
     var html = ''
     for (var i = 0; i < sounds.length; i++) {
       var sound = sounds[i]
@@ -723,14 +729,30 @@
     dom.soundboardList.innerHTML = html
   }
 
+  function setSoundboardOpen(open) {
+    soundboardOpen = open
+    dom.soundboardList.hidden = !open
+    dom.soundboardHandle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    dom.soundboardChevron.innerHTML = icon(open ? 'ChevronDown' : 'ChevronUp', 16)
+    try {
+      localStorage.setItem(SOUNDBOARD_OPEN_KEY, open ? '1' : '0')
+    } catch (e) {
+      // Private browsing or storage disabled — the drawer just won't persist.
+    }
+  }
+
   function soundboardProgress(activity) {
-    if (!activity || !activity.playing || !activity.startedAtMs || !activity.durationMs) return ''
+    if (!activity || !activity.playing) return ''
+    if (!activity.durationMs) {
+      return '<span class="soundboard__indicator soundboard__loop" aria-hidden="true"></span>'
+    }
+    if (!activity.startedAtMs) return ''
     var elapsed = Math.max(0, Date.now() - activity.startedAtMs)
     var remaining = Math.max(0, activity.durationMs - elapsed)
     if (remaining === 0) return ''
     var progress = Math.min(1, elapsed / activity.durationMs)
     return (
-      '<span class="soundboard__progress" aria-hidden="true" style="--progress-start:' +
+      '<span class="soundboard__indicator soundboard__progress" aria-hidden="true" style="--progress-start:' +
       String(progress * 360) +
       'deg;--progress-duration:' +
       String(remaining) +
@@ -743,8 +765,8 @@
     if (!key) return
     var activity = state.soundboardRuntime[soundId]
     key.classList.toggle('playing', !!(activity && activity.playing))
-    var oldProgress = key.querySelector('.soundboard__progress')
-    if (oldProgress) oldProgress.parentNode.removeChild(oldProgress)
+    var oldIndicator = key.querySelector('.soundboard__indicator')
+    if (oldIndicator) oldIndicator.parentNode.removeChild(oldIndicator)
     var progressHtml = soundboardProgress(activity)
     if (progressHtml) key.insertAdjacentHTML('beforeend', progressHtml)
   }
@@ -1063,6 +1085,10 @@
       setAmbientOpen(!ambientOpen)
     })
 
+    dom.soundboardHandle.addEventListener('click', function () {
+      setSoundboardOpen(!soundboardOpen)
+    })
+
     // Layer toggles — event delegation
     dom.ambientLayers.addEventListener('click', function (e) {
       var toggle = e.target.closest('.ambient-layer__toggle')
@@ -1193,6 +1219,14 @@
       // Storage unavailable — fall back to collapsed.
     }
     setAmbientOpen(storedOpen === '1')
+
+    var storedSoundboardOpen = null
+    try {
+      storedSoundboardOpen = localStorage.getItem(SOUNDBOARD_OPEN_KEY)
+    } catch (e) {
+      // Storage unavailable — fall back to collapsed.
+    }
+    setSoundboardOpen(storedSoundboardOpen === '1')
 
     bindEvents()
     renderAll()
