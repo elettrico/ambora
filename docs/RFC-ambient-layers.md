@@ -23,6 +23,7 @@ bundle of audio clips plus a rule for when they fire.
 | **Loop**     | One clip loops continuously (wind, rain, tavern murmur).                    |
 | **Random**   | Picks a clip, plays it, waits a random delay, repeats.                      |
 | **One-shot** | Never fires on its own; the GM triggers it (raven, scream, distant scream). |
+| **Sequence** | On trigger, plays every clip back-to-back using the configured pick order.  |
 
 For Random, the delay is drawn from `[minDelay, maxDelay]` and measured **from
 when the previous clip finished**, so clips within a layer never overlap
@@ -32,7 +33,8 @@ immediately rather than dead for the first 30 seconds.
 
 ### Clip selection
 
-When a layer has several clips, `clipOrder` decides which one plays:
+When a layer has several clips, `clipOrder` decides which one plays next. In
+Sequence mode it determines the order of the complete back-to-back run:
 
 - **Shuffle** (default) — a shuffle bag: every clip plays once per cycle before
   any repeats, and a cycle never starts with the clip that just played. This is
@@ -60,7 +62,7 @@ nothing to include all three.
 ### Data model
 
 ```ts
-type AmbientMode = 'loop' | 'random' | 'oneshot'
+type AmbientMode = 'loop' | 'random' | 'oneshot' | 'sequence'
 type AmbientClipOrder = 'shuffle' | 'random' | 'sequential'
 
 interface AmbientClip {
@@ -157,6 +159,7 @@ layers stays readable:
 A collapsed row shows everything needed to judge a layer at a glance: on/off,
 name, mode summary, volume, and a ▶ button to audition it. Expanding reveals the
 mode selector, the clip list with a drop zone, and the min/max delay inputs.
+Previewing a Sequence auditions its complete run rather than one clip.
 
 Dropping audio files onto the Ambient tab creates one Loop layer per file, named
 from the filename. Dropping files onto an expanded layer adds them as clips to
@@ -191,6 +194,13 @@ COLLAPSED              EXPANDED
 
 One-shot pads flash when they fire, so the GM gets confirmation without hearing
 the room. All touch targets stay at 44×44px minimum.
+
+On desktop, the active Climate card also exposes its One-shot and Sequence
+layers directly below the track/ambient count. Each button draws a bottom-edge
+progress bar that drains for the duration of the current clip or sequence.
+Climate and layer warning badges drill down to the affected file; clicking the
+file warning opens a relink picker that preserves the authored layer and clip
+settings.
 
 ### WebSocket protocol
 

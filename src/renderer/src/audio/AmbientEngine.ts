@@ -43,6 +43,11 @@ interface Playback {
   gain: GainNode
 }
 
+interface SequenceClip {
+  buffer: AudioBuffer
+  playbackRate: number
+}
+
 interface LiveLayer {
   layer: AmbientLayer
   gain: GainNode
@@ -66,6 +71,8 @@ interface LiveLayer {
   volume: number
   /** Mode + clip set. A change here means the layer must be re-armed. */
   structuralKey: string
+  /** Invalidates an in-flight sequence when it is retriggered or stopped. */
+  sequenceRun: number
 }
 
 interface Stack {
@@ -81,7 +88,7 @@ interface Stack {
 const CHOKE_FADE_SEC = 0.06
 
 function structuralKeyOf(layer: AmbientLayer): string {
-  return [layer.mode, ...sortedClips(layer).map((c) => c.id)].join('|')
+  return [layer.mode, ...sortedClips(layer).map((c) => `${c.id}:${c.localFilePath}`)].join('|')
 }
 
 function sameRuntime(
@@ -98,7 +105,9 @@ function sameRuntime(
       left.enabled !== right.enabled ||
       left.volume !== right.volume ||
       left.triggeredAt !== right.triggeredAt ||
-      left.sounding !== right.sounding
+      left.sounding !== right.sounding ||
+      left.playbackStartedAt !== right.playbackStartedAt ||
+      left.playbackDurationMs !== right.playbackDurationMs
     ) {
       return false
     }
@@ -112,6 +121,24 @@ function runtimeDefaults(layers: readonly AmbientLayer[]): Record<string, Ambien
     runtime[layer.id] = { enabled: layer.enabled, volume: layer.volume }
   }
   return runtime
+}
+
+/** A sequence contains every clip exactly once; the pick mode only orders the run. */
+function sequenceClips(
+  clips: readonly AmbientClip[],
+  layer: AmbientLayer,
+  selector: AmbientClipSelector,
+): AmbientClip[] {
+  if (layer.clipOrder === 'sequential') return [...clips]
+  if (layer.clipOrder === 'shuffle') {
+    return Array.from({ length: clips.length }, () => clips[selector.next(clips, 'shuffle')])
+  }
+  const randomized = [...clips]
+  for (let i = randomized.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[randomized[i], randomized[j]] = [randomized[j], randomized[i]]
+  }
+  return randomized
 }
 
 export class AmbientEngine {
@@ -130,6 +157,7 @@ export class AmbientEngine {
   private volumeUnsub: (() => void) | null = null
 
   private auditionSource: AudioBufferSourceNode | null = null
+  private auditionRun = 0
   private onClipDuration: ((localFilePath: string, duration: number) => void) | null = null
 
   private static readonly MAX_PARALLEL_DECODES = 2
@@ -362,6 +390,7 @@ export class AmbientEngine {
       enabled: layer.enabled,
       volume: layer.volume,
       structuralKey: structuralKeyOf(layer),
+      sequenceRun: 0,
     }
   }
 
@@ -529,22 +558,84 @@ export class AmbientEngine {
     }
   }
 
-  /** Fire a one-shot layer. No-op for a layer that's disabled or has no clips. */
+  /** Fire a one-shot or sequence layer. No-op when disabled or empty. */
   triggerLayer(layerId: string): void {
     const stack = this.stack
     const live = stack?.layers.get(layerId)
-    if (!stack || !live || !stack.running || !live.enabled) return
+    if (!stack || !live || !stack.running) return
+
+    // One-shots are explicit controls. If this layer was initially disabled,
+    // pressing its climate-card button is also the user's request to enable it
+    // for the current session. Without this, the button was visible but could
+    // never be used from the grid.
+    if (!live.enabled) {
+      if (live.layer.mode !== 'oneshot' && live.layer.mode !== 'sequence') return
+      this.setLayerEnabled(layerId, true)
+    }
 
     const clips = sortedClips(live.layer)
     if (clips.length === 0) return
 
     useAudioStore.getState().markAmbientLayerTriggered(layerId)
 
+    if (live.layer.mode === 'sequence') {
+      void this.triggerSequence(stack, live, clips)
+      return
+    }
+
     const clip = clips[live.selector.next(clips, live.layer.clipOrder)]
     void this.getBuffer(clip).then((buffer) => {
       if (!buffer || stack.disposed || !stack.running || !live.enabled) return
       this.playClip(live, buffer, false)
     })
+  }
+
+  private async triggerSequence(
+    stack: Stack,
+    live: LiveLayer,
+    clips: readonly AmbientClip[],
+  ): Promise<void> {
+    const run = ++live.sequenceRun
+    this.chokeLayer(live)
+
+    const ordered = sequenceClips(clips, live.layer, live.selector)
+    const decoded = await Promise.all(
+      ordered.map(async (clip): Promise<SequenceClip | null> => {
+        const buffer = await this.getBuffer(clip)
+        if (!buffer) return null
+        return { buffer, playbackRate: randomPlaybackRate(live.layer.pitchVariation) }
+      }),
+    )
+    const playable = decoded.filter((clip): clip is SequenceClip => clip !== null)
+    if (
+      playable.length === 0 ||
+      run !== live.sequenceRun ||
+      stack.disposed ||
+      !stack.running ||
+      !live.enabled
+    ) {
+      return
+    }
+
+    const durationMs =
+      playable.reduce((total, clip) => total + clip.buffer.duration / clip.playbackRate, 0) * 1000
+    useAudioStore.getState().setAmbientLayerProgress(live.layer.id, Date.now(), durationMs)
+
+    const playNext = (index: number): void => {
+      if (
+        index >= playable.length ||
+        run !== live.sequenceRun ||
+        stack.disposed ||
+        !stack.running ||
+        !live.enabled
+      ) {
+        return
+      }
+      const clip = playable[index]
+      const { source } = this.playClip(live, clip.buffer, false, clip.playbackRate, false)
+      source.addEventListener('ended', () => playNext(index + 1))
+    }
+    playNext(0)
   }
 
   // ── Editor audition ──────────────────────────────────────────────────────
@@ -560,9 +651,32 @@ export class AmbientEngine {
     const clips = sortedClips(layer)
     if (clips.length === 0) return
 
+    // Create/resume the graph while this method is still running directly from
+    // the user's click. Waiting for file I/O first can lose the browser's user
+    // activation and leave a suspended AudioContext silent on some platforms.
     const ctx = this.ensureGraph()
+    const run = this.auditionRun
+    useAudioStore.getState().setAuditioningLayerId(layer.id)
+
+    if (layer.mode === 'sequence') {
+      const selector = new AmbientClipSelector()
+      const ordered = sequenceClips(clips, layer, selector)
+      const buffers = await Promise.all(ordered.map((clip) => this.getBuffer(clip)))
+      if (run !== this.auditionRun) return
+      const playable = buffers.filter((buffer): buffer is AudioBuffer => buffer !== null)
+      if (playable.length === 0) {
+        useAudioStore.getState().setAuditioningLayerId(null)
+        return
+      }
+      this.playAuditionSequence(layer, playable, 0, run)
+      return
+    }
+
     const clip = clips[Math.floor(Math.random() * clips.length)]
     const buffer = await this.getBuffer(clip)
+    // A second click or a different layer may have cancelled this load while
+    // it was decoding. Never let the stale request start afterwards.
+    if (run !== this.auditionRun) return
     if (!buffer) {
       useAudioStore.getState().setAuditioningLayerId(null)
       return
@@ -586,11 +700,11 @@ export class AmbientEngine {
     })
 
     this.auditionSource = source
-    useAudioStore.getState().setAuditioningLayerId(layer.id)
     source.start()
   }
 
   stopAudition(): void {
+    this.auditionRun++
     const source = this.auditionSource
     this.auditionSource = null
     useAudioStore.getState().setAuditioningLayerId(null)
@@ -600,6 +714,34 @@ export class AmbientEngine {
     } catch {
       // Already stopped — nothing to do.
     }
+  }
+
+  private playAuditionSequence(
+    layer: AmbientLayer,
+    buffers: readonly AudioBuffer[],
+    index: number,
+    run: number,
+  ): void {
+    if (run !== this.auditionRun || index >= buffers.length) {
+      if (run === this.auditionRun) useAudioStore.getState().setAuditioningLayerId(null)
+      return
+    }
+    const ctx = this.ensureGraph()
+    const gain = ctx.createGain()
+    gain.gain.value = layer.volume / 100
+    gain.connect(this.auditionGain!)
+    const source = ctx.createBufferSource()
+    source.buffer = buffers[index]
+    source.playbackRate.value = randomPlaybackRate(layer.pitchVariation)
+    source.connect(gain)
+    source.addEventListener('ended', () => {
+      source.disconnect()
+      gain.disconnect()
+      if (this.auditionSource === source) this.auditionSource = null
+      this.playAuditionSequence(layer, buffers, index + 1, run)
+    })
+    this.auditionSource = source
+    source.start()
   }
 
   // ── Scheduling ───────────────────────────────────────────────────────────
@@ -621,6 +763,7 @@ export class AmbientEngine {
         this.scheduleNext(stack, live)
         break
       case 'oneshot':
+      case 'sequence':
         // Fires only when the GM triggers it.
         break
     }
@@ -696,7 +839,13 @@ export class AmbientEngine {
    * One layer is one sound source — overlapping a layer with itself turns
    * "a raven" into a flock and makes level control meaningless.
    */
-  private playClip(live: LiveLayer, buffer: AudioBuffer, loop: boolean): Playback {
+  private playClip(
+    live: LiveLayer,
+    buffer: AudioBuffer,
+    loop: boolean,
+    playbackRate = randomPlaybackRate(live.layer.pitchVariation),
+    publishProgress = true,
+  ): Playback {
     if (live.sources.size > 0) this.chokeLayer(live)
 
     const ctx = this.ctx!
@@ -707,7 +856,7 @@ export class AmbientEngine {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.loop = loop
-    source.playbackRate.value = randomPlaybackRate(live.layer.pitchVariation)
+    source.playbackRate.value = playbackRate
     source.connect(gain)
 
     const playback: Playback = { source, gain }
@@ -722,6 +871,11 @@ export class AmbientEngine {
 
     source.start()
     this.setSounding(live, true)
+    if (!loop && publishProgress) {
+      useAudioStore
+        .getState()
+        .setAmbientLayerProgress(live.layer.id, Date.now(), (buffer.duration / playbackRate) * 1000)
+    }
     return playback
   }
 
@@ -749,6 +903,10 @@ export class AmbientEngine {
         fadeSec * 1000 + 20,
       )
     }
+    // The voices have been removed from the layer immediately. Publish that
+    // logical state now instead of waiting for a delayed `ended` event, which
+    // left the UI claiming the layer was sounding during a decode/retrigger gap.
+    if (live.sources.size === 0) this.setSounding(live, false)
   }
 
   /** Publishes "this layer has audio playing right now" for the UI indicators. */
@@ -763,6 +921,7 @@ export class AmbientEngine {
   }
 
   private stopLayerSources(live: LiveLayer): void {
+    live.sequenceRun++
     for (const { source, gain } of [...live.sources]) {
       try {
         source.stop()

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload } from 'lucide-react'
 import {
   Dialog,
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import type { Track } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
+import { validateLocalAudioFile, validateLocalAudioPath } from '@/lib/validateLocalAudio'
 
 interface AddTrackDialogProps {
   open: boolean
@@ -27,8 +27,6 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null
 }
 
-import { ACCEPTED_AUDIO } from '@/lib/constants'
-
 export function AddTrackDialog({
   open,
   onOpenChange,
@@ -38,7 +36,6 @@ export function AddTrackDialog({
   const [isDragOver, setIsDragOver] = useState(false)
   const [fetchedTitle, setFetchedTitle] = useState<string | null>(null)
   const [isFetchingTitle, setIsFetchingTitle] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const videoId = extractVideoId(youtubeUrl)
   const isValidYoutube = videoId !== null
@@ -111,6 +108,23 @@ export function AddTrackDialog({
     handleFiles(e.dataTransfer.files)
   }
 
+  async function handleBrowse(): Promise<void> {
+    const files = await window.api.pickAudioFiles({ multiple: true })
+    let added = 0
+    for (const file of files) {
+      const validated = await validateLocalAudioPath(file.localFilePath, file.name)
+      if (!validated) continue
+      onAddTrack({
+        source: 'local',
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
+      })
+      added++
+    }
+    if (added > 0) onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px]">
@@ -160,7 +174,7 @@ export function AddTrackDialog({
                   ? 'border-accent bg-accent-muted'
                   : 'border-border hover:border-text-tertiary',
               )}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => void handleBrowse()}
               onDragOver={(e) => {
                 e.preventDefault()
                 setIsDragOver(true)
@@ -174,14 +188,6 @@ export function AddTrackDialog({
               </span>
               <span className="text-[11px] text-text-tertiary">MP3, WAV, OGG, FLAC</span>
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_AUDIO}
-              multiple
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
-            />
           </TabsContent>
         </Tabs>
       </DialogContent>

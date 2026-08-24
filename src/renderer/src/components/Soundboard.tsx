@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   FolderPlus,
@@ -18,8 +18,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ACCEPTED_AUDIO, ACCEPTED_AUDIO_EXTENSIONS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
-import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
+import { ACCEPTED_AUDIO_EXTENSIONS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
+import {
+  validateLocalAudioFile,
+  validateLocalAudioPath,
+  type ValidatedLocalAudio,
+} from '@/lib/validateLocalAudio'
 import { SOUND_ICON_MAP, type SoundboardIconName } from '@/lib/soundIconMap'
 import { useCampaignStore } from '@/store/campaignStore'
 import type { Campaign, SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
@@ -66,8 +70,6 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [activityById, setActivityById] = useState<Record<string, SoundboardActivity>>({})
   const [isDragOver, setIsDragOver] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const folderInputRef = useRef<HTMLInputElement>(null)
   const assignedSounds = sounds.filter((sound) => sound.shortcutKey)
 
   useEffect(() => {
@@ -135,16 +137,9 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [assigningId, campaign.id, play, sounds, updateSoundboardSound])
 
-  async function addFiles(files: FileList | File[] | null): Promise<void> {
-    if (!files) return
-    const audioFiles = Array.from(files).filter((file) => {
-      const extension = file.name.substring(file.name.lastIndexOf('.')).toLocaleLowerCase()
-      return ACCEPTED_AUDIO_EXTENSIONS.includes(extension)
-    })
+  function addValidatedSounds(validatedFiles: ValidatedLocalAudio[]): void {
     const createdIds: string[] = []
-    for (const file of audioFiles) {
-      const validated = await validateLocalAudioFile(file)
-      if (!validated) continue
+    for (const validated of validatedFiles) {
       const created = addSoundboardSound(campaign.id, {
         name: validated.title.replace(/\.[^.]+$/, ''),
         localFilePath: validated.localFilePath,
@@ -158,11 +153,35 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
     if (createdIds.length === 1) setAssigningId(createdIds[0])
     if (createdIds.length > 0) {
       toast.success(`${String(createdIds.length)} sound${createdIds.length === 1 ? '' : 's'} added`)
-    } else if (audioFiles.length === 0 && files.length > 0) {
+    }
+  }
+
+  async function addFiles(files: FileList | File[] | null): Promise<void> {
+    if (!files) return
+    const audioFiles = Array.from(files).filter((file) => {
+      const extension = file.name.substring(file.name.lastIndexOf('.')).toLocaleLowerCase()
+      return ACCEPTED_AUDIO_EXTENSIONS.includes(extension)
+    })
+    const validatedFiles: ValidatedLocalAudio[] = []
+    for (const file of audioFiles) {
+      const validated = await validateLocalAudioFile(file)
+      if (!validated) continue
+      validatedFiles.push(validated)
+    }
+    addValidatedSounds(validatedFiles)
+    if (audioFiles.length === 0 && files.length > 0) {
       toast.error('No supported audio files found')
     }
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    if (folderInputRef.current) folderInputRef.current.value = ''
+  }
+
+  async function browseSounds(directory = false): Promise<void> {
+    const files = await window.api.pickAudioFiles({ multiple: !directory, directory })
+    const validatedFiles: ValidatedLocalAudio[] = []
+    for (const file of files) {
+      const validated = await validateLocalAudioPath(file.localFilePath, file.name)
+      if (validated) validatedFiles.push(validated)
+    }
+    addValidatedSounds(validatedFiles)
   }
 
   return (
@@ -197,30 +216,12 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                 </span>
               )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_AUDIO}
-              multiple
-              className="hidden"
-              onChange={(event) => void addFiles(event.target.files)}
-            />
-            <input
-              ref={(node) => {
-                folderInputRef.current = node
-                node?.setAttribute('webkitdirectory', '')
-              }}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(event) => void addFiles(event.target.files)}
-            />
             {panelMode !== 'hidden' && (
               <>
-                <Button variant="ghost" size="sm" onClick={() => folderInputRef.current?.click()}>
+                <Button variant="ghost" size="sm" onClick={() => void browseSounds(true)}>
                   <FolderPlus className="size-4" /> Add folder
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Button variant="ghost" size="sm" onClick={() => void browseSounds()}>
                   <Plus className="size-4" /> Add sound
                 </Button>
               </>
@@ -283,7 +284,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                 <button
                   type="button"
                   className="flex w-full items-center justify-center py-8 text-[13px] text-text-tertiary hover:text-text-secondary"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => void browseSounds()}
                 >
                   Add local one-shot sounds to this campaign
                 </button>

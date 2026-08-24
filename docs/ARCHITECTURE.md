@@ -49,6 +49,8 @@ Dual-channel crossfade system with channels A and B that alternate:
 2. Climate switch: load new on inactive channel, crossfade both simultaneously
 3. Track ends: crossfade to next track within the climate
 4. Supports both local files (Web Audio API) and YouTube (IFrame API)
+5. Each climate stores a music-volume multiplier; effective music output is
+   `Master × Climate Music Volume`, independently of Ambient and Soundboard
 
 ## Ambient Engine
 

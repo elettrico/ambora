@@ -39,6 +39,8 @@ export interface Climate {
   tracks: Track[]
   order: number
   crossfadeDuration: number
+  /** Per-climate music level, relative to the global master volume. */
+  musicVolume?: number
   /**
    * Optional so campaigns saved before ambient layers existed load unchanged —
    * treat `undefined` as an empty list everywhere.
@@ -46,7 +48,7 @@ export interface Climate {
   ambientLayers?: AmbientLayer[]
 }
 
-export type AmbientMode = 'loop' | 'random' | 'oneshot'
+export type AmbientMode = 'loop' | 'random' | 'oneshot' | 'sequence'
 
 /** How a layer picks its next clip when it has more than one. */
 export type AmbientClipOrder = 'shuffle' | 'random' | 'sequential'
@@ -61,6 +63,12 @@ export interface AmbientClip {
   localFilePath: string
   duration?: number
   order: number
+}
+
+/** File selected by the main-process audio picker. */
+export interface PickedAudioFile {
+  name: string
+  localFilePath: string
 }
 
 export interface AmbientLayer {
@@ -97,6 +105,9 @@ export interface AmbientLayerRuntime {
    * rather than having to trust that the timer is running.
    */
   sounding?: boolean
+  /** Timing for the current one-shot/sequence, used by compact playback controls. */
+  playbackStartedAt?: number
+  playbackDurationMs?: number
 }
 
 export interface Track {

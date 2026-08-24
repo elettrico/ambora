@@ -11,6 +11,7 @@ interface TrackListItemProps {
   onDelete: (trackId: string) => void
   climateColor?: string
   onPlay?: (trackId: string) => void
+  onRelocate: (trackId: string, localFilePath: string, fileName: string) => void | Promise<void>
 }
 
 export function TrackListItem({
@@ -18,9 +19,12 @@ export function TrackListItem({
   onDelete,
   climateColor,
   onPlay,
+  onRelocate,
 }: TrackListItemProps): React.JSX.Element {
   const [isRemoving, setIsRemoving] = useState(false)
   const diagnostic = useDiagnosticsStore((s) => s.unplayable[track.id])
+  const missingLocalFile = track.source === 'local' && !track.localFilePath?.trim()
+  const problemReason = diagnostic?.reason ?? (missingLocalFile ? 'Audio file is missing' : null)
 
   function handleDelete(): void {
     setIsRemoving(true)
@@ -55,18 +59,34 @@ export function TrackListItem({
         <Music className="size-4 shrink-0 text-text-secondary" />
       )}
       <span className="min-w-0 flex-1 truncate text-[13px] text-text-primary">{track.title}</span>
-      {diagnostic && (
+      {problemReason && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <AlertTriangle
-                className="size-3.5 shrink-0 text-amber-400"
-                aria-label={`Unplayable: ${diagnostic.reason}`}
-              />
+              {track.source === 'local' ? (
+                <button
+                  type="button"
+                  className="flex size-6 shrink-0 items-center justify-center rounded text-amber-400 hover:bg-amber-500/10"
+                  onClick={() => {
+                    void window.api.pickAudioFiles({}).then(([file]) => {
+                      if (file) void onRelocate(track.id, file.localFilePath, file.name)
+                    })
+                  }}
+                  aria-label={`Relocate ${track.title}: ${problemReason}`}
+                >
+                  <AlertTriangle className="size-3.5" />
+                </button>
+              ) : (
+                <AlertTriangle
+                  className="size-3.5 shrink-0 text-amber-400"
+                  aria-label={`Unplayable: ${problemReason}`}
+                />
+              )}
             </TooltipTrigger>
             <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
               <p className="font-medium">This track can&rsquo;t be played</p>
-              <p className="text-text-secondary">{diagnostic.reason}</p>
+              <p className="text-text-secondary">{problemReason}</p>
+              {track.source === 'local' && <p className="text-accent">Click to locate the file</p>}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

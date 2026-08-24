@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -27,18 +27,56 @@ import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { useInlineEdit } from '@/hooks/useInlineEdit'
-import { ACCEPTED_AUDIO, AMBIENT_DEFAULTS } from '@/lib/constants'
+import { AMBIENT_DEFAULTS } from '@/lib/constants'
 import { parseDelaySec } from '@/lib/parseDelaySec'
 import { cn, formatDuration } from '@/lib/utils'
-import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
+import { validateLocalAudioFile, validateLocalAudioPath } from '@/lib/validateLocalAudio'
 import type { AmbientClip, AmbientClipOrder, AmbientLayer, AmbientMode } from '@/lib/types'
+import { toast } from 'sonner'
 
 type DelayField = 'minDelaySec' | 'maxDelaySec'
+
+function RelinkClipWarning({
+  clip,
+  reason,
+  onRelink,
+}: {
+  clip: AmbientClip
+  reason: string
+  onRelink: (localFilePath: string, fileName: string) => void | Promise<void>
+}): React.JSX.Element {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="flex size-6 shrink-0 items-center justify-center rounded text-amber-400 hover:bg-amber-500/10"
+            onClick={() => {
+              void window.api.pickAudioFiles({}).then(([file]) => {
+                if (file) void onRelink(file.localFilePath, file.name)
+              })
+            }}
+            aria-label={`Relocate ${clip.title}: ${reason}`}
+          >
+            <AlertTriangle className="size-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
+          <p className="font-medium">This clip can&rsquo;t be played</p>
+          <p className="text-text-secondary">{reason}</p>
+          <p className="text-accent">Click to locate the file</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 const MODES: { value: AmbientMode; label: string }[] = [
   { value: 'loop', label: 'Loop' },
   { value: 'random', label: 'Random' },
   { value: 'oneshot', label: 'One-shot' },
+  { value: 'sequence', label: 'Sequence' },
 ]
 
 const CLIP_ORDERS: { value: AmbientClipOrder; label: string; hint: string }[] = [
@@ -55,6 +93,8 @@ function modeSummary(layer: AmbientLayer): string {
       return `Random ${String(layer.minDelaySec)}–${String(layer.maxDelaySec)}s`
     case 'oneshot':
       return 'One-shot'
+    case 'sequence':
+      return 'Sequence'
   }
 }
 
@@ -74,8 +114,13 @@ export function AmbientLayerRow({
   climateColor,
   copyTargets,
 }: AmbientLayerRowProps): React.JSX.Element {
-  const { updateAmbientLayer, deleteAmbientLayer, addAmbientClips, removeAmbientClip } =
-    useCampaignStore()
+  const {
+    updateAmbientLayer,
+    deleteAmbientLayer,
+    addAmbientClips,
+    removeAmbientClip,
+    relinkAmbientClip,
+  } = useCampaignStore()
   const copyAmbientLayer = useCampaignStore((s) => s.copyAmbientLayer)
   const auditioningLayerId = useAudioStore((s) => s.auditioningLayerId)
   const activeClimateId = useAudioStore((s) => s.activeClimateId)
@@ -87,7 +132,6 @@ export function AmbientLayerRow({
   const [isDragOver, setIsDragOver] = useState(false)
   const [delayDrafts, setDelayDrafts] = useState<Partial<Record<DelayField, string>>>({})
   const [focusedDelay, setFocusedDelay] = useState<DelayField | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAuditioning = auditioningLayerId === layer.id
   // The editor authors defaults; when this climate happens to be the live one,
@@ -159,6 +203,21 @@ export function AmbientLayerRow({
     if (added.length > 0) {
       addAmbientClips(campaignId, climateId, layer.id, added)
     }
+  }
+
+  async function handleBrowseFiles(): Promise<void> {
+    const files = await window.api.pickAudioFiles({ multiple: true })
+    const added: Omit<AmbientClip, 'id' | 'order'>[] = []
+    for (const file of files) {
+      const validated = await validateLocalAudioPath(file.localFilePath, file.name)
+      if (!validated) continue
+      added.push({
+        title: validated.title,
+        localFilePath: validated.localFilePath,
+        duration: validated.duration,
+      })
+    }
+    if (added.length > 0) addAmbientClips(campaignId, climateId, layer.id, added)
   }
 
   function handleDrop(e: React.DragEvent): void {
@@ -297,7 +356,14 @@ export function AmbientLayerRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
+                <button
+                  type="button"
+                  className="flex size-6 shrink-0 items-center justify-center rounded text-amber-400 hover:bg-amber-500/10"
+                  onClick={() => setExpanded(true)}
+                  aria-label={`Open ${layer.name}: layer has no clips`}
+                >
+                  <AlertTriangle className="size-3.5" />
+                </button>
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={8}>
                 <p>This layer has no clips and won&rsquo;t play</p>
@@ -308,7 +374,14 @@ export function AmbientLayerRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
+                <button
+                  type="button"
+                  className="flex size-6 shrink-0 items-center justify-center rounded text-amber-400 hover:bg-amber-500/10"
+                  onClick={() => setExpanded(true)}
+                  aria-label={`Open ${layer.name}: ${String(brokenClips.length)} clips can't be played`}
+                >
+                  <AlertTriangle className="size-3.5" />
+                </button>
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
                 <p className="font-medium">
@@ -500,7 +573,7 @@ export function AmbientLayerRow({
               <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
                 Clips ({clips.length})
               </span>
-              <Button variant="ghost" size="xs" onClick={() => fileInputRef.current?.click()}>
+              <Button variant="ghost" size="xs" onClick={() => void handleBrowseFiles()}>
                 <Plus className="size-3" />
                 Add Clips
               </Button>
@@ -530,6 +603,9 @@ export function AmbientLayerRow({
                 <div className="flex flex-col gap-0.5">
                   {clips.map((clip) => {
                     const diagnostic = unplayable[clip.id]
+                    const problemReason =
+                      diagnostic?.reason ||
+                      (!clip.localFilePath.trim() ? 'Audio file is missing' : null)
                     return (
                       <div
                         key={clip.id}
@@ -539,18 +615,30 @@ export function AmbientLayerRow({
                         <span className="min-w-0 flex-1 truncate text-[12px] text-text-secondary">
                           {clip.title}
                         </span>
-                        {diagnostic && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AlertTriangle className="size-3 shrink-0 text-amber-400" />
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
-                                <p className="font-medium">This clip can&rsquo;t be played</p>
-                                <p className="text-text-secondary">{diagnostic.reason}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                        {problemReason && (
+                          <RelinkClipWarning
+                            clip={clip}
+                            reason={problemReason}
+                            onRelink={async (localFilePath, fileName) => {
+                              const validated = await validateLocalAudioPath(
+                                localFilePath,
+                                fileName,
+                              )
+                              if (!validated) return
+                              relinkAmbientClip(
+                                campaignId,
+                                climateId,
+                                layer.id,
+                                clip.id,
+                                validated.localFilePath,
+                                validated.duration,
+                              )
+                              const diagnostics = useDiagnosticsStore.getState()
+                              diagnostics.forgetTrack(clip.id)
+                              diagnostics.markProbed(clip.id)
+                              toast.success('Ambient clip relocated')
+                            }}
+                          />
                         )}
                         <span className="shrink-0 text-[11px] text-text-tertiary">
                           {formatDuration(clip.duration)}
@@ -572,15 +660,6 @@ export function AmbientLayerRow({
                 </div>
               )}
             </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_AUDIO}
-              multiple
-              className="hidden"
-              onChange={(e) => void handleFiles(e.target.files)}
-            />
           </div>
         </div>
       )}

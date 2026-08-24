@@ -46,6 +46,7 @@ export const ACCEPTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac']
 export const DEFAULTS = {
   crossfadeDuration: 4,
   volume: 80,
+  musicVolume: 100,
   serverPort: 3000,
   minCrossfade: 1,
   maxCrossfade: 10,

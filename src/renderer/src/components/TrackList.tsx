@@ -8,6 +8,11 @@ interface TrackListProps {
   onDeleteTrack: (trackId: string) => void
   climateColor?: string
   onPlayTrack?: (trackId: string) => void
+  onRelocateTrack: (
+    trackId: string,
+    localFilePath: string,
+    fileName: string,
+  ) => void | Promise<void>
 }
 
 export function TrackList({
@@ -15,6 +20,7 @@ export function TrackList({
   onDeleteTrack,
   climateColor,
   onPlayTrack,
+  onRelocateTrack,
 }: TrackListProps): React.JSX.Element {
   const sorted = [...tracks].sort((a, b) => a.order - b.order)
 
@@ -37,6 +43,7 @@ export function TrackList({
             onDelete={onDeleteTrack}
             climateColor={climateColor}
             onPlay={onPlayTrack}
+            onRelocate={onRelocateTrack}
           />
         ))}
       </div>

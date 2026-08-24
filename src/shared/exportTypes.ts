@@ -28,7 +28,7 @@ export interface ExportedAmbientClip {
 
 export interface ExportedAmbientLayer {
   name: string
-  mode: 'loop' | 'random' | 'oneshot'
+  mode: 'loop' | 'random' | 'oneshot' | 'sequence'
   enabled: boolean
   volume: number
   pitchVariation?: number
@@ -45,6 +45,7 @@ export interface ExportedClimate {
   icon: string
   order: number
   crossfadeDuration: number
+  musicVolume?: number
   tracks: ExportedTrack[]
   ambientLayers?: ExportedAmbientLayer[]
 }

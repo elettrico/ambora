@@ -19,13 +19,20 @@ export interface ValidatedLocalAudio {
  */
 export async function validateLocalAudioFile(file: File): Promise<ValidatedLocalAudio | null> {
   const localFilePath = window.api.getPathForFile(file)
+  return validateLocalAudioPath(localFilePath, file.name)
+}
+
+export async function validateLocalAudioPath(
+  localFilePath: string,
+  fileName: string,
+): Promise<ValidatedLocalAudio | null> {
   const probe = await window.api.probeAudioFile(localFilePath)
   if (!probe.ok) {
-    toast.error(`Skipping "${file.name}": ${probe.reason}`)
+    toast.error(`Skipping "${fileName}": ${probe.reason}`)
     return null
   }
 
   const duration = probe.durationSec ?? (await getLocalFileDuration(localFilePath)) ?? undefined
 
-  return { localFilePath, title: file.name, duration }
+  return { localFilePath, title: fileName, duration }
 }

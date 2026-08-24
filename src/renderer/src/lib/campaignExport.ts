@@ -16,7 +16,7 @@ import type {
   ExportedSoundboardSound,
 } from '../../../shared/exportTypes'
 import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
-import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
+import { AMBIENT_DEFAULTS, DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
 import { clampPitchVariation } from '@/audio/playbackVariation'
 
 function clampVolume(value: unknown, fallback: number): number {
@@ -71,6 +71,7 @@ function exportClimate(climate: Climate): ExportedClimate {
     icon: climate.icon,
     order: climate.order,
     crossfadeDuration: climate.crossfadeDuration,
+    musicVolume: climate.musicVolume ?? DEFAULTS.musicVolume,
     tracks: climate.tracks.map(exportTrack),
   }
   const layers = climate.ambientLayers ?? []
@@ -237,7 +238,10 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
           ambientLayers.push({
             id: crypto.randomUUID(),
             name: typeof l.name === 'string' ? l.name : 'Untitled Layer',
-            mode: l.mode === 'random' || l.mode === 'oneshot' ? l.mode : 'loop',
+            mode:
+              l.mode === 'random' || l.mode === 'oneshot' || l.mode === 'sequence'
+                ? l.mode
+                : 'loop',
             enabled: typeof l.enabled === 'boolean' ? l.enabled : true,
             volume: typeof l.volume === 'number' ? l.volume : AMBIENT_DEFAULTS.volume,
             pitchVariation: clampPitchVariation(
@@ -268,6 +272,10 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
         icon: typeof cl.icon === 'string' ? cl.icon : 'Swords',
         order: typeof cl.order === 'number' ? cl.order : climates.length,
         crossfadeDuration: typeof cl.crossfadeDuration === 'number' ? cl.crossfadeDuration : 4,
+        musicVolume:
+          typeof cl.musicVolume === 'number'
+            ? Math.max(0, Math.min(100, cl.musicVolume))
+            : DEFAULTS.musicVolume,
         tracks,
         ...(ambientLayers.length > 0 ? { ambientLayers } : {}),
       })

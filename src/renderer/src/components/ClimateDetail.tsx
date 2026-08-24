@@ -32,7 +32,7 @@ import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { probeLocalTrack } from '@/audio/probeTrack'
 import type { Campaign, Climate, Track } from '@/lib/types'
 import { toast } from 'sonner'
-import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
+import { validateLocalAudioFile, validateLocalAudioPath } from '@/lib/validateLocalAudio'
 
 interface ClimateDetailProps {
   climate: Climate
@@ -141,6 +141,22 @@ export function ClimateDetail({
     removeTrack(campaignId, climate.id, trackId)
     useDiagnosticsStore.getState().forgetTrack(trackId)
     toast.success('Track removed')
+  }
+
+  async function handleRelocateTrack(
+    trackId: string,
+    localFilePath: string,
+    fileName: string,
+  ): Promise<void> {
+    const validated = await validateLocalAudioPath(localFilePath, fileName)
+    if (!validated) return
+    useCampaignStore
+      .getState()
+      .relinkTrack(campaignId, climate.id, trackId, validated.localFilePath, validated.duration)
+    const diagnostics = useDiagnosticsStore.getState()
+    diagnostics.forgetTrack(trackId)
+    diagnostics.markProbed(trackId)
+    toast.success('Track file relocated')
   }
 
   async function handlePlayTrack(trackId: string): Promise<void> {
@@ -327,10 +343,29 @@ export function ClimateDetail({
           </TabsList>
 
           <TabsContent value="music" className="mt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
-                Tracks ({climate.tracks.length})
-              </p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                  Tracks ({climate.tracks.length})
+                </p>
+                <div className="flex min-w-[160px] max-w-[260px] flex-1 items-center gap-3">
+                  <span className="shrink-0 text-[11px] text-text-secondary">Volume</span>
+                  <Slider
+                    value={[climate.musicVolume ?? DEFAULTS.musicVolume]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={([value]) =>
+                      updateClimate(campaignId, climate.id, { musicVolume: value })
+                    }
+                    aria-label={`${climate.name} music volume`}
+                    className="min-w-20 flex-1"
+                  />
+                  <span className="w-9 shrink-0 text-right text-[12px] text-text-secondary">
+                    {climate.musicVolume ?? DEFAULTS.musicVolume}%
+                  </span>
+                </div>
+              </div>
               <Button variant="ghost" size="xs" onClick={() => setAddTrackOpen(true)}>
                 <Plus className="size-3" />
                 Add Track
@@ -357,6 +392,7 @@ export function ClimateDetail({
                 onDeleteTrack={handleDeleteTrack}
                 climateColor={climate.color}
                 onPlayTrack={handlePlayTrack}
+                onRelocateTrack={handleRelocateTrack}
               />
             </div>
           </TabsContent>

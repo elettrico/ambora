@@ -12,6 +12,9 @@ Open a campaign and find **Soundboard** at the bottom of the window.
 - Select **Add sound** to choose one or more local audio files.
 - Select **Add folder** to import supported audio files from a folder and its
   subfolders. Other file types are ignored.
+- Audio pickers reopen in the last folder used anywhere in Ambora, including
+  after restarting the app. On Linux, Ambora selects a portal v4-compatible
+  file chooser (or the GTK/KDE fallback) so the saved folder is respected.
 - Drag audio files onto the soundboard to import them directly.
 
 Imported sounds use the filename as their initial name. Rename them in the

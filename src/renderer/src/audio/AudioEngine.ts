@@ -215,7 +215,9 @@ export class AudioEngine {
   }
 
   private getVolume01(): number {
-    return useAudioStore.getState().volume / 100
+    const master = useAudioStore.getState().volume / 100
+    const climateMusic = Math.max(0, Math.min(100, this.currentClimate?.musicVolume ?? 100)) / 100
+    return master * climateMusic
   }
 
   private updateStore(
@@ -241,7 +243,7 @@ export class AudioEngine {
       if (state.volume !== prev.volume && this.engineState === 'playing') {
         const channel = this.getActiveChannel()
         if (channel.volumeController) {
-          this.crossfadeManager.setImmediate(channel.volumeController, state.volume / 100)
+          this.crossfadeManager.setImmediate(channel.volumeController, this.getVolume01())
         }
       }
     })
@@ -1104,6 +1106,19 @@ export class AudioEngine {
     }
   }
 
+  /** Keep authored track metadata current without interrupting active playback. */
+  syncClimate(climate: Climate): void {
+    if (this.currentClimate?.id !== climate.id) return
+    const previousVolume = this.currentClimate.musicVolume ?? 100
+    this.currentClimate = climate
+    if (previousVolume !== (climate.musicVolume ?? 100) && this.engineState === 'playing') {
+      const channel = this.getActiveChannel()
+      if (channel.volumeController) {
+        this.crossfadeManager.setImmediate(channel.volumeController, this.getVolume01())
+      }
+    }
+  }
+
   fadeToSilence(): void {
     if (this.engineState === 'ambient') {
       this.fadeAmbientOnlyToSilence()
@@ -1220,7 +1235,9 @@ export class AudioEngine {
     if (this.engineState === 'playing') {
       const channel = this.getActiveChannel()
       if (channel.volumeController) {
-        this.crossfadeManager.setImmediate(channel.volumeController, volume / 100)
+        const climateMusic =
+          Math.max(0, Math.min(100, this.currentClimate?.musicVolume ?? 100)) / 100
+        this.crossfadeManager.setImmediate(channel.volumeController, (volume / 100) * climateMusic)
       }
     }
   }

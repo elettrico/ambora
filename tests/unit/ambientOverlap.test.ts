@@ -257,6 +257,51 @@ describe('one voice per layer', () => {
     expect(liveSources().length).toBeLessThanOrEqual(1)
   })
 
+  it('enables and plays an initially disabled one-shot when explicitly triggered', async () => {
+    const engine = AmbientEngine.getInstance()
+    engine.startClimate(climate([layer({ mode: 'oneshot', enabled: false })]), 0)
+    await flush()
+
+    engine.triggerLayer('layer-1')
+    await flush()
+
+    expect(liveSources()).toHaveLength(1)
+    const { useAudioStore } = await import('../../src/renderer/src/store/audioStore')
+    expect(useAudioStore.getState().ambientRuntime['layer-1']?.enabled).toBe(true)
+  })
+
+  it('plays every sequence clip in order without overlap', async () => {
+    const engine = AmbientEngine.getInstance()
+    engine.startClimate(
+      climate([
+        layer({
+          mode: 'sequence',
+          clipOrder: 'sequential',
+          clips: [
+            { id: 'clip-1', title: 'a.wav', localFilePath: '/sfx/a.wav', order: 0 },
+            { id: 'clip-2', title: 'b.wav', localFilePath: '/sfx/b.wav', order: 1 },
+          ],
+        }),
+      ]),
+      0,
+    )
+    await flush()
+
+    engine.triggerLayer('layer-1')
+    await flush()
+    expect(startedSources).toHaveLength(1)
+    expect(liveSources()).toHaveLength(1)
+
+    liveSources()[0].end()
+    await flush()
+    expect(startedSources).toHaveLength(2)
+    expect(liveSources()).toHaveLength(1)
+
+    liveSources()[0].end()
+    await flush()
+    expect(liveSources()).toHaveLength(0)
+  })
+
   it('keeps a loop layer to one voice and applies pitch variation per activation', async () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(1)
     const engine = AmbientEngine.getInstance()

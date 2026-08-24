@@ -135,6 +135,7 @@ describe('climate CRUD', () => {
     expect(climate!.color).toBe(CLIMATE_COLORS[0].hex)
     expect(climate!.icon).toBe(CLIMATE_ICONS[0])
     expect(climate!.crossfadeDuration).toBe(DEFAULTS.crossfadeDuration)
+    expect(climate!.musicVolume).toBe(DEFAULTS.musicVolume)
   })
 
   it('assigns next available color and icon', () => {
@@ -264,6 +265,29 @@ describe('track CRUD', () => {
     expect(reordered[0].order).toBe(0)
     expect(reordered[1].title).toBe('First')
     expect(reordered[1].order).toBe(1)
+  })
+
+  it('relinks a local track without replacing its identity or settings', () => {
+    const campaign = useCampaignStore.getState().createCampaign('Campaign')
+    const climate = useCampaignStore.getState().createClimate(campaign.id, 'Forest')!
+    useCampaignStore.getState().addTrack(campaign.id, climate.id, {
+      title: 'Theme',
+      source: 'local',
+      localFilePath: '/old.mp3',
+      duration: 10,
+    })
+    const before = useCampaignStore.getState().campaigns[0].climates[0].tracks[0]
+
+    useCampaignStore.getState().relinkTrack(campaign.id, climate.id, before.id, '/new.mp3', 42)
+
+    const after = useCampaignStore.getState().campaigns[0].climates[0].tracks[0]
+    expect(after).toMatchObject({
+      id: before.id,
+      title: 'Theme',
+      order: before.order,
+      localFilePath: '/new.mp3',
+      duration: 42,
+    })
   })
 })
 

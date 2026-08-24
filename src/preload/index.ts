@@ -32,6 +32,11 @@ const api = {
   },
   probeAudioFile: (filePath: string): Promise<AudioProbeResult> =>
     ipcRenderer.invoke('audio:probe-file', filePath),
+  pickAudioFiles: (options: {
+    multiple?: boolean
+    directory?: boolean
+  }): Promise<Array<{ name: string; localFilePath: string }>> =>
+    ipcRenderer.invoke('audio:pick-files', options),
 
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
   exportCampaign: (json: string, suggestedName: string): Promise<boolean> =>

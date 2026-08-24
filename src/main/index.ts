@@ -9,9 +9,16 @@ import {
   desktopCapturer,
   session,
 } from 'electron'
-import { createReadStream, readFileSync, statSync, writeFileSync } from 'node:fs'
+import {
+  createReadStream,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { Readable } from 'node:stream'
-import { extname, join } from 'path'
+import { basename, dirname, extname, join } from 'path'
 import { randomUUID } from 'node:crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { AMBORA_FILE_FILTER } from '../shared/exportTypes'
@@ -29,7 +36,60 @@ import { analyzeLufs, cancelLufs } from './lufsAnalyze'
 import { probeAudioFile } from './audioProbe'
 import { tokenFromLocalAudioUrl } from '../shared/localAudioUrl'
 
+// Portal file choosers before v4 ignore dialog.defaultPath on Linux. Requiring
+// v4 makes Electron use a compatible portal or fall back to GTK/KDE, so Ambora's
+// persisted last-audio directory is actually honored.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('xdg-portal-required-version', '4')
+}
+
 let mainWindow: BrowserWindow | null = null
+let lastAudioDirectory: string | null = null
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.oga', '.flac', '.m4a', '.aac', '.opus'])
+
+function audioDirectoryPreferencePath(): string {
+  return join(app.getPath('userData'), 'ambora-data', 'last-audio-directory.txt')
+}
+
+function getLastAudioDirectory(): string {
+  if (lastAudioDirectory) return lastAudioDirectory
+  try {
+    const saved = readFileSync(audioDirectoryPreferencePath(), 'utf8').trim()
+    lastAudioDirectory = saved && statSync(saved).isDirectory() ? saved : app.getPath('music')
+  } catch {
+    lastAudioDirectory = app.getPath('music')
+  }
+  return lastAudioDirectory
+}
+
+function rememberAudioDirectory(directory: string): void {
+  lastAudioDirectory = directory
+  try {
+    const preferencePath = audioDirectoryPreferencePath()
+    mkdirSync(dirname(preferencePath), { recursive: true })
+    writeFileSync(preferencePath, directory, 'utf8')
+  } catch {
+    // The picker still remembers for this session if the preference can't persist.
+  }
+}
+
+function audioFilesInDirectory(directory: string): string[] {
+  const found: string[] = []
+  let entries
+  try {
+    entries = readdirSync(directory, { withFileTypes: true })
+  } catch {
+    return found
+  }
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name)
+    if (entry.isDirectory()) found.push(...audioFilesInDirectory(entryPath))
+    else if (entry.isFile() && AUDIO_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
+      found.push(entryPath)
+    }
+  }
+  return found
+}
 // token -> absolute file path, and the reverse index so repeated requests for
 // the same file reuse one token instead of growing the registry unbounded.
 const audioPathRegistry = new Map<string, string>()
@@ -190,6 +250,30 @@ function registerIpcHandlers(): void {
     if (canceled || filePaths.length === 0) return null
     return readFileSync(filePaths[0], 'utf-8')
   })
+
+  ipcMain.handle(
+    'audio:pick-files',
+    async (
+      _event,
+      options: { multiple?: boolean; directory?: boolean },
+    ): Promise<Array<{ name: string; localFilePath: string }>> => {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        defaultPath: getLastAudioDirectory(),
+        filters: options.directory
+          ? undefined
+          : [{ name: 'Audio', extensions: [...AUDIO_EXTENSIONS].map((ext) => ext.slice(1)) }],
+        properties: options.directory
+          ? ['openDirectory']
+          : options.multiple
+            ? ['openFile', 'multiSelections']
+            : ['openFile'],
+      })
+      if (canceled || filePaths.length === 0) return []
+      const paths = options.directory ? audioFilesInDirectory(filePaths[0]) : filePaths
+      rememberAudioDirectory(options.directory ? filePaths[0] : dirname(filePaths[0]))
+      return paths.map((localFilePath) => ({ name: basename(localFilePath), localFilePath }))
+    },
+  )
 
   ipcMain.handle('youtube:get-title', async (_event, videoUrl: string) => {
     try {

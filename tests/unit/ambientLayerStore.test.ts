@@ -282,6 +282,31 @@ describe('copyAmbientLayer', () => {
   })
 })
 
+describe('relinkAmbientClip', () => {
+  it('updates only the file path and duration of the selected clip', () => {
+    const { campaignId, climateId } = setup()
+    const layer = useCampaignStore
+      .getState()
+      .createAmbientLayer(campaignId, climateId, 'Reveal', [
+        { title: 'reveal.mp3', localFilePath: '/old/reveal.mp3', duration: 5 },
+      ])!
+    const before = getClimate(campaignId, climateId).ambientLayers![0].clips[0]
+
+    useCampaignStore
+      .getState()
+      .relinkAmbientClip(campaignId, climateId, layer.id, before.id, '/new/reveal.mp3', 12)
+
+    const after = getClimate(campaignId, climateId).ambientLayers![0].clips[0]
+    expect(after).toMatchObject({
+      id: before.id,
+      title: before.title,
+      order: before.order,
+      localFilePath: '/new/reveal.mp3',
+      duration: 12,
+    })
+  })
+})
+
 describe('backward compatibility', () => {
   it('treats a climate saved without ambientLayers as having none', () => {
     const { campaignId, climateId } = setup()

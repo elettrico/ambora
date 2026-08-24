@@ -781,7 +781,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i]
-      if (layer.mode === 'oneshot') {
+      if (layer.mode === 'oneshot' || layer.mode === 'sequence') {
         shotsHtml +=
           '<button class="ambient-shot" data-layer-id="' +
           escapeAttr(layer.id) +
@@ -835,7 +835,7 @@
       var layer = layers[i]
       var runtime = layerRuntime(layer)
 
-      if (layer.mode === 'oneshot') {
+      if (layer.mode === 'oneshot' || layer.mode === 'sequence') {
         var pad = dom.ambientShots.querySelector('[data-layer-id="' + layer.id + '"]')
         if (pad) {
           pad.setAttribute('data-enabled', runtime.enabled ? 'true' : 'false')
@@ -867,11 +867,16 @@
   function updateAmbientHandle(layers) {
     var on = 0
     for (var i = 0; i < layers.length; i++) {
-      if (layers[i].mode !== 'oneshot' && layerRuntime(layers[i]).enabled) on++
+      if (
+        layers[i].mode !== 'oneshot' &&
+        layers[i].mode !== 'sequence' &&
+        layerRuntime(layers[i]).enabled
+      )
+        on++
     }
     var total = 0
     for (var j = 0; j < layers.length; j++) {
-      if (layers[j].mode !== 'oneshot') total++
+      if (layers[j].mode !== 'oneshot' && layers[j].mode !== 'sequence') total++
     }
     dom.ambientCount.textContent = total === 0 ? '' : '· ' + on + ' on'
   }

@@ -6,6 +6,7 @@ import {
   serializeCampaignForExport,
   deserializeCampaignFromImport,
 } from '../../src/renderer/src/lib/campaignExport'
+import { DEFAULTS } from '../../src/renderer/src/lib/constants'
 
 const sampleCampaign: Campaign = {
   id: 'campaign-uuid-123',
@@ -292,6 +293,7 @@ describe('deserializeCampaignFromImport', () => {
     expect(importedClimate.color).toBe(origClimate.color)
     expect(importedClimate.icon).toBe(origClimate.icon)
     expect(importedClimate.crossfadeDuration).toBe(origClimate.crossfadeDuration)
+    expect(importedClimate.musicVolume).toBe(DEFAULTS.musicVolume)
     expect(importedClimate.tracks).toHaveLength(origClimate.tracks.length)
 
     const origYtTrack = origClimate.tracks[0]
@@ -404,6 +406,18 @@ describe('ambient layer export', () => {
 })
 
 describe('ambient layer import', () => {
+  it('preserves sequence mode', () => {
+    const file = JSON.parse(
+      serializeCampaignForExport(ambientCampaign, '0.7.3'),
+    ) as AmboraExportFile
+    file.campaign.climates[0].ambientLayers![0].mode = 'sequence'
+
+    const result = deserializeCampaignFromImport(JSON.stringify(file))
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.climates[0].ambientLayers![0].mode).toBe('sequence')
+  })
+
   it('round-trips layer settings with fresh ids and empty clip paths', () => {
     const result = deserializeCampaignFromImport(
       serializeCampaignForExport(ambientCampaign, '0.4.0'),

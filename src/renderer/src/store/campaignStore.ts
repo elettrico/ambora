@@ -31,7 +31,9 @@ interface CampaignStore {
   updateClimate: (
     campaignId: string,
     climateId: string,
-    updates: Partial<Pick<Climate, 'name' | 'color' | 'icon' | 'crossfadeDuration'>>,
+    updates: Partial<
+      Pick<Climate, 'name' | 'color' | 'icon' | 'crossfadeDuration' | 'musicVolume'>
+    >,
   ) => void
   deleteClimate: (campaignId: string, climateId: string) => void
   reorderClimates: (campaignId: string, climateIds: string[]) => void
@@ -39,6 +41,13 @@ interface CampaignStore {
   // Track CRUD
   addTrack: (campaignId: string, climateId: string, track: Omit<Track, 'id' | 'order'>) => void
   removeTrack: (campaignId: string, climateId: string, trackId: string) => void
+  relinkTrack: (
+    campaignId: string,
+    climateId: string,
+    trackId: string,
+    localFilePath: string,
+    duration?: number,
+  ) => void
   reorderTracks: (campaignId: string, climateId: string, trackIds: string[]) => void
   updateTrackDuration: (
     campaignId: string,
@@ -73,6 +82,14 @@ interface CampaignStore {
     climateId: string,
     layerId: string,
     clipId: string,
+  ) => void
+  relinkAmbientClip: (
+    campaignId: string,
+    climateId: string,
+    layerId: string,
+    clipId: string,
+    localFilePath: string,
+    duration?: number,
   ) => void
   copyAmbientLayer: (
     campaignId: string,
@@ -159,7 +176,7 @@ function mapLayer(
   }
 }
 
-function normalizePitchVariation(campaign: Campaign): Campaign {
+function normalizeCampaign(campaign: Campaign): Campaign {
   return {
     ...campaign,
     ...(campaign.soundboard
@@ -173,6 +190,9 @@ function normalizePitchVariation(campaign: Campaign): Campaign {
       : {}),
     climates: campaign.climates.map((climate) => ({
       ...climate,
+      ...(typeof climate.musicVolume === 'number'
+        ? { musicVolume: Math.max(0, Math.min(100, climate.musicVolume)) }
+        : {}),
       ...(climate.ambientLayers
         ? {
             ambientLayers: climate.ambientLayers.map((layer) =>
@@ -193,13 +213,13 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
 
   loadCampaigns: async () => {
     const result = await window.api.getCampaigns()
-    const campaigns = result.campaigns.map(normalizePitchVariation)
+    const campaigns = result.campaigns.map(normalizeCampaign)
     set({ campaigns, isLoaded: true })
     return { ...result, campaigns }
   },
 
   importCampaign: (campaign) => {
-    const campaigns = [...get().campaigns, normalizePitchVariation(campaign)]
+    const campaigns = [...get().campaigns, normalizeCampaign(campaign)]
     set({ campaigns })
     persist(campaigns)
   },
@@ -259,6 +279,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       tracks: [],
       order: campaign.climates.length,
       crossfadeDuration: DEFAULTS.crossfadeDuration,
+      musicVolume: DEFAULTS.musicVolume,
     }
 
     const campaigns = get().campaigns.map((c) =>
@@ -358,6 +379,17 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
           }
         : c,
     )
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  relinkTrack: (campaignId, climateId, trackId, localFilePath, duration) => {
+    const campaigns = mapClimate(get().campaigns, campaignId, climateId, (climate) => ({
+      ...climate,
+      tracks: climate.tracks.map((track) =>
+        track.id === trackId ? { ...track, localFilePath, duration } : track,
+      ),
+    }))
     set({ campaigns })
     persist(campaigns)
   },
@@ -511,6 +543,24 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
         clips: layer.clips.filter((c) => c.id !== clipId).map((c, i) => ({ ...c, order: i })),
       })),
     )
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  relinkAmbientClip: (campaignId, climateId, layerId, clipId, localFilePath, duration) => {
+    const campaigns = mapClimate(get().campaigns, campaignId, climateId, (climate) => ({
+      ...climate,
+      ambientLayers: layersOf(climate).map((layer) =>
+        layer.id === layerId
+          ? {
+              ...layer,
+              clips: layer.clips.map((clip) =>
+                clip.id === clipId ? { ...clip, localFilePath, duration } : clip,
+              ),
+            }
+          : layer,
+      ),
+    }))
     set({ campaigns })
     persist(campaigns)
   },
