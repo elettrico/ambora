@@ -36,6 +36,15 @@ describe('parseRemoteCommand', () => {
     expect(parseRemoteCommand({ type: 'set-volume', payload: { volume: 'loud' } })).toBeNull()
   })
 
+  it('validates mixer bus volume commands', () => {
+    expect(
+      parseRemoteCommand({ type: 'set-mixer-volume', payload: { bus: 'music', volume: 75 } }),
+    ).toEqual({ type: 'set-mixer-volume', payload: { bus: 'music', volume: 75 } })
+    expect(
+      parseRemoteCommand({ type: 'set-mixer-volume', payload: { bus: 'unknown', volume: 75 } }),
+    ).toBeNull()
+  })
+
   it('validates layer commands', () => {
     expect(
       parseRemoteCommand({

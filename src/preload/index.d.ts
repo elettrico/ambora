@@ -20,6 +20,7 @@ interface AmboraAPI {
   analyzeLufs(filePath: string, requestId: string): Promise<LufsAnalyzeResult>
   cancelLufs(requestId: string): void
   probeAudioFile(filePath: string): Promise<AudioProbeResult>
+  showItemInFolder(filePath: string): void
   pickAudioFiles(options: {
     multiple?: boolean
     directory?: boolean

@@ -225,6 +225,12 @@ function registerIpcHandlers(): void {
     return probeAudioFile(filePath)
   })
 
+  ipcMain.on('audio:show-in-folder', (_event, filePath: string) => {
+    if (typeof filePath === 'string' && filePath.length > 0) {
+      shell.showItemInFolder(filePath)
+    }
+  })
+
   ipcMain.handle('app:get-version', () => {
     return app.getVersion()
   })

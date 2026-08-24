@@ -62,7 +62,7 @@ arc when reduced motion is enabled. Loops fade out over 400ms when stopped.
 ## Set volume, icon, and color
 
 Use the volume slider on each expanded row to set its normal playback volume.
-This is relative to Ambora's master volume.
+This is relative to Ambora's global Master and SFX mixer levels.
 
 Select the icon button to search the bundled Lucide icon collection. A sound
 can use the default accent, a campaign preset color, or a custom color. If no

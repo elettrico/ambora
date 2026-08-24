@@ -305,6 +305,9 @@
       activeTrackId: null,
       isPlaying: false,
       volume: 80,
+      musicVolume: 100,
+      ambientVolume: 100,
+      sfxVolume: 100,
       isFadingToSilence: false,
       isShuffled: false,
       fadeAnimations: [],
@@ -341,6 +344,12 @@
     dom.btnShuffle = document.getElementById('btn-shuffle')
     dom.btnMute = document.getElementById('btn-mute')
     dom.volumeSlider = document.getElementById('volume-slider')
+    dom.musicVolumeSlider = document.getElementById('music-volume-slider')
+    dom.ambientVolumeSlider = document.getElementById('ambient-volume-slider')
+    dom.sfxVolumeSlider = document.getElementById('sfx-volume-slider')
+    dom.musicVolumeValue = document.getElementById('music-volume-value')
+    dom.ambientVolumeValue = document.getElementById('ambient-volume-value')
+    dom.sfxVolumeValue = document.getElementById('sfx-volume-value')
     dom.disconnectedOverlay = document.getElementById('disconnected-overlay')
     dom.wifiOffIcon = document.getElementById('wifi-off-icon')
     dom.ambient = document.getElementById('ambient')
@@ -600,6 +609,9 @@
     if (!volumeDragging) {
       dom.volumeSlider.value = pb.volume
     }
+    renderMixerVolume('music', pb.musicVolume == null ? 100 : pb.musicVolume)
+    renderMixerVolume('ambient', pb.ambientVolume == null ? 100 : pb.ambientVolume)
+    renderMixerVolume('sfx', pb.sfxVolume == null ? 100 : pb.sfxVolume)
 
     // Track title
     var track = getActiveTrack()
@@ -1011,8 +1023,35 @@
   var volumeThrottleTimer = null
   var prevVolumeBeforeMute = 80
 
+  function renderMixerVolume(bus, value) {
+    var slider = dom[bus + 'VolumeSlider']
+    var output = dom[bus + 'VolumeValue']
+    if (slider && document.activeElement !== slider) slider.value = value
+    if (output) output.textContent = value + '%'
+  }
+
+  function bindMixerSlider(bus) {
+    var slider = dom[bus + 'VolumeSlider']
+    var output = dom[bus + 'VolumeValue']
+    if (!slider) return
+    slider.addEventListener('input', function () {
+      var volume = parseInt(slider.value, 10)
+      state.playback[bus + 'Volume'] = volume
+      if (output) output.textContent = volume + '%'
+    })
+    slider.addEventListener('change', function () {
+      send({
+        type: 'set-mixer-volume',
+        payload: { bus: bus, volume: parseInt(slider.value, 10) },
+      })
+    })
+  }
+
   // ── Event Handlers ──
   function bindEvents() {
+    bindMixerSlider('music')
+    bindMixerSlider('ambient')
+    bindMixerSlider('sfx')
     // Climate grid — event delegation
     dom.climateGrid.addEventListener('click', function (e) {
       var card = e.target.closest('.climate-card')

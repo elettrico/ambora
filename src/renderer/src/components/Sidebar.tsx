@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, MoreVertical, Plus, AlertTriangle } from 'lucide-react'
+import { Activity, AlertTriangle, Download, Library, MoreVertical, Plus } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +36,9 @@ import { serializeCampaignForExport, deserializeCampaignFromImport } from '@/lib
 import type { Campaign } from '@/lib/types'
 import { AmboraLogo } from './AmboraLogo'
 import { QRCodePanel } from './QRCodePanel'
+import { SidebarSection } from './SidebarSection'
+import { AudioMixer } from './AudioMixer'
+import { ActiveSounds } from './ActiveSounds'
 
 function CampaignItem({
   campaign,
@@ -146,6 +149,12 @@ export function Sidebar(): React.JSX.Element {
   const { campaigns, activeCampaignId, setActiveCampaign, createCampaign, importCampaign } =
     useCampaignStore()
   const [newDialogOpen, setNewDialogOpen] = useState(false)
+  const [mode, setMode] = useState<'campaigns' | 'live'>(() =>
+    localStorage.getItem('ambora:sidebar-mode') === 'live' ? 'live' : 'campaigns',
+  )
+  const [liveCount, setLiveCount] = useState(0)
+  const [campaignsOpen, setCampaignsOpen] = useState(true)
+  const [phoneOpen, setPhoneOpen] = useState(true)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [importPreview, setImportPreview] = useState<{
@@ -162,6 +171,11 @@ export function Sidebar(): React.JSX.Element {
     setNewDescription('')
     setNewDialogOpen(false)
     toast.success('Campaign created')
+  }
+
+  function selectMode(nextMode: 'campaigns' | 'live'): void {
+    setMode(nextMode)
+    localStorage.setItem('ambora:sidebar-mode', nextMode)
   }
 
   async function handleImportFile(): Promise<void> {
@@ -196,45 +210,100 @@ export function Sidebar(): React.JSX.Element {
         </h1>
       </div>
 
-      <div className="px-5 pb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+      <div className="grid grid-cols-2 gap-1 px-3 pb-3" role="tablist" aria-label="Sidebar mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'campaigns'}
+          className={cn(
+            'flex min-h-9 items-center justify-center gap-2 rounded text-[12px] transition-colors',
+            mode === 'campaigns'
+              ? 'bg-surface-3 text-text-primary'
+              : 'text-text-tertiary hover:bg-surface-2 hover:text-text-secondary',
+          )}
+          onClick={() => selectMode('campaigns')}
+        >
+          <Library className="size-3.5" />
           Campaigns
-        </p>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'live'}
+          className={cn(
+            'flex min-h-9 items-center justify-center gap-2 rounded text-[12px] transition-colors',
+            mode === 'live'
+              ? 'bg-surface-3 text-text-primary'
+              : 'text-text-tertiary hover:bg-surface-2 hover:text-text-secondary',
+          )}
+          onClick={() => selectMode('live')}
+        >
+          <Activity className="size-3.5" />
+          Live
+          {liveCount > 0 && (
+            <span className="flex min-w-4 items-center justify-center rounded-full bg-accent-muted px-1 text-[10px] tabular-nums text-accent">
+              {liveCount}
+            </span>
+          )}
+        </button>
       </div>
 
-      <ScrollArea className="flex-1 px-2 [&_[data-slot=scroll-area-viewport]>div]:!block">
-        <div className="flex flex-col gap-0.5">
-          {campaigns.map((c) => (
-            <CampaignItem
-              key={c.id}
-              campaign={c}
-              isActive={c.id === activeCampaignId}
-              onSelect={() => setActiveCampaign(c.id)}
-            />
-          ))}
+      <div
+        role="tabpanel"
+        className={cn('min-h-0 flex-1 flex-col', mode === 'campaigns' ? 'flex' : 'hidden')}
+      >
+        <SidebarSection
+          title="Campaigns"
+          open={campaignsOpen}
+          onToggle={() => setCampaignsOpen((open) => !open)}
+          trailing={<span className="text-[10px] font-normal">{campaigns.length}</span>}
+          fill
+        >
+          <ScrollArea className="flex-1 px-2 [&_[data-slot=scroll-area-viewport]>div]:!block">
+            <div className="flex flex-col gap-0.5">
+              {campaigns.map((c) => (
+                <CampaignItem
+                  key={c.id}
+                  campaign={c}
+                  isActive={c.id === activeCampaignId}
+                  onSelect={() => setActiveCampaign(c.id)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+
+          <div className="flex flex-col gap-0.5 px-3 py-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-text-secondary"
+              onClick={() => setNewDialogOpen(true)}
+            >
+              <Plus className="size-4" />
+              New Campaign
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-text-secondary"
+              onClick={handleImportFile}
+            >
+              <Download className="size-4" />
+              Import Campaign
+            </Button>
+          </div>
+        </SidebarSection>
+
+        <QRCodePanel open={phoneOpen} onToggle={() => setPhoneOpen((open) => !open)} />
+      </div>
+
+      <div
+        role="tabpanel"
+        className={cn('min-h-0 flex-1 flex-col', mode === 'live' ? 'flex' : 'hidden')}
+      >
+        <ActiveSounds fill onCountChange={setLiveCount} />
+        <div className="mt-auto">
+          <AudioMixer />
         </div>
-      </ScrollArea>
-
-      <div className="flex flex-col gap-0.5 px-3 py-2">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-text-secondary"
-          onClick={() => setNewDialogOpen(true)}
-        >
-          <Plus className="size-4" />
-          New Campaign
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-text-secondary"
-          onClick={handleImportFile}
-        >
-          <Download className="size-4" />
-          Import Campaign
-        </Button>
       </div>
-
-      <QRCodePanel />
 
       <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
         <DialogContent className="max-w-[400px]">

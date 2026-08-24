@@ -146,6 +146,7 @@ export type RemoteCommand =
   | { type: 'play-pause' }
   | { type: 'skip-track' }
   | { type: 'set-volume'; payload: { volume: number } }
+  | { type: 'set-mixer-volume'; payload: { bus: MixerBus; volume: number } }
   | { type: 'toggle-shuffle' }
   | { type: 'set-layer-enabled'; payload: { layerId: string; enabled: boolean } }
   | { type: 'set-layer-volume'; payload: { layerId: string; volume: number } }
@@ -226,12 +227,17 @@ export interface PlaybackState {
   activeTrackId: string | null
   isPlaying: boolean
   volume: number
+  musicVolume: number
+  ambientVolume: number
+  sfxVolume: number
   isFadingToSilence: boolean
   isShuffled: boolean
   fadeAnimations: RemoteFadeAnimation[]
   /** Runtime layer state for the active climate, keyed by layer id. */
   ambientRuntime: Record<string, AmbientLayerRuntime>
 }
+
+export type MixerBus = 'music' | 'ambient' | 'sfx'
 
 export interface RemoteFullState {
   campaigns: RemoteCampaign[]

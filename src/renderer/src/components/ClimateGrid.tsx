@@ -18,7 +18,7 @@ interface ClimateGridProps {
 }
 
 export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
-  const { createClimate, addTrack, reorderClimates } = useCampaignStore()
+  const { createClimate, duplicateClimate, addTrack, reorderClimates } = useCampaignStore()
   const { activeClimateId, isPlaying, fadeAnimations, clearAllFadeAnimations } = useAudioStore()
   const audioEngine = useAudioEngine()
   const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
@@ -94,6 +94,16 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
     }
   }
 
+  function handleDuplicateClimate(climateId: string): void {
+    const duplicate = duplicateClimate(campaign.id, climateId)
+    if (!duplicate) {
+      toast.error(`Maximum of ${DEFAULTS.maxClimates} climates reached`)
+      return
+    }
+    setSelectedClimateId(duplicate.id)
+    toast.success('Climate duplicated')
+  }
+
   async function handleDropFiles(climateId: string, files: File[]): Promise<void> {
     const audioFiles = files.filter((f) => {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
@@ -139,6 +149,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
         climate={selectedClimate}
         campaign={campaign}
         onClose={() => setSelectedClimateId(null)}
+        onDuplicate={() => handleDuplicateClimate(selectedClimate.id)}
       />
     )
   }
@@ -154,6 +165,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
           fadeAnimation={fadeAnimations.find((fa) => fa.climateId === climate.id)}
           onClick={() => setSelectedClimateId(climate.id)}
           onPlay={() => audioEngine.activateClimate(climate)}
+          onDuplicate={() => handleDuplicateClimate(climate.id)}
           onDropFiles={handleDropFiles}
           isReordering={draggedClimateId !== null}
           isReorderTarget={reorderTargetId === climate.id && draggedClimateId !== climate.id}

@@ -5,6 +5,7 @@ const REMOTE_COMMAND_TYPES = new Set<RemoteCommand['type']>([
   'play-pause',
   'skip-track',
   'set-volume',
+  'set-mixer-volume',
   'toggle-shuffle',
   'set-layer-enabled',
   'set-layer-volume',
@@ -49,6 +50,14 @@ export function parseRemoteCommand(raw: unknown): RemoteCommand | null {
       const volume = clampVolume(raw.payload.volume)
       if (volume === null) return null
       return { type: 'set-volume', payload: { volume } }
+    }
+
+    case 'set-mixer-volume': {
+      if (!isRecord(raw.payload)) return null
+      const volume = clampVolume(raw.payload.volume)
+      const bus = raw.payload.bus
+      if (volume === null || (bus !== 'music' && bus !== 'ambient' && bus !== 'sfx')) return null
+      return { type: 'set-mixer-volume', payload: { bus, volume } }
     }
 
     case 'set-layer-enabled': {

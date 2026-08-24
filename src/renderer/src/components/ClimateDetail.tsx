@@ -38,15 +38,17 @@ interface ClimateDetailProps {
   climate: Climate
   campaign: Campaign
   onClose: () => void
+  onDuplicate: () => void
 }
 
 export function ClimateDetail({
   climate,
   campaign,
   onClose,
+  onDuplicate,
 }: ClimateDetailProps): React.JSX.Element {
   const campaignId = campaign.id
-  const { updateClimate, deleteClimate, addTrack, removeTrack } = useCampaignStore()
+  const { updateClimate, deleteClimate, addTrack, removeTrack, reorderTracks } = useCampaignStore()
   const audioEngine = useAudioEngine()
   const activeClimateId = useAudioStore((state) => state.activeClimateId)
   const isPlaying = useAudioStore((state) => state.isPlaying)
@@ -127,6 +129,9 @@ export function ClimateDetail({
   }, [climate.id, climate.tracks, climate.ambientLayers])
 
   function handleDeleteClimate(): void {
+    if (useAudioStore.getState().activeClimateId === climate.id) {
+      audioEngine.stop()
+    }
     deleteClimate(campaignId, climate.id)
     onClose()
     toast.success('Climate deleted')
@@ -160,11 +165,18 @@ export function ClimateDetail({
   }
 
   async function handlePlayTrack(trackId: string): Promise<void> {
-    const { activeClimateId, isPlaying, isFadingToSilence } = useAudioStore.getState()
+    const { activeClimateId, activeTrackId, isPlaying, isFadingToSilence } =
+      useAudioStore.getState()
     // Crossfade within the climate only when it's the one actively playing.
-    // Otherwise (idle, a different climate, or mid fade-to-silence) (re)activate
-    // this climate starting from the chosen track.
-    if (activeClimateId === climate.id && isPlaying && !isFadingToSilence) {
+    // An active climate with no activeTrackId is ambience-only: adding its first
+    // music track must activate a music channel rather than attempting a skip
+    // that the ambient engine state cannot perform.
+    if (
+      activeClimateId === climate.id &&
+      activeTrackId !== null &&
+      isPlaying &&
+      !isFadingToSilence
+    ) {
       await audioEngine.skipToTrack(trackId)
     } else {
       await audioEngine.activateClimate(climate, trackId)
@@ -262,6 +274,9 @@ export function ClimateDetail({
             )}
           </Button>
           <div className="flex-1" />
+          <Button variant="ghost" size="sm" onClick={onDuplicate}>
+            Duplicate Climate
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="sm" className="text-danger hover:text-danger">
@@ -393,6 +408,7 @@ export function ClimateDetail({
                 climateColor={climate.color}
                 onPlayTrack={handlePlayTrack}
                 onRelocateTrack={handleRelocateTrack}
+                onReorderTracks={(trackIds) => reorderTracks(campaignId, climate.id, trackIds)}
               />
             </div>
           </TabsContent>

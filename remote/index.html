@@ -158,6 +158,33 @@
         />
       </div>
 
+      <details class="mixer">
+        <summary class="mixer__summary">Mixer</summary>
+        <div class="mixer__rows">
+          <label class="mixer__row"
+            ><span>Music</span
+            ><input id="music-volume-slider" type="range" min="0" max="100" value="100" /><output
+              id="music-volume-value"
+              >100%</output
+            ></label
+          >
+          <label class="mixer__row"
+            ><span>Ambient</span
+            ><input id="ambient-volume-slider" type="range" min="0" max="100" value="100" /><output
+              id="ambient-volume-value"
+              >100%</output
+            ></label
+          >
+          <label class="mixer__row"
+            ><span>SFX</span
+            ><input id="sfx-volume-slider" type="range" min="0" max="100" value="100" /><output
+              id="sfx-volume-value"
+              >100%</output
+            ></label
+          >
+        </div>
+      </details>
+
       <!-- Disconnected Overlay -->
       <div id="disconnected-overlay" class="disconnected-overlay">
         <div class="disconnected-overlay__icon" id="wifi-off-icon"></div>

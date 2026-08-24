@@ -1,26 +1,14 @@
-import { useRef } from 'react'
-import { Loader2, Pause, Play, Shuffle, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, Pause, Play, Shuffle, SkipForward } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { NormalizationIndicator } from '@/components/NormalizationIndicator'
 import { NowPlayingProgress } from '@/components/NowPlayingProgress'
-import { DEFAULTS } from '@/lib/constants'
 
 export function NowPlayingBar(): React.JSX.Element {
-  const {
-    volume,
-    setVolume,
-    isPlaying,
-    activeClimateId,
-    activeTrackId,
-    isShuffled,
-    isTrackLoading,
-    toggleShuffle,
-  } = useAudioStore()
-  const previousVolumeRef = useRef<number>(DEFAULTS.volume)
+  const { isPlaying, activeClimateId, activeTrackId, isShuffled, isTrackLoading, toggleShuffle } =
+    useAudioStore()
   const { campaigns } = useCampaignStore()
   const audioEngine = useAudioEngine()
 
@@ -64,17 +52,6 @@ export function NowPlayingBar(): React.JSX.Element {
     if (isTrackLoading) return
     void audioEngine.nextTrack()
   }
-
-  function handleMuteToggle(): void {
-    if (volume > 0) {
-      previousVolumeRef.current = volume
-      setVolume(0)
-    } else {
-      setVolume(previousVolumeRef.current || DEFAULTS.volume)
-    }
-  }
-
-  const VolumeIcon = volume === 0 ? VolumeX : volume <= 50 ? Volume1 : Volume2
 
   return (
     <div className="relative flex h-16 shrink-0 items-center border-t border-border-subtle bg-surface-1 px-6">
@@ -149,19 +126,6 @@ export function NowPlayingBar(): React.JSX.Element {
             className={`size-[18px] ${isShuffled ? 'text-accent' : 'text-text-secondary'}`}
           />
         </Button>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" onClick={handleMuteToggle}>
-            <VolumeIcon className="size-4 text-text-secondary" />
-          </Button>
-          <Slider
-            value={[volume]}
-            min={0}
-            max={100}
-            step={1}
-            onValueChange={([val]) => setVolume(val)}
-            className="w-[120px]"
-          />
-        </div>
       </div>
     </div>
   )

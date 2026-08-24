@@ -50,7 +50,7 @@ Dual-channel crossfade system with channels A and B that alternate:
 3. Track ends: crossfade to next track within the climate
 4. Supports both local files (Web Audio API) and YouTube (IFrame API)
 5. Each climate stores a music-volume multiplier; effective music output is
-   `Master × Climate Music Volume`, independently of Ambient and Soundboard
+   `Master × Music bus × Climate Music Volume`, independently of Ambient and Soundboard
 
 ## Ambient Engine
 
@@ -68,7 +68,7 @@ clip file ──decoded once──▶ AudioBuffer cache
                                  │
                             stack gain ── scene fade (one per activation)
                                  │
-                           master gain ── master volume
+                           master gain ── master volume × Ambient bus
                                  │
                              destination
 ```

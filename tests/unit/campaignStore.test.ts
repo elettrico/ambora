@@ -191,6 +191,38 @@ describe('climate CRUD', () => {
     expect(climates[1].name).toBe('First')
     expect(climates[1].order).toBe(1)
   })
+
+  it('duplicates a climate with fresh nested ids and shared file paths', () => {
+    const campaign = useCampaignStore.getState().createCampaign('Campaign')
+    const climate = useCampaignStore.getState().createClimate(campaign.id, 'Forest')!
+    useCampaignStore.getState().addTrack(campaign.id, climate.id, {
+      title: 'Music',
+      source: 'local',
+      localFilePath: '/audio/music.mp3',
+    })
+    useCampaignStore
+      .getState()
+      .createAmbientLayer(campaign.id, climate.id, 'Rain', [
+        { title: 'Drops', localFilePath: '/audio/rain.wav', duration: 10 },
+      ])
+
+    const duplicate = useCampaignStore.getState().duplicateClimate(campaign.id, climate.id)!
+    const climates = useCampaignStore.getState().campaigns[0].climates
+    const source = climates[0]
+    const copy = climates[1]
+
+    expect(duplicate.id).toBe(copy.id)
+    expect(copy.name).toBe('Forest copy')
+    expect(copy.order).toBe(1)
+    expect(copy.id).not.toBe(source.id)
+    expect(copy.tracks[0].id).not.toBe(source.tracks[0].id)
+    expect(copy.tracks[0].localFilePath).toBe(source.tracks[0].localFilePath)
+    expect(copy.ambientLayers![0].id).not.toBe(source.ambientLayers![0].id)
+    expect(copy.ambientLayers![0].clips[0].id).not.toBe(source.ambientLayers![0].clips[0].id)
+    expect(copy.ambientLayers![0].clips[0].localFilePath).toBe(
+      source.ambientLayers![0].clips[0].localFilePath,
+    )
+  })
 })
 
 describe('track CRUD', () => {

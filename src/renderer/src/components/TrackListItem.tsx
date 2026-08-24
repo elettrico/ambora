@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { GripVertical, Youtube, Music, Trash2, Play, AlertTriangle } from 'lucide-react'
+import { GripVertical, Youtube, Music, Trash2, Play, AlertTriangle, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatDuration } from '@/lib/utils'
@@ -12,6 +12,12 @@ interface TrackListItemProps {
   climateColor?: string
   onPlay?: (trackId: string) => void
   onRelocate: (trackId: string, localFilePath: string, fileName: string) => void | Promise<void>
+  isDragging: boolean
+  isDragTarget: boolean
+  onDragStart: (trackId: string) => void
+  onDragOver: (trackId: string) => void
+  onDrop: (trackId: string) => void
+  onDragEnd: () => void
 }
 
 export function TrackListItem({
@@ -20,6 +26,12 @@ export function TrackListItem({
   climateColor,
   onPlay,
   onRelocate,
+  isDragging,
+  isDragTarget,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: TrackListItemProps): React.JSX.Element {
   const [isRemoving, setIsRemoving] = useState(false)
   const diagnostic = useDiagnosticsStore((s) => s.unplayable[track.id])
@@ -33,14 +45,34 @@ export function TrackListItem({
 
   return (
     <div
-      className="group flex h-12 min-w-0 items-center gap-2 rounded-md px-2 hover:bg-surface-2"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', track.id)
+        onDragStart(track.id)
+      }}
+      onDragOver={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        event.dataTransfer.dropEffect = 'move'
+        onDragOver(track.id)
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onDrop(track.id)
+      }}
+      onDragEnd={onDragEnd}
+      className={`group flex h-12 min-w-0 items-center gap-2 rounded-md px-2 transition-colors hover:bg-surface-2 ${
+        isDragging ? 'opacity-40' : ''
+      } ${isDragTarget ? 'bg-accent-muted ring-1 ring-inset ring-accent/50' : ''}`}
       style={{
         animation: isRemoving
           ? 'track-fade-out 200ms ease-out forwards'
           : 'track-fade-in 200ms ease-out',
       }}
     >
-      <GripVertical className="size-3.5 shrink-0 text-text-tertiary" />
+      <GripVertical className="size-3.5 shrink-0 cursor-grab text-text-tertiary active:cursor-grabbing" />
       {onPlay && (
         <Button
           variant="ghost"
@@ -94,6 +126,24 @@ export function TrackListItem({
       <span className="shrink-0 text-[13px] text-text-tertiary">
         {formatDuration(track.duration)}
       </span>
+      {track.source === 'local' && track.localFilePath && !problemReason && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="shrink-0 text-text-tertiary opacity-0 transition-opacity hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
+                onClick={() => window.api.showItemInFolder(track.localFilePath!)}
+                aria-label={`Show ${track.title} in folder`}
+              >
+                <FolderOpen className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Show in folder</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       <Button
         variant="ghost"
         size="icon-xs"

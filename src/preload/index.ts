@@ -32,6 +32,9 @@ const api = {
   },
   probeAudioFile: (filePath: string): Promise<AudioProbeResult> =>
     ipcRenderer.invoke('audio:probe-file', filePath),
+  showItemInFolder: (filePath: string): void => {
+    ipcRenderer.send('audio:show-in-folder', filePath)
+  },
   pickAudioFiles: (options: {
     multiple?: boolean
     directory?: boolean

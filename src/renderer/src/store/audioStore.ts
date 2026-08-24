@@ -12,6 +12,9 @@ export interface FadeAnimation {
 interface AudioStore {
   isPlaying: boolean
   volume: number
+  musicVolume: number
+  ambientVolume: number
+  sfxVolume: number
   activeClimateId: string | null
   activeTrackId: string | null
   isFadingToSilence: boolean
@@ -31,6 +34,9 @@ interface AudioStore {
 
   setIsPlaying: (isPlaying: boolean) => void
   setVolume: (volume: number) => void
+  setMusicVolume: (volume: number) => void
+  setAmbientVolume: (volume: number) => void
+  setSfxVolume: (volume: number) => void
   setActiveClimateId: (id: string | null) => void
   setActiveTrackId: (id: string | null) => void
   setIsFadingToSilence: (isFading: boolean) => void
@@ -47,9 +53,26 @@ interface AudioStore {
   setAuditioningLayerId: (layerId: string | null) => void
 }
 
+function storedVolume(key: string, fallback: number): number {
+  if (typeof localStorage === 'undefined') return fallback
+  const stored = localStorage.getItem(key)
+  if (stored === null) return fallback
+  const value = Number(stored)
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : fallback
+}
+
+function persistVolume(key: string, volume: number): number {
+  const clamped = Math.max(0, Math.min(100, volume))
+  localStorage.setItem(key, String(clamped))
+  return clamped
+}
+
 export const useAudioStore = create<AudioStore>((set) => ({
   isPlaying: false,
   volume: DEFAULTS.volume,
+  musicVolume: storedVolume('ambora:mixer-music', 100),
+  ambientVolume: storedVolume('ambora:mixer-ambient', 100),
+  sfxVolume: storedVolume('ambora:mixer-sfx', 100),
   activeClimateId: null,
   activeTrackId: null,
   isFadingToSilence: false,
@@ -61,6 +84,11 @@ export const useAudioStore = create<AudioStore>((set) => ({
 
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setVolume: (volume) => set({ volume }),
+  setMusicVolume: (musicVolume) =>
+    set({ musicVolume: persistVolume('ambora:mixer-music', musicVolume) }),
+  setAmbientVolume: (ambientVolume) =>
+    set({ ambientVolume: persistVolume('ambora:mixer-ambient', ambientVolume) }),
+  setSfxVolume: (sfxVolume) => set({ sfxVolume: persistVolume('ambora:mixer-sfx', sfxVolume) }),
   setActiveClimateId: (id) => set({ activeClimateId: id }),
   setActiveTrackId: (id) => set({ activeTrackId: id }),
   setIsFadingToSilence: (isFading) => set({ isFadingToSilence: isFading }),

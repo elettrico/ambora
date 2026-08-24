@@ -47,25 +47,23 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <main className="flex min-h-0 flex-1 overflow-y-auto">
-            {activeCampaign ? (
-              <CampaignView campaign={activeCampaign} />
-            ) : (
-              <EmptyState
-                icon={Map}
-                title="No campaign selected"
-                description="Select a campaign from the sidebar or create a new one."
-              />
-            )}
-          </main>
-          {activeCampaign && <Soundboard campaign={activeCampaign} />}
-        </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 flex-1 overflow-y-auto">
+          {activeCampaign ? (
+            <CampaignView campaign={activeCampaign} />
+          ) : (
+            <EmptyState
+              icon={Map}
+              title="No campaign selected"
+              description="Select a campaign from the sidebar or create a new one."
+            />
+          )}
+        </main>
+        {activeCampaign && <Soundboard campaign={activeCampaign} />}
+        <NowPlayingBar />
       </div>
-      <NowPlayingBar />
     </div>
   )
 }

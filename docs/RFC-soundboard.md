@@ -121,7 +121,7 @@ sound file ──decode once──▶ AudioBuffer cache
                                   │
                        per-voice gain ── sound volume
                                   │
-                         soundboard master gain
+                  soundboard gain ── Master × SFX bus
                                   │
                               destination
 ```
@@ -141,10 +141,9 @@ it for the full activation. Keeping the rate stable prevents a discontinuity at
 the loop boundary. Stopping and starting the loop creates a new voice and draws
 a new value. Loop stop uses a fixed 400ms fade instead of the normal 30ms choke.
 
-**Master volume governs the soundboard.** Per-sound volume is relative to the
-app master, so the desktop and phone master controls still mean "the complete
-soundscape". Shift bypasses only the per-sound volume; it does not bypass the
-master.
+**Master and the SFX mixer bus govern the soundboard.** Per-sound volume is
+relative to both global controls. Shift bypasses only the per-sound volume; it
+does not bypass Master or SFX.
 
 Loading is included in retrigger semantics. For example, `ignore` will not
 start a second decode while the first trigger is loading, and a `stop` or

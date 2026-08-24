@@ -768,6 +768,51 @@ button {
   background: var(--surface-3);
 }
 
+/* ── Global Mixer ── */
+.mixer {
+  margin: 0 16px 16px;
+  border: 1px solid var(--surface-3);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
+.mixer__summary {
+  min-height: 44px;
+  padding: 13px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mixer__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 14px 16px;
+}
+
+.mixer__row {
+  display: grid;
+  grid-template-columns: 64px 1fr 42px;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.mixer__row input {
+  width: 100%;
+}
+
+.mixer__row output {
+  color: var(--text-tertiary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Disconnected Overlay ── */
 .disconnected-overlay {
   position: fixed;

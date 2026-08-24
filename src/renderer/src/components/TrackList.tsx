@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Music } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { TrackListItem } from '@/components/TrackListItem'
@@ -13,6 +14,7 @@ interface TrackListProps {
     localFilePath: string,
     fileName: string,
   ) => void | Promise<void>
+  onReorderTracks: (trackIds: string[]) => void
 }
 
 export function TrackList({
@@ -21,8 +23,28 @@ export function TrackList({
   climateColor,
   onPlayTrack,
   onRelocateTrack,
+  onReorderTracks,
 }: TrackListProps): React.JSX.Element {
   const sorted = [...tracks].sort((a, b) => a.order - b.order)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragTargetId, setDragTargetId] = useState<string | null>(null)
+
+  function handleDrop(targetId: string): void {
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null)
+      setDragTargetId(null)
+      return
+    }
+    const ids = sorted.map((track) => track.id)
+    const from = ids.indexOf(draggedId)
+    const to = ids.indexOf(targetId)
+    if (from !== -1 && to !== -1) {
+      ids.splice(to, 0, ids.splice(from, 1)[0])
+      onReorderTracks(ids)
+    }
+    setDraggedId(null)
+    setDragTargetId(null)
+  }
 
   if (sorted.length === 0) {
     return (
@@ -44,6 +66,15 @@ export function TrackList({
             climateColor={climateColor}
             onPlay={onPlayTrack}
             onRelocate={onRelocateTrack}
+            isDragging={draggedId === track.id}
+            isDragTarget={dragTargetId === track.id && draggedId !== track.id}
+            onDragStart={setDraggedId}
+            onDragOver={setDragTargetId}
+            onDrop={handleDrop}
+            onDragEnd={() => {
+              setDraggedId(null)
+              setDragTargetId(null)
+            }}
           />
         ))}
       </div>

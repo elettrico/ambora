@@ -162,6 +162,16 @@ afterEach(() => {
 })
 
 describe('one voice per layer', () => {
+  it('stops an editor preview when a real climate starts', async () => {
+    const engine = AmbientEngine.getInstance()
+    await engine.auditionLayer(layer({ mode: 'loop' }))
+    await flush()
+    expect(liveSources()).toHaveLength(1)
+
+    engine.startClimate(climate([]), 0)
+    expect(liveSources()).toHaveLength(0)
+  })
+
   it('never has two clips playing at once in random mode', async () => {
     const engine = AmbientEngine.getInstance()
     engine.startClimate(climate([layer()]), 0)

@@ -18,6 +18,9 @@ function getPlaybackState(): PlaybackState {
     activeTrackId: audio.activeTrackId,
     isPlaying: audio.isPlaying,
     volume: audio.volume,
+    musicVolume: audio.musicVolume,
+    ambientVolume: audio.ambientVolume,
+    sfxVolume: audio.sfxVolume,
     isFadingToSilence: audio.isFadingToSilence,
     isShuffled: audio.isShuffled,
     fadeAnimations: audio.fadeAnimations,
@@ -63,6 +66,9 @@ export function useRemoteSync(): void {
         state.activeClimateId !== prev.activeClimateId ||
         state.activeTrackId !== prev.activeTrackId ||
         state.volume !== prev.volume ||
+        state.musicVolume !== prev.musicVolume ||
+        state.ambientVolume !== prev.ambientVolume ||
+        state.sfxVolume !== prev.sfxVolume ||
         state.isFadingToSilence !== prev.isFadingToSilence ||
         state.isShuffled !== prev.isShuffled ||
         state.fadeAnimations !== prev.fadeAnimations ||
@@ -130,7 +136,13 @@ export function useRemoteSync(): void {
         case 'set-volume': {
           const volume = Math.max(0, Math.min(100, command.payload.volume))
           audioStore.setVolume(volume)
-          engine.setVolume(volume)
+          break
+        }
+        case 'set-mixer-volume': {
+          const volume = Math.max(0, Math.min(100, command.payload.volume))
+          if (command.payload.bus === 'music') audioStore.setMusicVolume(volume)
+          if (command.payload.bus === 'ambient') audioStore.setAmbientVolume(volume)
+          if (command.payload.bus === 'sfx') audioStore.setSfxVolume(volume)
           break
         }
         case 'toggle-shuffle': {

@@ -1,29 +1,17 @@
-import { Pencil, Trash2 } from 'lucide-react'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ClimateGrid } from '@/components/ClimateGrid'
 import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { useCampaignStore } from '@/store/campaignStore'
 import type { Campaign } from '@/lib/types'
-import { toast } from 'sonner'
 
 interface CampaignViewProps {
   campaign: Campaign
 }
 
 export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element {
-  const { updateCampaign, deleteCampaign } = useCampaignStore()
+  const { updateCampaign } = useCampaignStore()
 
   const {
     isEditing: nameIsEditing,
@@ -50,11 +38,6 @@ export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element
     value: campaign.description ?? '',
     onSave: (description) => updateCampaign(campaign.id, { description: description || undefined }),
   })
-
-  function handleDelete(): void {
-    deleteCampaign(campaign.id)
-    toast.success('Campaign deleted')
-  }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -105,32 +88,6 @@ export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element
             </p>
           )}
         </div>
-
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0 text-text-tertiary hover:text-danger"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete &ldquo;{campaign.name}&rdquo;?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete this campaign, all its climates, and all tracks.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleDelete}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
 
       <div className="px-8 pb-3">

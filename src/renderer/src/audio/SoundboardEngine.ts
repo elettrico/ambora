@@ -71,11 +71,18 @@ export class SoundboardEngine {
       this.buffers.clear()
       this.decoding.clear()
       this.masterGain = ctx.createGain()
-      this.masterGain.gain.value = useAudioStore.getState().volume / 100
+      const audio = useAudioStore.getState()
+      this.masterGain.gain.value = (audio.volume / 100) * (audio.sfxVolume / 100)
       this.masterGain.connect(ctx.destination)
       this.volumeUnsub = useAudioStore.subscribe((state, previous) => {
-        if (state.volume !== previous.volume && this.masterGain) {
-          this.masterGain.gain.setValueAtTime(state.volume / 100, ctx.currentTime)
+        if (
+          (state.volume !== previous.volume || state.sfxVolume !== previous.sfxVolume) &&
+          this.masterGain
+        ) {
+          this.masterGain.gain.setValueAtTime(
+            (state.volume / 100) * (state.sfxVolume / 100),
+            ctx.currentTime,
+          )
         }
       })
     }

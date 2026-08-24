@@ -215,7 +215,8 @@ export class AudioEngine {
   }
 
   private getVolume01(): number {
-    const master = useAudioStore.getState().volume / 100
+    const { volume, musicVolume } = useAudioStore.getState()
+    const master = (volume / 100) * (musicVolume / 100)
     const climateMusic = Math.max(0, Math.min(100, this.currentClimate?.musicVolume ?? 100)) / 100
     return master * climateMusic
   }
@@ -240,7 +241,10 @@ export class AudioEngine {
 
   private subscribeToVolumeChanges(): void {
     this.volumeUnsub = useAudioStore.subscribe((state, prev) => {
-      if (state.volume !== prev.volume && this.engineState === 'playing') {
+      if (
+        (state.volume !== prev.volume || state.musicVolume !== prev.musicVolume) &&
+        this.engineState === 'playing'
+      ) {
         const channel = this.getActiveChannel()
         if (channel.volumeController) {
           this.crossfadeManager.setImmediate(channel.volumeController, this.getVolume01())
@@ -735,11 +739,11 @@ export class AudioEngine {
     this.goIdle()
   }
 
-  private goIdle(): void {
+  private goIdle(ambientFadeSec = 0.3): void {
     this.stopYouTubeAGC()
     // Short fade rather than a hard cut — goIdle can fire mid-scene when every
     // track fails, and clipping a looping layer to silence is audible.
-    this.ambient.stop(0.3)
+    this.ambient.stop(ambientFadeSec)
     this.autoAdvancing = false
     this.crossfadeManager.cancelAll()
     if (this.channelA) this.disposeChannel(this.channelA)
@@ -762,6 +766,12 @@ export class AudioEngine {
       isFadingToSilence: false,
       isTrackLoading: false,
     })
+  }
+
+  /** Immediately tear down the active scene and invalidate pending loads. */
+  stop(): void {
+    ++this.activationSeq
+    this.goIdle(0)
   }
 
   async activateClimate(climate: Climate, startTrackId?: string): Promise<void> {
@@ -1111,6 +1121,48 @@ export class AudioEngine {
     if (this.currentClimate?.id !== climate.id) return
     const previousVolume = this.currentClimate.musicVolume ?? 100
     this.currentClimate = climate
+
+    const store = useAudioStore.getState()
+    const activeTrackWasRemoved =
+      store.activeTrackId !== null &&
+      !climate.tracks.some((track) => track.id === store.activeTrackId)
+
+    if (activeTrackWasRemoved) {
+      const sorted = this.sortedTracks(climate)
+
+      if (
+        sorted.length > 0 &&
+        store.isPlaying &&
+        (this.engineState === 'playing' || this.engineState === 'crossfading')
+      ) {
+        const replacement = sorted[this.currentTrackIndex % sorted.length]
+        void this.skipToTrack(replacement.id)
+        return
+      }
+
+      // A paused channel or a climate with no remaining music must not retain
+      // the deleted file. Keep the ambient stack alive (or paused) and let a
+      // later Resume load the current track list from scratch.
+      ++this.activationSeq
+      this.stopYouTubeAGC()
+      this.crossfadeManager.cancelAll()
+      if (this.channelA) this.disposeChannel(this.channelA)
+      if (this.channelB) this.disposeChannel(this.channelB)
+      this.activeChannelId = 'A'
+      this.pendingActiveChannelId = null
+      this.currentTrackIndex = 0
+      this.updateStore({ activeTrackId: null, isTrackLoading: false })
+
+      if ((climate.ambientLayers ?? []).length > 0) {
+        this.engineState = 'ambient'
+      } else if (store.isPlaying) {
+        this.goIdle(0)
+      } else {
+        this.engineState = 'idle'
+      }
+      return
+    }
+
     if (previousVolume !== (climate.musicVolume ?? 100) && this.engineState === 'playing') {
       const channel = this.getActiveChannel()
       if (channel.volumeController) {
@@ -1124,6 +1176,14 @@ export class AudioEngine {
       this.fadeAmbientOnlyToSilence()
       return
     }
+
+    // A manual track change keeps the public playback state "playing" while
+    // the two music channels crossfade. Stop must remain authoritative during
+    // that transition: settle on the incoming channel, then fade it out.
+    if (this.engineState === 'crossfading') {
+      this.completePendingCrossfade()
+    }
+
     if (this.engineState !== 'playing') return
 
     this.ambient.fadeOut(FADE_TO_SILENCE_DURATION)
@@ -1190,6 +1250,12 @@ export class AudioEngine {
   resume(): void {
     const store = useAudioStore.getState()
     if (!store.activeClimateId || store.isPlaying) return
+
+    if (store.activeTrackId === null && this.currentClimate?.tracks.length) {
+      const firstTrack = this.sortedTracks(this.currentClimate)[0]
+      void this.activateClimate(this.currentClimate, firstTrack.id)
+      return
+    }
 
     if (this.engineState === 'ambient') {
       this.ensureContext()

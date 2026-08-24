@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, AlertTriangle } from 'lucide-react'
+import { Play, AlertTriangle, Copy } from 'lucide-react'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
 import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
@@ -16,6 +16,7 @@ interface ClimateCardProps {
   fadeAnimation?: FadeAnimation
   onClick: () => void
   onPlay: () => void
+  onDuplicate: () => void
   onDropFiles: (climateId: string, files: File[]) => void | Promise<void>
   isReordering: boolean
   isReorderTarget: boolean
@@ -49,6 +50,7 @@ export function ClimateCard({
   fadeAnimation,
   onClick,
   onPlay,
+  onDuplicate,
   onDropFiles,
   isReordering,
   isReorderTarget,
@@ -154,6 +156,19 @@ export function ClimateCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      <button
+        type="button"
+        data-no-climate-drag
+        className="absolute top-2 right-2 z-[2] flex size-7 items-center justify-center rounded text-text-tertiary opacity-0 transition-opacity hover:bg-surface-1 hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
+        aria-label={`Duplicate ${climate.name}`}
+        title="Duplicate climate"
+        onClick={(event) => {
+          event.stopPropagation()
+          onDuplicate()
+        }}
+      >
+        <Copy className="size-3.5" />
+      </button>
       <button
         type="button"
         className="absolute inset-0 z-0 rounded-md"

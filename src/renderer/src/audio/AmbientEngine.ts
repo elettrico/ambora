@@ -223,14 +223,18 @@ export class AmbientEngine {
   }
 
   private masterVolume01(): number {
-    return useAudioStore.getState().volume / 100
+    const { volume, ambientVolume } = useAudioStore.getState()
+    return (volume / 100) * (ambientVolume / 100)
   }
 
   private subscribeToVolume(): void {
     this.volumeUnsub?.()
     this.volumeUnsub = useAudioStore.subscribe((state, prev) => {
-      if (state.volume !== prev.volume && this.masterGain) {
-        this.ramp(this.masterGain.gain, state.volume / 100, 0)
+      if (
+        (state.volume !== prev.volume || state.ambientVolume !== prev.ambientVolume) &&
+        this.masterGain
+      ) {
+        this.ramp(this.masterGain.gain, this.masterVolume01(), 0)
       }
     })
   }
@@ -332,6 +336,11 @@ export class AmbientEngine {
    * it just tears the previous stack down.
    */
   startClimate(climate: Climate, fadeSec: number): void {
+    // Editor previews live outside the scene stack. A real scene activation is
+    // authoritative and must cancel both an active preview and a decode that
+    // has not started playing yet.
+    this.stopAudition()
+
     const layers = climate.ambientLayers ?? []
 
     this.retireStack(this.stack, fadeSec)
