@@ -6,6 +6,7 @@ import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { NormalizationIndicator } from '@/components/NormalizationIndicator'
+import { NowPlayingProgress } from '@/components/NowPlayingProgress'
 import { DEFAULTS } from '@/lib/constants'
 
 export function NowPlayingBar(): React.JSX.Element {
@@ -26,6 +27,7 @@ export function NowPlayingBar(): React.JSX.Element {
   let climateName: string | null = null
   let climateColor: string | null = null
   let trackTitle: string | null = null
+  let trackDuration: number | undefined
   let hasTracks = false
 
   if (activeClimateId) {
@@ -37,7 +39,10 @@ export function NowPlayingBar(): React.JSX.Element {
         hasTracks = climate.tracks.length > 0
         if (activeTrackId) {
           const track = climate.tracks.find((t) => t.id === activeTrackId)
-          if (track) trackTitle = track.title
+          if (track) {
+            trackTitle = track.title
+            trackDuration = track.duration
+          }
         }
         break
       }
@@ -72,7 +77,7 @@ export function NowPlayingBar(): React.JSX.Element {
   const VolumeIcon = volume === 0 ? VolumeX : volume <= 50 ? Volume1 : Volume2
 
   return (
-    <div className="flex h-16 shrink-0 items-center border-t border-border-subtle bg-surface-1 px-6">
+    <div className="relative flex h-16 shrink-0 items-center border-t border-border-subtle bg-surface-1 px-6">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {climateColor && (
           <span
@@ -117,6 +122,7 @@ export function NowPlayingBar(): React.JSX.Element {
             )}
           </div>
         )}
+        <NowPlayingProgress fallbackDurationSec={trackDuration} />
       </div>
 
       <NormalizationIndicator />
