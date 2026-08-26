@@ -169,8 +169,15 @@ export class YouTubePlayer implements ITrackPlayer {
   }
 
   getDuration(): number | undefined {
-    const dur = this.player?.getDuration()
-    return dur !== undefined && dur > 0 ? dur : undefined
+    // The YT.Player object exists from construction, but its API methods are
+    // only grafted on after onReady. Guarded like getCurrentTime() below since
+    // the Now Playing progress indicator polls this from the UI.
+    try {
+      const dur = this.player?.getDuration()
+      return dur !== undefined && dur > 0 ? dur : undefined
+    } catch {
+      return undefined
+    }
   }
 
   getCurrentTime(): number {

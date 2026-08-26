@@ -26,6 +26,17 @@ export interface NormalizationInfo {
   analyser: AnalyserNode | null
 }
 
+export interface PlaybackProgress {
+  /** Seconds elapsed in the live music track. Always finite and >= 0. */
+  positionSec: number
+  /**
+   * Track length in seconds, or undefined when the player cannot report one
+   * yet: YouTube returns 0 until playback starts, and a VBR MP3 with no Xing
+   * header reports Infinity until Chromium resolves it.
+   */
+  durationSec: number | undefined
+}
+
 export interface ITrackPlayer {
   load(track: Track): Promise<void>
   play(): void
@@ -1247,6 +1258,38 @@ export class AudioEngine {
     }
 
     return none
+  }
+
+  /**
+   * Read-only playback position for the Now Playing progress indicator.
+   *
+   * Returns null whenever no music channel is live — idle, or an ambience-only
+   * climate whose loop has no natural end — so the UI hides the indicator
+   * instead of drawing a fake 0%.
+   */
+  getPlaybackProgress(): PlaybackProgress | null {
+    // Nothing is graphed through a music channel in either state.
+    if (this.engineState === 'idle' || this.engineState === 'ambient') return null
+
+    // During a crossfade the incoming channel is the one the UI already labels
+    // as the active track, so prefer it — same rule as getNormalizationInfo().
+    const channelId = this.pendingActiveChannelId ?? this.activeChannelId
+    // Read the field directly rather than via getChannel(), whose non-null
+    // assertions do not hold once dispose() has nulled the channels.
+    const channel = channelId === 'A' ? this.channelA : this.channelB
+    const player = channel?.player
+    if (!player) return null
+
+    const rawDuration = player.getDuration()
+    const durationSec =
+      rawDuration !== undefined && Number.isFinite(rawDuration) && rawDuration > 0
+        ? rawDuration
+        : undefined
+
+    const rawPosition = player.getCurrentTime()
+    const positionSec = Number.isFinite(rawPosition) && rawPosition > 0 ? rawPosition : 0
+
+    return { positionSec, durationSec }
   }
 
   dispose(): void {
