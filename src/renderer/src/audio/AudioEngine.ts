@@ -13,6 +13,7 @@ import { NormalizationChain } from './NormalizationChain'
 import { YouTubeAGC } from './YouTubeAGC'
 import { ShuffleBag, nextSequentialIndex } from './trackSelection'
 import { AmbientEngine } from './AmbientEngine'
+import { SoundboardEngine } from './SoundboardEngine'
 import { getAudioContext, closeAudioContext } from './audioContext'
 import { audioLog, extOf } from './audioLog'
 import { useAudioStore } from '@/store/audioStore'
@@ -1251,6 +1252,7 @@ export class AudioEngine {
 
   dispose(): void {
     this.ambient.dispose()
+    SoundboardEngine.getInstance().dispose()
     this.youtubeAGC.dispose()
     this.cancelActiveLufs()
     this.stopPositionMonitor()

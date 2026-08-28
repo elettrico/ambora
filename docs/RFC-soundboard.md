@@ -301,5 +301,5 @@ These are deliberately outside the first version:
 - **Remote authoring** — file selection, volume, icons, shortcut assignment, and
   mode editing stay on the computer that owns the files.
 
-Follow-up mixer, sound-group, ducking, and portable campaign proposals are tracked in
-[Planned Audio Features](PLANNED-AUDIO-FEATURES.md).
+Follow-up mixer, sound-group, ducking, and portable campaign proposals remain outside
+the scope of this RFC.

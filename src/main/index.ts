@@ -118,12 +118,11 @@ function registerIpcHandlers(): void {
     broadcastToClients(message)
   })
 
-  ipcMain.on('remote:full-state', (_event, state) => {
+  ipcMain.on('remote:full-state', (_event, state, broadcast = false) => {
     updateCachedState(state)
-    // Existing phones need the complete projection as well. This is especially
-    // important after renderer refreshes, when the campaign schema gains a new
-    // remote field (such as the soundboard) without another store mutation.
-    broadcastToClients({ type: 'full-state', payload: state })
+    if (broadcast) {
+      broadcastToClients({ type: 'full-state', payload: state })
+    }
   })
 
   ipcMain.handle('audio:register-path', (_event, filePath: string) => {

@@ -8,6 +8,7 @@ import {
   Plus,
   Square,
   Trash2,
+  TriangleAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SoundboardEngine, type SoundboardActivity } from '@/audio/SoundboardEngine'
@@ -97,6 +98,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return
+      if (isEditableTarget(event.target)) return
 
       if (assigningId) {
         event.preventDefault()
@@ -121,7 +123,6 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
         return
       }
 
-      if (isEditableTarget(event.target)) return
       const key = event.key.toLocaleLowerCase()
       if (!isLetter(key)) return
       const sound = sounds.find((item) => item.shortcutKey === key)
@@ -305,20 +306,40 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         onClick={() => setAssigningId(sound.id)}
                         aria-label={`Assign letter to ${sound.name}`}
                       />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Input
-                            value={sound.name}
-                            className="h-8 border-transparent bg-transparent px-2 text-[13px] hover:border-border focus:border-border"
-                            onChange={(event) =>
-                              updateSoundboardSound(campaign.id, sound.id, {
-                                name: event.target.value,
-                              })
-                            }
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">{fileName(sound.localFilePath)}</TooltipContent>
-                      </Tooltip>
+                      <div className="flex min-w-0 items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Input
+                              value={sound.name}
+                              className="h-8 min-w-0 border-transparent bg-transparent px-2 text-[13px] hover:border-border focus:border-border"
+                              onChange={(event) =>
+                                updateSoundboardSound(campaign.id, sound.id, {
+                                  name: event.target.value,
+                                })
+                              }
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {fileName(sound.localFilePath)}
+                          </TooltipContent>
+                        </Tooltip>
+                        {!sound.icon && !sound.shortcutKey && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="flex size-6 shrink-0 items-center justify-center text-text-tertiary"
+                                aria-label={`${sound.name} is hidden from the phone remote`}
+                                tabIndex={0}
+                              >
+                                <TriangleAlert className="size-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Assign an icon or letter to show this sound on the phone
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       <SoundIconPicker
                         selectedIcon={sound.icon}
                         selectedColor={sound.iconColor}

@@ -64,6 +64,9 @@ export class SoundboardEngine {
     const ctx = getAudioContext()
     if (this.ctx !== ctx) {
       this.volumeUnsub?.()
+      this.volumeUnsub = null
+      this.resetRuntime()
+      this.masterGain?.disconnect()
       this.ctx = ctx
       this.buffers.clear()
       this.decoding.clear()
@@ -103,7 +106,7 @@ export class SoundboardEngine {
   }
 
   async trigger(sound: SoundboardSound, fullVolume = false): Promise<void> {
-    const ctx = this.ensureGraph()
+    this.ensureGraph()
     const mode = sound.playbackMode ?? 'restart'
     const active = (this.voices.get(sound.id)?.size ?? 0) > 0
     const loading = this.pending.has(sound.id)
@@ -135,8 +138,9 @@ export class SoundboardEngine {
     if (generation !== null && this.generations.get(sound.id) !== generation) return
     this.pending.delete(sound.id)
 
-    const source = ctx.createBufferSource()
-    const gain = ctx.createGain()
+    const activeCtx = this.ensureGraph()
+    const source = activeCtx.createBufferSource()
+    const gain = activeCtx.createGain()
     const playbackRate = randomPlaybackRate(sound.pitchVariation)
     const voice: Voice = {
       source,
@@ -178,6 +182,36 @@ export class SoundboardEngine {
   stopAll(fadeSeconds = STOP_FADE_SECONDS): void {
     const soundIds = new Set([...this.voices.keys(), ...this.pending])
     for (const soundId of soundIds) this.stop(soundId, fadeSeconds)
+  }
+
+  dispose(): void {
+    this.volumeUnsub?.()
+    this.volumeUnsub = null
+    this.resetRuntime()
+    this.buffers.clear()
+    this.decoding.clear()
+    this.masterGain?.disconnect()
+    this.masterGain = null
+    this.ctx = null
+  }
+
+  private resetRuntime(): void {
+    const soundIds = new Set([...this.voices.keys(), ...this.pending])
+    const voices = [...this.voices.values()].flatMap((entries) => [...entries])
+    this.voices.clear()
+    this.pending.clear()
+    this.generations.clear()
+
+    for (const voice of voices) {
+      try {
+        voice.source.stop()
+      } catch {
+        // A source owned by a closed AudioContext may already be unusable.
+      }
+      voice.source.disconnect()
+      voice.gain.disconnect()
+    }
+    for (const soundId of soundIds) this.emitActivity(soundId)
   }
 
   private stopVoices(soundId: string, fadeSeconds: number): void {

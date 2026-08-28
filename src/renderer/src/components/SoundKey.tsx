@@ -29,7 +29,7 @@ export function SoundKey({
   const playing = activity?.playing ?? false
 
   useEffect(() => {
-    if (!playing) return
+    if (!playing || activity?.durationMs === undefined) return
     let frame = 0
     const update = (): void => {
       setNow(Date.now())
@@ -37,7 +37,7 @@ export function SoundKey({
     }
     frame = requestAnimationFrame(update)
     return () => cancelAnimationFrame(frame)
-  }, [playing, activity?.startedAtMs])
+  }, [playing, activity?.startedAtMs, activity?.durationMs])
 
   const elapsed = now - (activity?.startedAtMs ?? now)
   const progress = activity?.durationMs

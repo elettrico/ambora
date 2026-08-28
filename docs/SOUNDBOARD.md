@@ -123,6 +123,4 @@ audio bundles are not supported yet.
 ## Design reference
 
 For technical decisions, data structures, audio architecture, and deferred
-work, see [RFC: Campaign Soundboard](RFC-soundboard.md). Proposed mixer, groups,
-ducking, and portability work is collected in
-[Planned Audio Features](PLANNED-AUDIO-FEATURES.md).
+work, see [RFC: Campaign Soundboard](RFC-soundboard.md).

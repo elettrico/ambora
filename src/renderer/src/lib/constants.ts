@@ -66,7 +66,6 @@ export const AMBIENT_DEFAULTS = {
 
 export const SOUNDBOARD_DEFAULTS = {
   volume: 70,
-  maxSounds: 26,
   pitchVariation: 0,
 } as const
 

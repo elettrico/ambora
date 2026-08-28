@@ -27,7 +27,7 @@ interface AmboraAPI {
   onRemoteCommand(callback: (command: RemoteCommand) => void): () => void
   onConnectionStatus(callback: (status: { connectedClients: number }) => void): () => void
   sendStateUpdate(message: RemoteStateMessage): void
-  sendFullState(state: RemoteFullState): void
+  sendFullState(state: RemoteFullState, broadcast?: boolean): void
 }
 
 declare global {

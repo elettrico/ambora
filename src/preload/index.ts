@@ -64,8 +64,8 @@ const api = {
   sendStateUpdate: (message: RemoteStateMessage): void => {
     ipcRenderer.send('remote:state-update', message)
   },
-  sendFullState: (state: RemoteFullState): void => {
-    ipcRenderer.send('remote:full-state', state)
+  sendFullState: (state: RemoteFullState, broadcast = false): void => {
+    ipcRenderer.send('remote:full-state', state, broadcast)
   },
 }
 

@@ -145,6 +145,48 @@ describe('soundboard export', () => {
       true,
     )
   })
+
+  it('clamps volume and removes invalid or duplicate shortcuts on import', () => {
+    const json = serializeCampaignForExport(
+      {
+        ...campaign,
+        soundboard: [
+          { ...campaign.soundboard![0], volume: 5000, shortcutKey: 'Ñ' },
+          {
+            ...campaign.soundboard![0],
+            id: 'sound-duplicate',
+            name: 'Duplicate',
+            volume: -20,
+            shortcutKey: 'ñ',
+            order: 1,
+          },
+          {
+            ...campaign.soundboard![0],
+            id: 'sound-invalid',
+            name: 'Invalid',
+            shortcutKey: 'Shift+T',
+            order: 2,
+          },
+        ],
+      },
+      '0.7.3',
+    )
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(
+      result.campaign.soundboard?.map(({ volume, shortcutKey }) => ({
+        volume,
+        shortcutKey,
+      })),
+    ).toEqual([
+      { volume: 100, shortcutKey: 'ñ' },
+      { volume: 0, shortcutKey: undefined },
+      { volume: 72, shortcutKey: undefined },
+    ])
+    expect(result.warnings).toContain('2 invalid or duplicate soundboard shortcuts were removed')
+  })
 })
 
 describe('deserializeCampaignFromImport', () => {

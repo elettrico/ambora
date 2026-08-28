@@ -19,6 +19,18 @@ import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
 import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
 import { clampPitchVariation } from '@/audio/playbackVariation'
 
+function clampVolume(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value))
+    : fallback
+}
+
+function normalizeShortcutKey(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const key = value.toLocaleLowerCase()
+  return /^\p{L}$/u.test(key) ? key : undefined
+}
+
 function exportTrack(track: Track): ExportedTrack {
   const exported: ExportedTrack = {
     title: track.title,
@@ -160,6 +172,8 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
   }
 
   const warnings: string[] = []
+  const importedShortcutKeys = new Set<string>()
+  let discardedShortcutCount = 0
   const timestamp = new Date().toISOString()
   const climates: Climate[] = []
 
@@ -271,14 +285,23 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
     soundboard: Array.isArray(exported.soundboard)
       ? exported.soundboard.map((rawSound, order): SoundboardSound => {
           const sound = rawSound as Record<string, unknown>
+          const normalizedShortcut = normalizeShortcutKey(sound.shortcutKey)
+          const shortcutKey =
+            normalizedShortcut && !importedShortcutKeys.has(normalizedShortcut)
+              ? normalizedShortcut
+              : undefined
+          if (sound.shortcutKey !== undefined && shortcutKey === undefined) {
+            discardedShortcutCount++
+          }
+          if (shortcutKey) importedShortcutKeys.add(shortcutKey)
           return {
             id: crypto.randomUUID(),
             name: typeof sound.name === 'string' ? sound.name : 'Untitled Sound',
             // Paths are machine-specific. Keep the row and its assignment so
             // the user can see what needs to be re-added on this computer.
             localFilePath: '',
-            volume: typeof sound.volume === 'number' ? sound.volume : SOUNDBOARD_DEFAULTS.volume,
-            shortcutKey: typeof sound.shortcutKey === 'string' ? sound.shortcutKey : undefined,
+            volume: clampVolume(sound.volume, SOUNDBOARD_DEFAULTS.volume),
+            shortcutKey,
             icon: typeof sound.icon === 'string' ? sound.icon : undefined,
             iconColor: typeof sound.iconColor === 'string' ? sound.iconColor : undefined,
             playbackMode:
@@ -303,6 +326,11 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
   if (campaign.soundboard?.length) {
     warnings.push(
       `This campaign has ${String(campaign.soundboard.length)} soundboard audio file${campaign.soundboard.length > 1 ? 's' : ''} that must be re-added (file paths are not portable)`,
+    )
+  }
+  if (discardedShortcutCount > 0) {
+    warnings.push(
+      `${String(discardedShortcutCount)} invalid or duplicate soundboard shortcut${discardedShortcutCount > 1 ? 's were' : ' was'} removed`,
     )
   }
 

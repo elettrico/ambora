@@ -52,9 +52,9 @@ export function useRemoteSync(): void {
       prevClients = status.connectedClients
     })
 
-    // Push initial full state to main process
+    // Refresh the cache and update phones that survived a renderer reload.
     const fullState = getFullState()
-    window.api.sendFullState(fullState)
+    window.api.sendFullState(fullState, true)
 
     // Subscribe to audio store changes → push playback updates
     const unsubAudio = useAudioStore.subscribe((state, prev) => {
@@ -71,6 +71,8 @@ export function useRemoteSync(): void {
       if (changed) {
         const playback = getPlaybackState()
         window.api.sendStateUpdate({ type: 'playback-update', payload: playback })
+        // Keep the connection cache current without duplicating the incremental
+        // playback update to every connected phone.
         window.api.sendFullState(getFullState())
       }
     })
@@ -158,7 +160,13 @@ export function useRemoteSync(): void {
             (item) => item.id === campaignStore.activeCampaignId,
           )
           const sound = campaign?.soundboard?.find((item) => item.id === command.payload.soundId)
-          if (sound) void SoundboardEngine.getInstance().trigger(sound)
+          if (sound) {
+            void SoundboardEngine.getInstance()
+              .trigger(sound)
+              .catch((error: unknown) => {
+                toast.error(error instanceof Error ? error.message : `Could not play ${sound.name}`)
+              })
+          }
           break
         }
       }
