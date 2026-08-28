@@ -38,6 +38,7 @@ const startedSources: FakeSource[] = []
 class FakeSource {
   buffer: unknown = null
   loop = false
+  playbackRate = { value: 1 }
   started = false
   stopped = false
   /** True when the engine cut this voice short rather than it ending naturally. */
@@ -155,6 +156,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -255,9 +257,11 @@ describe('one voice per layer', () => {
     expect(liveSources().length).toBeLessThanOrEqual(1)
   })
 
-  it('keeps a loop layer to a single voice across repeated arming', async () => {
+  it('keeps a loop layer to one voice and applies pitch variation per activation', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(1)
     const engine = AmbientEngine.getInstance()
-    engine.startClimate(climate([layer({ mode: 'loop' })]), 0)
+    const pitchedLoop = climate([layer({ mode: 'loop', pitchVariation: 20 })])
+    engine.startClimate(pitchedLoop, 0)
     await flush()
 
     engine.setLayerEnabled('layer-1', true)
@@ -268,5 +272,11 @@ describe('one voice per layer', () => {
 
     expect(liveSources()).toHaveLength(1)
     expect(liveSources()[0].loop).toBe(true)
+    expect(liveSources()[0].playbackRate.value).toBeCloseTo(1.2)
+
+    random.mockReturnValue(0)
+    engine.startClimate(pitchedLoop, 0)
+    await flush()
+    expect(startedSources.at(-1)?.playbackRate.value).toBeCloseTo(0.8)
   })
 })

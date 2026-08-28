@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Settings, Plus, Upload } from 'lucide-react'
+import { ArrowLeft, Play, Settings, Plus, Square, Upload } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,9 @@ export function ClimateDetail({
   const campaignId = campaign.id
   const { updateClimate, deleteClimate, addTrack, removeTrack } = useCampaignStore()
   const audioEngine = useAudioEngine()
+  const activeClimateId = useAudioStore((state) => state.activeClimateId)
+  const isPlaying = useAudioStore((state) => state.isPlaying)
+  const isFadingToSilence = useAudioStore((state) => state.isFadingToSilence)
   const [addTrackOpen, setAddTrackOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -67,6 +70,17 @@ export function ClimateDetail({
 
   const Icon = ICON_MAP[climate.icon as ClimateIconName]
   const ambientLayerCount = (climate.ambientLayers ?? []).length
+  const isThisClimatePlaying = activeClimateId === climate.id && isPlaying
+
+  function handleClimatePlayback(): void {
+    if (isThisClimatePlaying) {
+      audioEngine.fadeToSilence()
+    } else if (activeClimateId === climate.id) {
+      audioEngine.resume()
+    } else {
+      void audioEngine.activateClimate(climate)
+    }
+  }
 
   // Proactively probe local files for decodability so unplayable tracks are
   // flagged before playback. Uses main-process FFmpeg (same allowlist as import)
@@ -215,6 +229,21 @@ export function ClimateDetail({
             onClick={() => setSettingsOpen(!settingsOpen)}
           >
             <Settings className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className={isThisClimatePlaying ? 'text-accent' : 'text-text-tertiary'}
+            disabled={activeClimateId === climate.id && isFadingToSilence}
+            aria-label={isThisClimatePlaying ? `Stop ${climate.name}` : `Play ${climate.name}`}
+            title={isThisClimatePlaying ? 'Stop scene' : 'Play scene'}
+            onClick={handleClimatePlayback}
+          >
+            {isThisClimatePlaying ? (
+              <Square className="size-3.5 fill-current" />
+            ) : (
+              <Play className="size-4 fill-current" />
+            )}
           </Button>
           <div className="flex-1" />
           <AlertDialog>

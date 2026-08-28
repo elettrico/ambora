@@ -29,6 +29,61 @@ describe('loadCampaigns', () => {
     expect(useCampaignStore.getState().campaigns).toHaveLength(1)
     expect(useCampaignStore.getState().isLoaded).toBe(true)
   })
+
+  it('clamps persisted pitch variation while loading', async () => {
+    mockApi.getCampaigns.mockResolvedValue({
+      campaigns: [
+        {
+          id: 'campaign-1',
+          name: 'Mine',
+          createdAt: '',
+          updatedAt: '',
+          soundboard: [
+            {
+              id: 'sound-1',
+              name: 'Pickaxe',
+              localFilePath: '/pickaxe.wav',
+              volume: 70,
+              playbackMode: 'restart',
+              pitchVariation: 90,
+              order: 0,
+            },
+          ],
+          climates: [
+            {
+              id: 'climate-1',
+              name: 'Cave',
+              color: '#000000',
+              icon: 'Mountain',
+              tracks: [],
+              order: 0,
+              crossfadeDuration: 4,
+              ambientLayers: [
+                {
+                  id: 'layer-1',
+                  name: 'Drops',
+                  mode: 'random',
+                  enabled: true,
+                  volume: 60,
+                  pitchVariation: -10,
+                  clips: [],
+                  clipOrder: 'shuffle',
+                  minDelaySec: 5,
+                  maxDelaySec: 10,
+                  order: 0,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+
+    await useCampaignStore.getState().loadCampaigns()
+    const campaign = useCampaignStore.getState().campaigns[0]
+    expect(campaign.soundboard?.[0].pitchVariation).toBe(20)
+    expect(campaign.climates[0].ambientLayers?.[0].pitchVariation).toBe(0)
+  })
 })
 
 describe('campaign CRUD', () => {

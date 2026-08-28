@@ -1,4 +1,11 @@
-import type { AmbientClip, AmbientLayer, Campaign, Climate, Track } from '@/lib/types'
+import type {
+  AmbientClip,
+  AmbientLayer,
+  Campaign,
+  Climate,
+  SoundboardSound,
+  Track,
+} from '@/lib/types'
 import type {
   AmboraExportFile,
   ExportedAmbientClip,
@@ -6,9 +13,23 @@ import type {
   ExportedCampaign,
   ExportedClimate,
   ExportedTrack,
+  ExportedSoundboardSound,
 } from '../../../shared/exportTypes'
 import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
-import { AMBIENT_DEFAULTS } from '@/lib/constants'
+import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
+import { clampPitchVariation } from '@/audio/playbackVariation'
+
+function clampVolume(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value))
+    : fallback
+}
+
+function normalizeShortcutKey(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const key = value.toLocaleLowerCase()
+  return /^\p{L}$/u.test(key) ? key : undefined
+}
 
 function exportTrack(track: Track): ExportedTrack {
   const exported: ExportedTrack = {
@@ -28,6 +49,7 @@ function exportAmbientLayer(layer: AmbientLayer): ExportedAmbientLayer {
     mode: layer.mode,
     enabled: layer.enabled,
     volume: layer.volume,
+    pitchVariation: clampPitchVariation(layer.pitchVariation),
     clipOrder: layer.clipOrder,
     minDelaySec: layer.minDelaySec,
     maxDelaySec: layer.maxDelaySec,
@@ -64,6 +86,22 @@ function exportCampaign(campaign: Campaign): ExportedCampaign {
     climates: campaign.climates.map(exportClimate),
   }
   if (campaign.description) exported.description = campaign.description
+  if (campaign.soundboard?.length) {
+    exported.soundboard = campaign.soundboard.map((sound): ExportedSoundboardSound => {
+      const result: ExportedSoundboardSound = {
+        name: sound.name,
+        volume: sound.volume,
+        playbackMode: sound.playbackMode,
+        order: sound.order,
+      }
+      if (sound.shortcutKey) result.shortcutKey = sound.shortcutKey
+      if (sound.icon) result.icon = sound.icon
+      if (sound.iconColor) result.iconColor = sound.iconColor
+      result.pitchVariation = clampPitchVariation(sound.pitchVariation)
+      if (sound.duration !== undefined) result.duration = sound.duration
+      return result
+    })
+  }
   return exported
 }
 
@@ -134,6 +172,8 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
   }
 
   const warnings: string[] = []
+  const importedShortcutKeys = new Set<string>()
+  let discardedShortcutCount = 0
   const timestamp = new Date().toISOString()
   const climates: Climate[] = []
 
@@ -200,6 +240,9 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
             mode: l.mode === 'random' || l.mode === 'oneshot' ? l.mode : 'loop',
             enabled: typeof l.enabled === 'boolean' ? l.enabled : true,
             volume: typeof l.volume === 'number' ? l.volume : AMBIENT_DEFAULTS.volume,
+            pitchVariation: clampPitchVariation(
+              typeof l.pitchVariation === 'number' ? l.pitchVariation : undefined,
+            ),
             clips,
             clipOrder:
               l.clipOrder === 'random' || l.clipOrder === 'sequential' ? l.clipOrder : 'shuffle',
@@ -239,8 +282,56 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
         ? exported.description
         : undefined,
     climates,
+    soundboard: Array.isArray(exported.soundboard)
+      ? exported.soundboard.map((rawSound, order): SoundboardSound => {
+          const sound = rawSound as Record<string, unknown>
+          const normalizedShortcut = normalizeShortcutKey(sound.shortcutKey)
+          const shortcutKey =
+            normalizedShortcut && !importedShortcutKeys.has(normalizedShortcut)
+              ? normalizedShortcut
+              : undefined
+          if (sound.shortcutKey !== undefined && shortcutKey === undefined) {
+            discardedShortcutCount++
+          }
+          if (shortcutKey) importedShortcutKeys.add(shortcutKey)
+          return {
+            id: crypto.randomUUID(),
+            name: typeof sound.name === 'string' ? sound.name : 'Untitled Sound',
+            // Paths are machine-specific. Keep the row and its assignment so
+            // the user can see what needs to be re-added on this computer.
+            localFilePath: '',
+            volume: clampVolume(sound.volume, SOUNDBOARD_DEFAULTS.volume),
+            shortcutKey,
+            icon: typeof sound.icon === 'string' ? sound.icon : undefined,
+            iconColor: typeof sound.iconColor === 'string' ? sound.iconColor : undefined,
+            playbackMode:
+              sound.playbackMode === 'ignore' ||
+              sound.playbackMode === 'stop' ||
+              sound.playbackMode === 'multiple' ||
+              sound.playbackMode === 'loop'
+                ? sound.playbackMode
+                : 'restart',
+            pitchVariation: clampPitchVariation(
+              typeof sound.pitchVariation === 'number' ? sound.pitchVariation : undefined,
+            ),
+            duration: typeof sound.duration === 'number' ? sound.duration : undefined,
+            order: typeof sound.order === 'number' ? sound.order : order,
+          }
+        })
+      : undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
+  }
+
+  if (campaign.soundboard?.length) {
+    warnings.push(
+      `This campaign has ${String(campaign.soundboard.length)} soundboard audio file${campaign.soundboard.length > 1 ? 's' : ''} that must be re-added (file paths are not portable)`,
+    )
+  }
+  if (discardedShortcutCount > 0) {
+    warnings.push(
+      `${String(discardedShortcutCount)} invalid or duplicate soundboard shortcut${discardedShortcutCount > 1 ? 's were' : ' was'} removed`,
+    )
   }
 
   return { success: true, campaign, warnings }

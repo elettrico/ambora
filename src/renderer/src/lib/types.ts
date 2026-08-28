@@ -1,5 +1,7 @@
 export type {
   Campaign,
+  SoundboardSound,
+  SoundboardPlaybackMode,
   Climate,
   Track,
   AmbientLayer,
@@ -16,5 +18,6 @@ export type {
   RemoteClimate,
   RemoteTrack,
   RemoteAmbientLayer,
+  RemoteSoundboardSound,
   PlaybackState,
 } from '../../../shared/types'

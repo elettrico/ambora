@@ -118,8 +118,11 @@ function registerIpcHandlers(): void {
     broadcastToClients(message)
   })
 
-  ipcMain.on('remote:full-state', (_event, state) => {
+  ipcMain.on('remote:full-state', (_event, state, broadcast = false) => {
     updateCachedState(state)
+    if (broadcast) {
+      broadcastToClients({ type: 'full-state', payload: state })
+    }
   })
 
   ipcMain.handle('audio:register-path', (_event, filePath: string) => {

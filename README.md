@@ -13,6 +13,7 @@
 - **One-tap climate switching** — Switch between combat, tavern, forest, and more from your phone
 - **Smooth crossfading** — Configurable crossfade between climates for seamless transitions
 - **YouTube + local files** — Mix YouTube tracks and local audio files (MP3, WAV, OGG, FLAC)
+- **Campaign soundboard** — Trigger one-shot effects from the desktop, keyboard, or phone remote
 - **Phone remote control** — Control playback from any phone on your local WiFi via QR code
 - **Fully offline** — No internet required for local file playback (YouTube needs connectivity)
 - **Cross-platform** — macOS, Windows, and Linux
@@ -81,8 +82,12 @@ npm run dist
 1. **Create a campaign** — Set up a campaign for your adventure
 2. **Add climates** — Create moods like "Tavern", "Combat", "Forest" with colors and icons
 3. **Add tracks** — Paste YouTube URLs or pick local audio files for each climate
-4. **Start a session** — Click the QR code icon, scan from your phone
-5. **Play** — Tap climates on your phone to switch music with smooth crossfading
+4. **Add sound effects** — Import one-shot sounds and optionally assign letter shortcuts
+5. **Start a session** — Click the QR code icon, scan from your phone
+6. **Play** — Tap climates and sound effects from your phone
+
+See the [Soundboard Guide](docs/SOUNDBOARD.md) for file import, shortcuts,
+playback modes, icons, and remote usage.
 
 ## Tech Stack
 

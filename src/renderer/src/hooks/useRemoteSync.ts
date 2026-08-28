@@ -4,6 +4,7 @@ import { useCampaignStore } from '@/store/campaignStore'
 import { useConnectionStore } from '@/store/connectionStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
+import { SoundboardEngine } from '@/audio/SoundboardEngine'
 import { toast } from 'sonner'
 import { toRemoteCampaigns, toRemoteFullState } from '../../../shared/remoteDto'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
@@ -51,9 +52,9 @@ export function useRemoteSync(): void {
       prevClients = status.connectedClients
     })
 
-    // Push initial full state to main process
+    // Refresh the cache and update phones that survived a renderer reload.
     const fullState = getFullState()
-    window.api.sendFullState(fullState)
+    window.api.sendFullState(fullState, true)
 
     // Subscribe to audio store changes → push playback updates
     const unsubAudio = useAudioStore.subscribe((state, prev) => {
@@ -70,6 +71,8 @@ export function useRemoteSync(): void {
       if (changed) {
         const playback = getPlaybackState()
         window.api.sendStateUpdate({ type: 'playback-update', payload: playback })
+        // Keep the connection cache current without duplicating the incremental
+        // playback update to every connected phone.
         window.api.sendFullState(getFullState())
       }
     })
@@ -83,6 +86,16 @@ export function useRemoteSync(): void {
         })
         window.api.sendFullState(getFullState())
       }
+    })
+
+    // Soundboard playback lives outside Zustand because it is short-lived audio
+    // runtime. Forward its authoritative start/end events to every phone so the
+    // pad remains lit for the real duration (including desktop/keyboard plays).
+    const unsubSoundboard = SoundboardEngine.getInstance().subscribe((soundId, activity) => {
+      window.api.sendStateUpdate({
+        type: 'soundboard-activity',
+        payload: { soundId, ...activity },
+      })
     })
 
     // Listen for remote commands from phone
@@ -142,14 +155,30 @@ export function useRemoteSync(): void {
           AmbientEngine.getInstance().triggerLayer(command.payload.layerId)
           break
         }
+        case 'trigger-soundboard': {
+          const campaign = campaignStore.campaigns.find(
+            (item) => item.id === campaignStore.activeCampaignId,
+          )
+          const sound = campaign?.soundboard?.find((item) => item.id === command.payload.soundId)
+          if (sound) {
+            void SoundboardEngine.getInstance()
+              .trigger(sound)
+              .catch((error: unknown) => {
+                toast.error(error instanceof Error ? error.message : `Could not play ${sound.name}`)
+              })
+          }
+          break
+        }
       }
     })
 
     return () => {
       unsubAudio()
       unsubCampaigns()
+      unsubSoundboard()
       unsubCommands()
       unsubConnection()
+      SoundboardEngine.getInstance().stopAll()
     }
   }, [])
 }

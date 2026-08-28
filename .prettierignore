@@ -4,6 +4,9 @@ node_modules
 package-lock.json
 src/renderer/src/components/ui
 
+# Generated from the curated Lucide list by scripts/generate-remote-sound-icons.mjs.
+remote/sound-icons.js
+
 # Hand-authored standalone landing page: inline <style>, deliberate SVG line
 # breaks. Prettier rewrites all ~1400 lines and buries real edits in churn.
 website

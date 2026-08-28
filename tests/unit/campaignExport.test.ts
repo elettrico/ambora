@@ -90,6 +90,105 @@ describe('serializeCampaignForExport', () => {
   })
 })
 
+describe('soundboard export', () => {
+  const campaign: Campaign = {
+    ...sampleCampaign,
+    soundboard: [
+      {
+        id: 'sound-thunder',
+        name: 'Thunder',
+        localFilePath: '/dm/sfx/thunder.wav',
+        volume: 72,
+        shortcutKey: 'ñ',
+        icon: 'CloudLightning',
+        iconColor: '#7B93F5',
+        playbackMode: 'loop',
+        pitchVariation: 12,
+        duration: 3.5,
+        order: 0,
+      },
+    ],
+  }
+
+  it('round-trips settings without ids or machine-specific paths', () => {
+    const json = serializeCampaignForExport(campaign, '0.7.3')
+    const parsed = JSON.parse(json) as AmboraExportFile
+    expect(parsed.campaign.soundboard?.[0]).toEqual({
+      name: 'Thunder',
+      volume: 72,
+      shortcutKey: 'ñ',
+      icon: 'CloudLightning',
+      iconColor: '#7B93F5',
+      playbackMode: 'loop',
+      pitchVariation: 12,
+      duration: 3.5,
+      order: 0,
+    })
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.soundboard?.[0]).toMatchObject({
+      name: 'Thunder',
+      localFilePath: '',
+      volume: 72,
+      shortcutKey: 'ñ',
+      icon: 'CloudLightning',
+      iconColor: '#7B93F5',
+      playbackMode: 'loop',
+      pitchVariation: 12,
+      duration: 3.5,
+      order: 0,
+    })
+    expect(result.campaign.soundboard?.[0].id).not.toBe('sound-thunder')
+    expect(result.warnings.some((warning) => warning.includes('1 soundboard audio file'))).toBe(
+      true,
+    )
+  })
+
+  it('clamps volume and removes invalid or duplicate shortcuts on import', () => {
+    const json = serializeCampaignForExport(
+      {
+        ...campaign,
+        soundboard: [
+          { ...campaign.soundboard![0], volume: 5000, shortcutKey: 'Ñ' },
+          {
+            ...campaign.soundboard![0],
+            id: 'sound-duplicate',
+            name: 'Duplicate',
+            volume: -20,
+            shortcutKey: 'ñ',
+            order: 1,
+          },
+          {
+            ...campaign.soundboard![0],
+            id: 'sound-invalid',
+            name: 'Invalid',
+            shortcutKey: 'Shift+T',
+            order: 2,
+          },
+        ],
+      },
+      '0.7.3',
+    )
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(
+      result.campaign.soundboard?.map(({ volume, shortcutKey }) => ({
+        volume,
+        shortcutKey,
+      })),
+    ).toEqual([
+      { volume: 100, shortcutKey: 'ñ' },
+      { volume: 0, shortcutKey: undefined },
+      { volume: 72, shortcutKey: undefined },
+    ])
+    expect(result.warnings).toContain('2 invalid or duplicate soundboard shortcuts were removed')
+  })
+})
+
 describe('deserializeCampaignFromImport', () => {
   function makeValidExport(): string {
     return serializeCampaignForExport(sampleCampaign, '0.1.0')

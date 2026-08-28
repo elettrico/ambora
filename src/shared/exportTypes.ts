@@ -1,10 +1,5 @@
-/**
- * v2 adds `ambientLayers` to each climate. The bump is deliberate even though
- * the field is optional: an older Ambora would import a v2 file and silently
- * drop the ambience, and "please update the app" is a better outcome than
- * quiet data loss.
- */
-export const AMBORA_FILE_VERSION = 2
+/** v4 preserves authored pitch variation for soundboard and ambient playback. */
+export const AMBORA_FILE_VERSION = 4
 
 export const AMBORA_FILE_FILTER = {
   name: 'Ambora Campaign',
@@ -36,6 +31,7 @@ export interface ExportedAmbientLayer {
   mode: 'loop' | 'random' | 'oneshot'
   enabled: boolean
   volume: number
+  pitchVariation?: number
   clipOrder: 'shuffle' | 'random' | 'sequential'
   minDelaySec: number
   maxDelaySec: number
@@ -57,6 +53,19 @@ export interface ExportedCampaign {
   name: string
   description?: string
   climates: ExportedClimate[]
+  soundboard?: ExportedSoundboardSound[]
+}
+
+export interface ExportedSoundboardSound {
+  name: string
+  volume: number
+  shortcutKey?: string
+  icon?: string
+  iconColor?: string
+  playbackMode: 'ignore' | 'stop' | 'restart' | 'multiple' | 'loop'
+  pitchVariation?: number
+  duration?: number
+  order: number
 }
 
 export interface AmboraExportFile {
