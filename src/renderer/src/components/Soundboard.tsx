@@ -25,6 +25,7 @@ import {
   type ValidatedLocalAudio,
 } from '@/lib/validateLocalAudio'
 import { SOUND_ICON_MAP, type SoundboardIconName } from '@/lib/soundIconMap'
+import { activeShortcutAssignment } from '@/lib/soundboardShortcuts'
 import { useCampaignStore } from '@/store/campaignStore'
 import type { Campaign, SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
 
@@ -71,6 +72,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   const [activityById, setActivityById] = useState<Record<string, SoundboardActivity>>({})
   const [isDragOver, setIsDragOver] = useState(false)
   const assignedSounds = sounds.filter((sound) => sound.shortcutKey)
+  const activeAssigningId = activeShortcutAssignment(assigningId, sounds)
 
   useEffect(() => {
     localStorage.setItem('ambora:soundboard-mode', panelMode)
@@ -102,7 +104,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return
       if (isEditableTarget(event.target)) return
 
-      if (assigningId) {
+      if (activeAssigningId) {
         event.preventDefault()
         if (event.key === 'Escape') {
           setAssigningId(null)
@@ -114,13 +116,13 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
           return
         }
         const conflict = sounds.find(
-          (sound) => sound.id !== assigningId && sound.shortcutKey === key,
+          (sound) => sound.id !== activeAssigningId && sound.shortcutKey === key,
         )
         if (conflict) {
           toast.error(`${key.toLocaleUpperCase()} is already assigned to ${conflict.name}`)
           return
         }
-        updateSoundboardSound(campaign.id, assigningId, { shortcutKey: key })
+        updateSoundboardSound(campaign.id, activeAssigningId, { shortcutKey: key })
         setAssigningId(null)
         return
       }
@@ -135,7 +137,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [assigningId, campaign.id, play, sounds, updateSoundboardSound])
+  }, [activeAssigningId, campaign.id, play, sounds, updateSoundboardSound])
 
   function addValidatedSounds(validatedFiles: ValidatedLocalAudio[]): void {
     const createdIds: string[] = []
@@ -297,7 +299,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                     >
                       <SoundKey
                         letter={
-                          assigningId === sound.id
+                          activeAssigningId === sound.id
                             ? '…'
                             : (sound.shortcutKey?.toLocaleUpperCase() ?? 'Set')
                         }
@@ -418,6 +420,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         aria-label={`Delete ${sound.name}`}
                         onClick={() => {
                           SoundboardEngine.getInstance().stop(sound.id)
+                          if (activeAssigningId === sound.id) setAssigningId(null)
                           deleteSoundboardSound(campaign.id, sound.id)
                         }}
                       >
