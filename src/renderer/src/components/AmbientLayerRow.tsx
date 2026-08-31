@@ -537,6 +537,24 @@ export function AmbientLayerRow({
                 }
               />
             </label>
+            {(layer.mode === 'loop' || layer.mode === 'random') && (
+              <label className="flex min-w-[260px] items-center gap-3">
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                  Activation fade{' '}
+                  {(layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec).toFixed(1)}s
+                </span>
+                <Slider
+                  min={AMBIENT_DEFAULTS.minActivationFadeSec}
+                  max={AMBIENT_DEFAULTS.maxActivationFadeSec}
+                  step={0.1}
+                  value={[layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec]}
+                  aria-label={`${layer.name} activation fade seconds`}
+                  onValueChange={([activationFadeSec]) =>
+                    updateAmbientLayer(campaignId, climateId, layer.id, { activationFadeSec })
+                  }
+                />
+              </label>
+            )}
           </div>
 
           {clips.length > 1 && (

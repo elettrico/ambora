@@ -492,6 +492,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       enabled: true,
       volume: AMBIENT_DEFAULTS.volume,
       pitchVariation: AMBIENT_DEFAULTS.pitchVariation,
+      activationFadeSec: AMBIENT_DEFAULTS.activationFadeSec,
       clips: clips.map((clip, i) => ({ ...clip, id: crypto.randomUUID(), order: i })),
       clipOrder: 'shuffle',
       minDelaySec: AMBIENT_DEFAULTS.minDelaySec,
@@ -514,6 +515,12 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
         const next = { ...layer, ...updates }
         if (updates.pitchVariation !== undefined) {
           next.pitchVariation = clampPitchVariation(updates.pitchVariation)
+        }
+        if (updates.activationFadeSec !== undefined) {
+          next.activationFadeSec = Math.max(
+            AMBIENT_DEFAULTS.minActivationFadeSec,
+            Math.min(AMBIENT_DEFAULTS.maxActivationFadeSec, updates.activationFadeSec),
+          )
         }
         // Keep the window valid however the two fields are edited, so scheduling
         // never sees max < min.

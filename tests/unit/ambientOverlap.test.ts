@@ -17,8 +17,9 @@ class FakeParam {
   setValueAtTime(v: number): void {
     this.value = v
   }
-  linearRampToValueAtTime(v: number): void {
+  linearRampToValueAtTime(v: number, time: number): void {
     this.value = v
+    rampEvents.push({ target: v, time, sourcesStarted: startedSources.length })
   }
 }
 
@@ -34,6 +35,7 @@ class FakeGain {
 
 /** Tracks every source ever started so the test can assert on concurrency. */
 const startedSources: FakeSource[] = []
+const rampEvents: { target: number; time: number; sourcesStarted: number }[] = []
 
 class FakeSource {
   buffer: unknown = null
@@ -142,6 +144,7 @@ beforeEach(async () => {
   vi.resetModules()
   vi.useFakeTimers()
   startedSources.length = 0
+  rampEvents.length = 0
 
   vi.stubGlobal('AudioContext', FakeAudioContext)
   vi.stubGlobal('window', {
@@ -162,6 +165,21 @@ afterEach(() => {
 })
 
 describe('one voice per layer', () => {
+  it('starts a manual activation fade only after a delayed loop voice starts', async () => {
+    const engine = AmbientEngine.getInstance()
+    engine.startClimate(climate([layer({ mode: 'loop', enabled: false, activationFadeSec: 3 })]), 0)
+    await flush()
+
+    engine.setLayerEnabled('layer-1', true)
+    expect(startedSources).toHaveLength(0)
+    expect(rampEvents.some((event) => event.target === 0.6)).toBe(false)
+
+    await flush()
+
+    expect(startedSources).toHaveLength(1)
+    expect(rampEvents).toContainEqual({ target: 0.6, time: 3, sourcesStarted: 1 })
+  })
+
   it('stops an editor preview when a real climate starts', async () => {
     const engine = AmbientEngine.getInstance()
     await engine.auditionLayer(layer({ mode: 'loop' }))

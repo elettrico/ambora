@@ -6,7 +6,7 @@ import {
   serializeCampaignForExport,
   deserializeCampaignFromImport,
 } from '../../src/renderer/src/lib/campaignExport'
-import { DEFAULTS } from '../../src/renderer/src/lib/constants'
+import { AMBIENT_DEFAULTS, DEFAULTS } from '../../src/renderer/src/lib/constants'
 
 const sampleCampaign: Campaign = {
   id: 'campaign-uuid-123',
@@ -336,6 +336,7 @@ const ambientCampaign: Campaign = {
           mode: 'loop',
           enabled: true,
           volume: 55,
+          activationFadeSec: 3.5,
           clipOrder: 'shuffle',
           minDelaySec: 10,
           maxDelaySec: 30,
@@ -384,9 +385,11 @@ describe('ambient layer export', () => {
     expect(layers[0].name).toBe('Wind')
     expect(layers[0].mode).toBe('loop')
     expect(layers[0].volume).toBe(55)
+    expect(layers[0].activationFadeSec).toBe(3.5)
     expect(layers[1].mode).toBe('random')
     expect(layers[1].enabled).toBe(false)
     expect(layers[1].clipOrder).toBe('sequential')
+    expect(layers[1].activationFadeSec).toBe(AMBIENT_DEFAULTS.activationFadeSec)
     expect(layers[1].minDelaySec).toBe(8)
     expect(layers[1].maxDelaySec).toBe(20)
 

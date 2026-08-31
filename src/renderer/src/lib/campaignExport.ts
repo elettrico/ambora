@@ -50,6 +50,7 @@ function exportAmbientLayer(layer: AmbientLayer): ExportedAmbientLayer {
     enabled: layer.enabled,
     volume: layer.volume,
     pitchVariation: clampPitchVariation(layer.pitchVariation),
+    activationFadeSec: layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec,
     clipOrder: layer.clipOrder,
     minDelaySec: layer.minDelaySec,
     maxDelaySec: layer.maxDelaySec,
@@ -247,6 +248,13 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
             pitchVariation: clampPitchVariation(
               typeof l.pitchVariation === 'number' ? l.pitchVariation : undefined,
             ),
+            activationFadeSec:
+              typeof l.activationFadeSec === 'number'
+                ? Math.max(
+                    AMBIENT_DEFAULTS.minActivationFadeSec,
+                    Math.min(AMBIENT_DEFAULTS.maxActivationFadeSec, l.activationFadeSec),
+                  )
+                : AMBIENT_DEFAULTS.activationFadeSec,
             clips,
             clipOrder:
               l.clipOrder === 'random' || l.clipOrder === 'sequential' ? l.clipOrder : 'shuffle',

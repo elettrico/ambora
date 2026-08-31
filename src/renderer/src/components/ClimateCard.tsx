@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { Play, AlertTriangle, Copy } from 'lucide-react'
+import { Play, AlertTriangle, Copy, Plus } from 'lucide-react'
+import { Popover as PopoverPrimitive } from 'radix-ui'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
 import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { useAudioStore } from '@/store/audioStore'
+import { useCampaignStore } from '@/store/campaignStore'
 import { AmbientEngine } from '@/audio/AmbientEngine'
 import { climateAudioIssues } from '@/lib/climateAudioIssues'
 import type { Climate } from '@/lib/types'
 import type { FadeAnimation } from '@/store/audioStore'
 
 interface ClimateCardProps {
+  campaignId: string
   climate: Climate
   isActive: boolean
   isSelected: boolean
@@ -44,6 +47,7 @@ function hasAudioFiles(dt: DataTransfer): boolean {
 }
 
 export function ClimateCard({
+  campaignId,
   climate,
   isActive,
   isSelected,
@@ -63,14 +67,19 @@ export function ClimateCard({
   const showGlow = isActive || fadeAnimation?.direction === 'out'
   const unplayable = useDiagnosticsStore((s) => s.unplayable)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [ambientExpanded, setAmbientExpanded] = useState(false)
+  const updateAmbientLayer = useCampaignStore((s) => s.updateAmbientLayer)
   const ambientLayerCount = (climate.ambientLayers ?? []).length
   const ambientRuntime = useAudioStore((s) => s.ambientRuntime)
-  const oneShotLayers = (climate.ambientLayers ?? [])
-    .filter((layer) => layer.mode === 'oneshot' || layer.mode === 'sequence')
-    .sort((a, b) => a.order - b.order)
+  const ambientLayers = [...(climate.ambientLayers ?? [])].sort((a, b) => a.order - b.order)
   const issues = climateAudioIssues(climate, unplayable)
   // A climate can be ambience only — wind and birds with no score.
   const canPlay = climate.tracks.length > 0 || ambientLayerCount > 0
+
+  function handleAmbientToggle(layerId: string, enabled: boolean): void {
+    updateAmbientLayer(campaignId, climate.id, layerId, { enabled })
+    if (isActive) AmbientEngine.getInstance().setLayerEnabled(layerId, enabled)
+  }
 
   function handleDragOver(e: React.DragEvent): void {
     e.preventDefault()
@@ -230,41 +239,94 @@ export function ClimateCard({
         </div>
       </div>
       <div className="relative z-[1] flex flex-col gap-1.5">
-        {isActive &&
-          oneShotLayers.map((layer) => {
-            const runtime = ambientRuntime[layer.id]
-            const showProgress =
-              runtime?.sounding &&
-              runtime.playbackStartedAt !== undefined &&
-              runtime.playbackDurationMs !== undefined
-            return (
-              <button
-                key={layer.id}
-                type="button"
-                data-no-climate-drag
-                disabled={layer.clips.length === 0}
-                className="relative flex min-h-8 w-full items-center gap-2 overflow-hidden rounded bg-surface-3 px-2.5 text-[12px] text-text-secondary transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  AmbientEngine.getInstance().triggerLayer(layer.id)
-                }}
-              >
-                <Play className="size-3.5 shrink-0" style={{ color: climate.color }} />
-                <span className="truncate">{layer.name}</span>
-                {showProgress && (
-                  <span
-                    key={runtime.playbackStartedAt}
-                    className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left"
-                    style={{
-                      backgroundColor: climate.color,
-                      animation: `bar-drain ${String(runtime.playbackDurationMs)}ms linear forwards`,
-                    }}
+        <div className="flex items-center justify-between">
+          {ambientLayerCount > 0 ? (
+            <PopoverPrimitive.Root open={ambientExpanded} onOpenChange={setAmbientExpanded}>
+              <PopoverPrimitive.Trigger asChild>
+                <button
+                  type="button"
+                  data-no-climate-drag
+                  className="flex size-8 items-center justify-center rounded-full transition-colors hover:bg-surface-1"
+                  style={{ backgroundColor: ambientExpanded ? `${climate.color}33` : undefined }}
+                  aria-label={`${ambientExpanded ? 'Hide' : 'Show'} ambient for ${climate.name}`}
+                  title={`${ambientExpanded ? 'Hide' : 'Show'} ambient`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Plus
+                    className={`size-4 transition-transform ${ambientExpanded ? 'rotate-45' : ''}`}
+                    style={{ color: climate.color }}
                   />
-                )}
-              </button>
-            )
-          })}
-        <div className="flex justify-end">
+                </button>
+              </PopoverPrimitive.Trigger>
+
+              <PopoverPrimitive.Portal>
+                <PopoverPrimitive.Content
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  collisionPadding={12}
+                  data-no-climate-drag
+                  className="z-50 flex w-56 flex-col gap-1 rounded-md border bg-surface-2 p-2 shadow-lg outline-none"
+                  style={{ borderColor: climate.color }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {ambientLayers.map((layer) => {
+                    const isTriggered = layer.mode === 'oneshot' || layer.mode === 'sequence'
+                    const enabled = isActive
+                      ? (ambientRuntime[layer.id]?.enabled ?? layer.enabled)
+                      : layer.enabled
+
+                    return (
+                      <div
+                        key={layer.id}
+                        className="flex min-h-8 items-center gap-2 rounded px-1.5 text-[12px] text-text-secondary hover:bg-surface-3"
+                      >
+                        {isTriggered ? (
+                          <button
+                            type="button"
+                            data-no-climate-drag
+                            disabled={!isActive || layer.clips.length === 0}
+                            className="flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={`Play ${layer.name}`}
+                            title={
+                              isActive ? `Play ${layer.name}` : 'Activate this climate to play'
+                            }
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              AmbientEngine.getInstance().triggerLayer(layer.id)
+                            }}
+                          >
+                            <Play className="size-3.5" style={{ color: climate.color }} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            role="switch"
+                            data-no-climate-drag
+                            aria-checked={enabled}
+                            aria-label={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
+                            className="flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-1"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleAmbientToggle(layer.id, !enabled)
+                            }}
+                          >
+                            <span
+                              className={`size-3 rounded-full border-2 transition-all ${enabled ? 'border-transparent' : 'border-text-tertiary'}`}
+                              style={enabled ? { backgroundColor: climate.color } : undefined}
+                            />
+                          </button>
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{layer.name}</span>
+                      </div>
+                    )
+                  })}
+                </PopoverPrimitive.Content>
+              </PopoverPrimitive.Portal>
+            </PopoverPrimitive.Root>
+          ) : (
+            <span />
+          )}
           {canPlay && (
             <button
               type="button"

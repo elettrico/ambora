@@ -73,6 +73,8 @@ interface LiveLayer {
   structuralKey: string
   /** Invalidates an in-flight sequence when it is retriggered or stopped. */
   sequenceRun: number
+  /** Defers a manual fade-in until async decoding has produced the first voice. */
+  activationFadePending: boolean
 }
 
 interface Stack {
@@ -400,6 +402,7 @@ export class AmbientEngine {
       volume: layer.volume,
       structuralKey: structuralKeyOf(layer),
       sequenceRun: 0,
+      activationFadePending: false,
     }
   }
 
@@ -537,13 +540,26 @@ export class AmbientEngine {
     if (!stack || !live) return
 
     live.enabled = enabled
-    const fade = AMBIENT_DEFAULTS.toggleFadeSec
+    const usesActivationFade = live.layer.mode === 'loop' || live.layer.mode === 'random'
+    const fade = usesActivationFade
+      ? (live.layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec)
+      : AMBIENT_DEFAULTS.toggleFadeSec
 
     if (enabled) {
-      this.ramp(live.gain.gain, live.volume / 100, fade)
+      if (usesActivationFade && live.sources.size === 0) {
+        // Loading and decoding are asynchronous. Hold the layer silent until its
+        // first voice really starts, otherwise the fade can finish before any
+        // audio exists and the clip enters at full level.
+        this.ramp(live.gain.gain, 0, 0)
+        live.activationFadePending = true
+      } else {
+        live.activationFadePending = false
+        this.ramp(live.gain.gain, live.volume / 100, fade)
+      }
       live.isFirstFire = true
       this.armLayer(stack, live)
     } else {
+      live.activationFadePending = false
       this.ramp(live.gain.gain, 0, fade)
       this.clearTimer(live)
       setTimeout(
@@ -879,6 +895,17 @@ export class AmbientEngine {
     })
 
     source.start()
+    if (
+      live.activationFadePending &&
+      (live.layer.mode === 'loop' || live.layer.mode === 'random')
+    ) {
+      live.activationFadePending = false
+      this.ramp(
+        live.gain.gain,
+        live.volume / 100,
+        live.layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec,
+      )
+    }
     this.setSounding(live, true)
     if (!loop && publishProgress) {
       useAudioStore

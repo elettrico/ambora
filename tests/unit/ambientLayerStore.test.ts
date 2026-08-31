@@ -42,6 +42,7 @@ describe('createAmbientLayer', () => {
     expect(layer!.enabled).toBe(true)
     expect(layer!.volume).toBe(AMBIENT_DEFAULTS.volume)
     expect(layer!.pitchVariation).toBe(0)
+    expect(layer!.activationFadeSec).toBe(AMBIENT_DEFAULTS.activationFadeSec)
     expect(layer!.clipOrder).toBe('shuffle')
     expect(layer!.clips).toEqual([])
     expect(layer!.order).toBe(0)
@@ -111,6 +112,25 @@ describe('updateAmbientLayer', () => {
       .getState()
       .updateAmbientLayer(campaignId, climateId, layer.id, { pitchVariation: -4 })
     expect(getClimate(campaignId, climateId).ambientLayers![0].pitchVariation).toBe(0)
+  })
+
+  it('clamps activation fade to the supported range', () => {
+    const { campaignId, climateId } = setup()
+    const layer = useCampaignStore.getState().createAmbientLayer(campaignId, climateId, 'Rain')!
+
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { activationFadeSec: 80 })
+    expect(getClimate(campaignId, climateId).ambientLayers![0].activationFadeSec).toBe(
+      AMBIENT_DEFAULTS.maxActivationFadeSec,
+    )
+
+    useCampaignStore
+      .getState()
+      .updateAmbientLayer(campaignId, climateId, layer.id, { activationFadeSec: -4 })
+    expect(getClimate(campaignId, climateId).ambientLayers![0].activationFadeSec).toBe(
+      AMBIENT_DEFAULTS.minActivationFadeSec,
+    )
   })
 
   it('pushes max up when min is raised past it', () => {

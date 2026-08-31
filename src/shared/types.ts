@@ -81,6 +81,8 @@ export interface AmbientLayer {
   volume: number
   /** Symmetric random playback-rate range, 0-20%. Changes pitch and speed together. */
   pitchVariation?: number
+  /** Fade used only when a loop/random layer is manually enabled or disabled. */
+  activationFadeSec?: number
   clips: AmbientClip[]
   clipOrder: AmbientClipOrder
   /** Random mode only: delay bounds, measured from when the last clip ended. */

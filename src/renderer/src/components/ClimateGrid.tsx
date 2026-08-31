@@ -159,6 +159,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
       {sorted.map((climate) => (
         <ClimateCard
           key={climate.id}
+          campaignId={campaign.id}
           climate={climate}
           isActive={climate.id === activeClimateId && isPlaying}
           isSelected={false}

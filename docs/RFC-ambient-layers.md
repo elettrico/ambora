@@ -79,6 +79,7 @@ interface AmbientLayer {
   mode: AmbientMode
   enabled: boolean // default state when the climate activates
   volume: number // 0–100, relative to master
+  activationFadeSec?: number // manual Loop/Random enable/disable only
   clips: AmbientClip[]
   clipOrder: AmbientClipOrder
   minDelaySec: number // random mode
@@ -195,12 +196,16 @@ COLLAPSED              EXPANDED
 One-shot pads flash when they fire, so the GM gets confirmation without hearing
 the room. All touch targets stay at 44×44px minimum.
 
-On desktop, the active Climate card also exposes its One-shot and Sequence
-layers directly below the track/ambient count. Each button draws a bottom-edge
-progress bar that drains for the duration of the current clip or sequence.
-Climate and layer warning badges drill down to the affected file; clicking the
-file warning opens a relink picker that preserves the authored layer and clip
-settings.
+On desktop, Climate cards expose their layers from a floating `+` popover:
+Loop/Random layers use the same enabled dot as the editor, while One-shot and
+Sequence layers use a play button. Climate and layer warning badges drill down
+to the affected file; clicking the file warning opens a relink picker that
+preserves the authored layer and clip settings.
+
+Loop and Random layers also expose an **Activation fade** in their expanded
+settings. It applies only to manual enable/disable actions; the fade-in begins
+when the first decoded voice actually starts, while activating the whole Climate
+continues to use its normal stack crossfade.
 
 ### WebSocket protocol
 

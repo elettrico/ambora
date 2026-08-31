@@ -1,5 +1,5 @@
-/** v4 preserves authored pitch variation for soundboard and ambient playback. */
-export const AMBORA_FILE_VERSION = 4
+/** v5 preserves the manual activation fade authored for ambient layers. */
+export const AMBORA_FILE_VERSION = 5
 
 export const AMBORA_FILE_FILTER = {
   name: 'Ambora Campaign',
@@ -32,6 +32,7 @@ export interface ExportedAmbientLayer {
   enabled: boolean
   volume: number
   pitchVariation?: number
+  activationFadeSec?: number
   clipOrder: 'shuffle' | 'random' | 'sequential'
   minDelaySec: number
   maxDelaySec: number

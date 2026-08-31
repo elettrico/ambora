@@ -83,6 +83,9 @@ clip file ──decoded once──▶ AudioBuffer cache
 - Runtime layer state (enabled/volume) lives in `audioStore.ambientRuntime` and is
   **ephemeral**: the stored layer holds the scene's authored defaults, and
   re-activating the climate restores them.
+- Manually enabling or disabling a Loop/Random layer uses its authored
+  `activationFadeSec`. Fade-in begins only after the first decoded voice starts;
+  climate activation continues to use the stack-level crossfade instead.
 
 See `docs/RFC-ambient-layers.md` for the full design.
 

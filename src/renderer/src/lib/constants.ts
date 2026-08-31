@@ -61,6 +61,9 @@ export const AMBIENT_DEFAULTS = {
   maxDelayBound: 600,
   maxLayers: 12,
   pitchVariation: 0,
+  activationFadeSec: 2,
+  minActivationFadeSec: 0,
+  maxActivationFadeSec: 5,
   /** Fade applied when a single layer is toggled, so loops don't click. */
   toggleFadeSec: 0.4,
 } as const
