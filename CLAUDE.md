@@ -90,6 +90,8 @@ See the bottom of the build prompt for the 10-step build order. In short: (1) sc
 
 For full implementation details, read these files:
 
-- @docs/BUILD_PROMPT.md — Complete build prompt with all feature specs, data models, WebSocket protocol, component specs
 - @docs/DESIGN.md — Full UI/UX design system (colors, typography, spacing, component measurements, animation specs)
 - @docs/ARCHITECTURE.md — Technical architecture overview
+- `ambora-build-prompt.md` (repo root) — the original build brief. Historical:
+  parts of it describe choices that were never shipped or have since changed, so
+  treat the code and the two files above as authoritative. Not auto-loaded.
