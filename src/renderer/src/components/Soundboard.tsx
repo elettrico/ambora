@@ -121,7 +121,11 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const unplayable = useDiagnosticsStore((state) => state.unplayable)
-  const assignedSounds = sounds.filter((sound) => sound.shortcutKey)
+  const compactSounds = sounds
+  const unavailableCount = sounds.reduce(
+    (count, sound) => count + (unplayable[sound.id] ? 1 : 0),
+    0,
+  )
 
   useEffect(() => {
     localStorage.setItem('ambora:soundboard-mode', panelMode)
@@ -295,6 +299,23 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
               <span className="text-[11px] font-semibold uppercase tracking-[0.06em]">
                 Soundboard ({String(sounds.length)})
               </span>
+              {panelMode === 'hidden' && unavailableCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="flex size-5 items-center justify-center text-amber-400"
+                      aria-label={`${String(unavailableCount)} unavailable sound${unavailableCount === 1 ? '' : 's'}`}
+                      tabIndex={0}
+                    >
+                      <TriangleAlert className="size-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {String(unavailableCount)} sound{unavailableCount === 1 ? '' : 's'} cannot be
+                    played
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {panelMode !== 'hidden' && (
                 <span className="truncate text-[11px] text-text-tertiary">
                   Letter plays · Shift + letter plays at 100%
@@ -541,31 +562,43 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
           )}
           {panelMode === 'compact' && (
             <div className="border-t border-border-subtle p-3">
-              {assignedSounds.length > 0 ? (
+              {compactSounds.length > 0 ? (
                 <div className="grid w-fit max-w-full grid-cols-[repeat(6,44px)] gap-2">
-                  {assignedSounds.map((sound) => (
-                    <Tooltip key={sound.id}>
-                      <TooltipTrigger asChild>
-                        <SoundKey
-                          letter={sound.shortcutKey?.toLocaleUpperCase() ?? ''}
-                          activity={activityById[sound.id]}
-                          icon={iconFor(sound.icon)}
-                          iconColor={sound.iconColor}
-                          className={unplayable[sound.id] ? 'opacity-50' : undefined}
-                          size="large"
-                          onClick={(event) => void play(sound, event.shiftKey)}
-                          aria-label={`Play ${sound.name}`}
+                  {compactSounds.map((sound) => (
+                    <div key={sound.id} className="relative">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SoundKey
+                            letter={sound.shortcutKey?.toLocaleUpperCase() ?? ''}
+                            activity={activityById[sound.id]}
+                            icon={iconFor(sound.icon)}
+                            iconColor={sound.iconColor}
+                            className={unplayable[sound.id] ? 'opacity-50' : undefined}
+                            size="large"
+                            onClick={(event) => void play(sound, event.shiftKey)}
+                            aria-label={
+                              unplayable[sound.id]
+                                ? `${sound.name}: ${unplayable[sound.id].reason}. Click to retry`
+                                : `Play ${sound.name}`
+                            }
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          {sound.name} ·{' '}
+                          {unplayable[sound.id]?.reason ?? fileName(sound.localFilePath)}
+                        </TooltipContent>
+                      </Tooltip>
+                      {unplayable[sound.id] && (
+                        <TriangleAlert
+                          className="pointer-events-none absolute -top-1 -right-1 z-30 size-4 rounded-full bg-surface-1 text-amber-400"
+                          aria-hidden="true"
                         />
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        {sound.name} ·{' '}
-                        {unplayable[sound.id]?.reason ?? fileName(sound.localFilePath)}
-                      </TooltipContent>
-                    </Tooltip>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
-                <span className="text-[12px] text-text-tertiary">No letters assigned yet</span>
+                <span className="text-[12px] text-text-tertiary">No sounds yet</span>
               )}
             </div>
           )}
