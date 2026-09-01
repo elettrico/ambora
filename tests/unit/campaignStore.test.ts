@@ -267,6 +267,32 @@ describe('track CRUD', () => {
   })
 })
 
+describe('soundboard CRUD', () => {
+  it('relinks a sound without replacing its identity or authored settings', () => {
+    const campaign = useCampaignStore.getState().createCampaign('Campaign')
+    const sound = useCampaignStore.getState().addSoundboardSound(campaign.id, {
+      name: 'Thunder',
+      localFilePath: '/old.wav',
+      volume: 65,
+      shortcutKey: 't',
+      playbackMode: 'loop',
+      duration: 10,
+    })!
+
+    useCampaignStore.getState().relinkSoundboardSound(campaign.id, sound.id, '/new.wav', 42)
+
+    expect(useCampaignStore.getState().campaigns[0].soundboard?.[0]).toMatchObject({
+      id: sound.id,
+      name: 'Thunder',
+      volume: 65,
+      shortcutKey: 't',
+      playbackMode: 'loop',
+      localFilePath: '/new.wav',
+      duration: 42,
+    })
+  })
+})
+
 describe('helpers', () => {
   it('getActiveCampaign returns the active campaign', () => {
     const campaign = useCampaignStore.getState().createCampaign('Active')

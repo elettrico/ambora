@@ -20,7 +20,7 @@ import type { Track } from '@/lib/types'
 const DEBUG_FLAG = 'AMBORA_DEBUG_AUDIO'
 const BUFFER_CAP = 500
 
-export type AudioLogSource = 'playback' | 'lufs' | 'select' | 'ambient'
+export type AudioLogSource = 'playback' | 'lufs' | 'select' | 'ambient' | 'soundboard'
 
 export interface AudioLogRecord {
   t: number

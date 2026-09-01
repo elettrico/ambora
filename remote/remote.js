@@ -706,6 +706,7 @@
       var sound = sounds[i]
       var activity = state.soundboardRuntime[sound.id]
       var playing = activity && activity.playing
+      var unavailable = sound.unavailable === true
       var visual =
         sound.icon && ICONS[sound.icon]
           ? icon(sound.icon, 22)
@@ -713,12 +714,15 @@
       html +=
         '<button class="soundboard__key' +
         (playing ? ' playing' : '') +
+        (unavailable ? ' unavailable' : '') +
         '" data-sound-id="' +
         escapeAttr(sound.id) +
-        '" aria-label="Play ' +
-        escapeAttr(sound.name) +
+        '"' +
+        (unavailable ? ' disabled' : '') +
+        ' aria-label="' +
+        escapeAttr(unavailable ? sound.name + ' is unavailable' : 'Play ' + sound.name) +
         '" title="' +
-        escapeAttr(sound.name) +
+        escapeAttr(unavailable ? sound.name + ' — audio file unavailable' : sound.name) +
         '" style="--sound-color:' +
         safeColor(sound.iconColor || SAFE_FALLBACK_COLOR) +
         '">' +
@@ -1168,7 +1172,7 @@
     // Campaign soundboard — one compact row of icon/letter circles.
     dom.soundboardList.addEventListener('click', function (e) {
       var key = e.target.closest('.soundboard__key')
-      if (!key) return
+      if (!key || key.disabled) return
       var soundId = key.getAttribute('data-sound-id')
       if (!soundId) return
 

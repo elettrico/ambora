@@ -308,6 +308,12 @@ button {
   box-shadow: 0 0 12px color-mix(in srgb, var(--sound-color) 45%, transparent);
 }
 
+.soundboard__key.unavailable {
+  opacity: 0.4;
+  border-style: dashed;
+  color: var(--text-secondary);
+}
+
 .soundboard__indicator {
   position: absolute;
   inset: -3px;

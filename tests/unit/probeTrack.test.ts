@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resultForOutcome } from '../../src/renderer/src/audio/probeTrack'
+import { resultForOutcome, userFacingAudioFailure } from '../../src/renderer/src/audio/probeTrack'
 
 describe('resultForOutcome', () => {
   it('maps loadedmetadata to ok', () => {
@@ -26,5 +26,22 @@ describe('resultForOutcome', () => {
     const r = resultForOutcome('error', null)
     expect(r.ok).toBe(false)
     expect(r.reason).toBe('Audio error (code ?)')
+  })
+})
+
+describe('userFacingAudioFailure', () => {
+  it('replaces raw missing-file transport errors with an actionable message', () => {
+    expect(userFacingAudioFailure('Failed to read file (HTTP 404)')).toBe(
+      'Audio file is missing — locate it to play',
+    )
+    expect(userFacingAudioFailure('/music/rain.wav: No such file or directory')).toBe(
+      'Audio file is missing — locate it to play',
+    )
+  })
+
+  it('keeps useful codec diagnostics intact', () => {
+    expect(userFacingAudioFailure('Unsupported audio codec: ac4')).toBe(
+      'Unsupported audio codec: ac4',
+    )
   })
 })

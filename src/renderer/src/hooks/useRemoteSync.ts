@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useConnectionStore } from '@/store/connectionStore'
+import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
 import { SoundboardEngine } from '@/audio/SoundboardEngine'
@@ -27,11 +28,18 @@ function getPlaybackState(): PlaybackState {
 
 function getFullState(): RemoteFullState {
   const { campaigns, activeCampaignId } = useCampaignStore.getState()
+  const unavailableIds = new Set(Object.keys(useDiagnosticsStore.getState().unplayable))
   return toRemoteFullState({
     campaigns,
     activeCampaignId,
     playback: getPlaybackState(),
+    unavailableIds,
   })
+}
+
+function getRemoteCampaigns(): RemoteFullState['campaigns'] {
+  const unavailableIds = new Set(Object.keys(useDiagnosticsStore.getState().unplayable))
+  return toRemoteCampaigns(useCampaignStore.getState().campaigns, unavailableIds)
 }
 
 export function useRemoteSync(): void {
@@ -82,10 +90,19 @@ export function useRemoteSync(): void {
       if (state.campaigns !== prev.campaigns || state.activeCampaignId !== prev.activeCampaignId) {
         window.api.sendStateUpdate({
           type: 'campaigns-update',
-          payload: { campaigns: toRemoteCampaigns(state.campaigns) },
+          payload: { campaigns: getRemoteCampaigns() },
         })
         window.api.sendFullState(getFullState())
       }
+    })
+
+    const unsubDiagnostics = useDiagnosticsStore.subscribe((state, prev) => {
+      if (state.unplayable === prev.unplayable) return
+      window.api.sendStateUpdate({
+        type: 'campaigns-update',
+        payload: { campaigns: getRemoteCampaigns() },
+      })
+      window.api.sendFullState(getFullState())
     })
 
     // Soundboard playback lives outside Zustand because it is short-lived audio
@@ -176,6 +193,7 @@ export function useRemoteSync(): void {
       unsubAudio()
       unsubCampaigns()
       unsubSoundboard()
+      unsubDiagnostics()
       unsubCommands()
       unsubConnection()
       SoundboardEngine.getInstance().stopAll()

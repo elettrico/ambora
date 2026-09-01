@@ -3,6 +3,9 @@ import { localAudioUrl } from '@/lib/localAudioUrl'
 import { useAudioStore } from '@/store/audioStore'
 import type { SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
 import { randomPlaybackRate } from './playbackVariation'
+import { userFacingAudioFailure } from './probeTrack'
+import { audioLog, extOf } from './audioLog'
+import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 
 const STOP_FADE_SECONDS = 0.03
 const LOOP_STOP_FADE_SECONDS = 0.4
@@ -133,10 +136,21 @@ export class SoundboardEngine {
       if (generation !== null && this.generations.get(sound.id) === generation) {
         this.pending.delete(sound.id)
       }
-      throw error
+      const detail = error instanceof Error ? error.message : 'Could not decode audio file'
+      const reason = userFacingAudioFailure(detail)
+      useDiagnosticsStore.getState().setUnplayable(sound.id, { source: 'playback', reason })
+      audioLog('soundboard', 'decode-failed', {
+        trackId: sound.id,
+        title: sound.name,
+        localFilePath: sound.localFilePath,
+        ext: extOf(sound.localFilePath),
+        detail,
+      })
+      throw new Error(reason)
     }
     if (generation !== null && this.generations.get(sound.id) !== generation) return
     this.pending.delete(sound.id)
+    useDiagnosticsStore.getState().clearUnplayable(sound.id)
 
     const activeCtx = this.ensureGraph()
     const source = activeCtx.createBufferSource()

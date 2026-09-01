@@ -186,6 +186,8 @@ export interface RemoteSoundboardSound {
   icon?: string
   iconColor?: string
   order: number
+  /** Session diagnostic only; no filesystem details are exposed to the phone. */
+  unavailable?: boolean
 }
 
 export type RemoteStateMessage =
