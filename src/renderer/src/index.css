@@ -3,22 +3,52 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* === Palette ===
+   The only place raw colour values live. Every colour token in `@theme inline`
+   below points at one of these, so utilities compile to `var(--…)` rather than
+   to a literal — which is what makes the palette swappable at runtime.
+
+   `@theme inline` bakes the declared value straight into each utility:
+   with a literal here, `bg-background` compiled to `background-color: #0c0c0e`
+   and no runtime override could reach it. Indirection through these variables
+   is what a second theme needs to exist at all.
+
+   A light theme adds `:root[data-theme='light'] { … }` overriding these same
+   names, and nothing else in the codebase has to change. The palette itself is
+   still an open design question — see issue #31. */
+:root {
+  --bg: #0c0c0e;
+  --surface-1: #141417;
+  --surface-2: #1c1c20;
+  --surface-3: #242428;
+  --border: #2a2a30;
+  --border-subtle: #1f1f24;
+  --text-primary: #eaeaed;
+  --text-secondary: #9494a0;
+  --text-tertiary: #5c5c68;
+  --accent: #7b93f5;
+  --accent-hover: #95a8f8;
+  --accent-muted: #7b93f520;
+  --danger: #f07070;
+  --success: #5ec269;
+}
+
 @theme inline {
   /* === Color System === */
-  --color-background: #0c0c0e;
-  --color-surface-1: #141417;
-  --color-surface-2: #1c1c20;
-  --color-surface-3: #242428;
-  --color-border: #2a2a30;
-  --color-border-subtle: #1f1f24;
-  --color-text-primary: #eaeaed;
-  --color-text-secondary: #9494a0;
-  --color-text-tertiary: #5c5c68;
-  --color-accent: #7b93f5;
-  --color-accent-hover: #95a8f8;
-  --color-accent-muted: #7b93f520;
-  --color-danger: #f07070;
-  --color-success: #5ec269;
+  --color-background: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
 
   /* === Spacing (4px base grid) === */
   --spacing-1: 4px;
@@ -52,34 +82,34 @@
   --font-size-overline: 11px;
 
   /* === shadcn/ui CSS variables mapped to our design system === */
-  --color-sidebar-ring: #7b93f5;
-  --color-sidebar-border: #2a2a30;
-  --color-sidebar-accent-foreground: #eaeaed;
-  --color-sidebar-accent: #242428;
-  --color-sidebar-foreground: #9494a0;
-  --color-sidebar-primary-foreground: #eaeaed;
-  --color-sidebar-primary: #7b93f5;
-  --color-sidebar-background: #141417;
-  --color-chart-5: #f07070;
-  --color-chart-4: #5ec269;
-  --color-chart-3: #7b93f5;
-  --color-chart-2: #9494a0;
-  --color-chart-1: #eaeaed;
-  --color-ring: #7b93f5;
-  --color-input: #2a2a30;
-  --color-destructive: #f07070;
-  --color-accent-foreground: #eaeaed;
-  --color-muted-foreground: #9494a0;
-  --color-muted: #1c1c20;
-  --color-popover-foreground: #eaeaed;
-  --color-popover: #141417;
-  --color-card-foreground: #eaeaed;
-  --color-card: #1c1c20;
-  --color-secondary-foreground: #eaeaed;
-  --color-secondary: #1c1c20;
-  --color-primary-foreground: #0c0c0e;
-  --color-primary: #eaeaed;
-  --color-foreground: #eaeaed;
+  --color-sidebar-ring: var(--accent);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent-foreground: var(--text-primary);
+  --color-sidebar-accent: var(--surface-3);
+  --color-sidebar-foreground: var(--text-secondary);
+  --color-sidebar-primary-foreground: var(--text-primary);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-background: var(--surface-1);
+  --color-chart-5: var(--danger);
+  --color-chart-4: var(--success);
+  --color-chart-3: var(--accent);
+  --color-chart-2: var(--text-secondary);
+  --color-chart-1: var(--text-primary);
+  --color-ring: var(--accent);
+  --color-input: var(--border);
+  --color-destructive: var(--danger);
+  --color-accent-foreground: var(--text-primary);
+  --color-muted-foreground: var(--text-secondary);
+  --color-muted: var(--surface-2);
+  --color-popover-foreground: var(--text-primary);
+  --color-popover: var(--surface-1);
+  --color-card-foreground: var(--text-primary);
+  --color-card: var(--surface-2);
+  --color-secondary-foreground: var(--text-primary);
+  --color-secondary: var(--surface-2);
+  --color-primary-foreground: var(--bg);
+  --color-primary: var(--text-primary);
+  --color-foreground: var(--text-primary);
   --radius: 10px;
 
   --animate-text-fade-in: text-fade-in 300ms ease-out;
