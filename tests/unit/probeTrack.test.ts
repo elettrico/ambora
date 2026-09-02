@@ -44,4 +44,14 @@ describe('userFacingAudioFailure', () => {
       'Unsupported audio codec: ac4',
     )
   })
+
+  it('does not misreport an ffmpeg spawn failure as a missing audio file', () => {
+    const reason = 'Could not probe audio file: spawn /app/ffmpeg ENOENT'
+    expect(userFacingAudioFailure(reason)).toBe(reason)
+  })
+
+  it('does not treat a generic not-found diagnostic as a missing audio file', () => {
+    const reason = 'ffmpeg binary not found (tried: /app/ffmpeg)'
+    expect(userFacingAudioFailure(reason)).toBe(reason)
+  })
 })

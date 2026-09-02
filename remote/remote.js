@@ -718,11 +718,10 @@
         '" data-sound-id="' +
         escapeAttr(sound.id) +
         '"' +
-        (unavailable ? ' disabled' : '') +
         ' aria-label="' +
-        escapeAttr(unavailable ? sound.name + ' is unavailable' : 'Play ' + sound.name) +
+        escapeAttr(unavailable ? 'Retry ' + sound.name : 'Play ' + sound.name) +
         '" title="' +
-        escapeAttr(unavailable ? sound.name + ' — audio file unavailable' : sound.name) +
+        escapeAttr(unavailable ? sound.name + ' — audio unavailable, tap to retry' : sound.name) +
         '" style="--sound-color:' +
         safeColor(sound.iconColor || SAFE_FALLBACK_COLOR) +
         '">' +
@@ -1172,7 +1171,7 @@
     // Campaign soundboard — one compact row of icon/letter circles.
     dom.soundboardList.addEventListener('click', function (e) {
       var key = e.target.closest('.soundboard__key')
-      if (!key || key.disabled) return
+      if (!key) return
       var soundId = key.getAttribute('data-sound-id')
       if (!soundId) return
 

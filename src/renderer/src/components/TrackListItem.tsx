@@ -60,7 +60,7 @@ export function TrackListItem({
           <Tooltip>
             <TooltipTrigger asChild>
               <AlertTriangle
-                className="size-3.5 shrink-0 text-amber-400"
+                className="size-3.5 shrink-0 text-warning"
                 aria-label={`Unplayable: ${diagnostic.reason}`}
               />
             </TooltipTrigger>

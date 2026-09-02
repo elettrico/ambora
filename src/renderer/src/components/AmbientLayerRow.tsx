@@ -297,7 +297,7 @@ export function AmbientLayerRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
+                <AlertTriangle className="size-3.5 shrink-0 text-warning" />
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={8}>
                 <p>This layer has no clips and won&rsquo;t play</p>
@@ -308,7 +308,7 @@ export function AmbientLayerRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
+                <AlertTriangle className="size-3.5 shrink-0 text-warning" />
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
                 <p className="font-medium">
@@ -543,7 +543,7 @@ export function AmbientLayerRow({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <AlertTriangle className="size-3 shrink-0 text-amber-400" />
+                                <AlertTriangle className="size-3 shrink-0 text-warning" />
                               </TooltipTrigger>
                               <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
                                 <p className="font-medium">This clip can&rsquo;t be played</p>

@@ -19,7 +19,7 @@ export interface MediaErrorLike {
 
 export function userFacingAudioFailure(reason?: string): string {
   if (!reason) return 'Audio file could not be read — locate or replace it to play'
-  if (/HTTP 404|not found|no such file|ENOENT/i.test(reason)) {
+  if (/HTTP 404|no such file or directory/i.test(reason)) {
     return 'Audio file is missing — locate it to play'
   }
   if (/permission denied|EACCES/i.test(reason)) {

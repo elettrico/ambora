@@ -83,7 +83,7 @@ function RelinkSoundWarning({
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="flex size-6 shrink-0 items-center justify-center rounded text-amber-400 hover:bg-amber-500/10"
+            className="flex size-6 shrink-0 items-center justify-center rounded text-warning hover:bg-warning/10"
             onClick={() => inputRef.current?.click()}
             aria-label={`Relocate ${sound.name}: ${reason}`}
           >
@@ -121,7 +121,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const unplayable = useDiagnosticsStore((state) => state.unplayable)
-  const compactSounds = sounds
+  const assignedSounds = sounds.filter((sound) => sound.shortcutKey)
   const unavailableCount = sounds.reduce(
     (count, sound) => count + (unplayable[sound.id] ? 1 : 0),
     0,
@@ -173,9 +173,9 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
         if (cancelled) return
         const diagnostics = useDiagnosticsStore.getState()
         if (diagnostics.hasProbed(sound.id)) continue
-        diagnostics.markProbed(sound.id)
         const { ok, reason } = await probeLocalTrack(sound.localFilePath)
         if (cancelled) return
+        diagnostics.markProbed(sound.id)
         if (!ok) {
           diagnostics.setUnplayable(sound.id, {
             source: 'probe',
@@ -303,7 +303,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span
-                      className="flex size-5 items-center justify-center text-amber-400"
+                      className="flex size-5 items-center justify-center text-warning"
                       aria-label={`${String(unavailableCount)} unavailable sound${unavailableCount === 1 ? '' : 's'}`}
                       tabIndex={0}
                     >
@@ -417,7 +417,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                   {sounds.map((sound) => (
                     <div
                       key={sound.id}
-                      className={`grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_132px_32px_24px] items-center gap-2 bg-surface-1 px-3 ${unplayable[sound.id] ? 'bg-amber-500/5' : ''}`}
+                      className={`grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_132px_32px_24px] items-center gap-2 px-3 ${unplayable[sound.id] ? 'bg-warning/5' : 'bg-surface-1'}`}
                     >
                       <SoundKey
                         letter={
@@ -562,9 +562,9 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
           )}
           {panelMode === 'compact' && (
             <div className="border-t border-border-subtle p-3">
-              {compactSounds.length > 0 ? (
+              {assignedSounds.length > 0 ? (
                 <div className="grid w-fit max-w-full grid-cols-[repeat(6,44px)] gap-2">
-                  {compactSounds.map((sound) => (
+                  {assignedSounds.map((sound) => (
                     <div key={sound.id} className="relative">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -590,7 +590,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                       </Tooltip>
                       {unplayable[sound.id] && (
                         <TriangleAlert
-                          className="pointer-events-none absolute -top-1 -right-1 z-30 size-4 rounded-full bg-surface-1 text-amber-400"
+                          className="pointer-events-none absolute -top-1 -right-1 z-30 size-4 rounded-full bg-surface-1 text-warning"
                           aria-hidden="true"
                         />
                       )}
@@ -598,7 +598,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                   ))}
                 </div>
               ) : (
-                <span className="text-[12px] text-text-tertiary">No sounds yet</span>
+                <span className="text-[12px] text-text-tertiary">No letters assigned yet</span>
               )}
             </div>
           )}

@@ -311,14 +311,14 @@ export function Sidebar(): React.JSX.Element {
                 </p>
               </div>
               {importPreview.warnings.length > 0 && (
-                <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-                  <div className="flex items-center gap-2 text-[13px] font-medium text-amber-400">
+                <div className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/10 p-3">
+                  <div className="flex items-center gap-2 text-[13px] font-medium text-warning">
                     <AlertTriangle className="size-4" />
                     Warnings
                   </div>
                   <ul className="flex flex-col gap-1">
                     {importPreview.warnings.map((w) => (
-                      <li key={w} className="text-[12px] text-amber-300/80">
+                      <li key={w} className="text-[12px] text-warning/80">
                         {w}
                       </li>
                     ))}
