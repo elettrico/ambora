@@ -8,9 +8,18 @@ const CANVAS_CSS_H = 4
 const CANVAS_PX_W = CANVAS_CSS_W * 2
 const CANVAS_PX_H = CANVAS_CSS_H * 2
 
-const ACCENT = '#7b93f5'
-const TEXT_SECONDARY = '#9494a0'
-const TEXT_TERTIARY = '#5c5c68'
+/**
+ * Canvas and imperative `.style` writes bypass Tailwind entirely, so this meter
+ * can't get its colours from utilities the way the rest of the renderer does.
+ * Inline styles below use `var(--token)` directly; the canvas needs a resolved
+ * value, so it reads the same custom property the utilities compile to.
+ *
+ * Resolved per activation rather than at module load, so a palette swap is
+ * picked up on the next track instead of requiring a reload.
+ */
+function readThemeColor(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 
 const SMOOTHING_ATTACK = 0.6
 const SMOOTHING_RELEASE = 0.4
@@ -39,6 +48,7 @@ export function NormalizationIndicator(): React.JSX.Element | null {
     smoothedLevel.current = 0
     lastPaintMs.current = 0
     gradientRef.current = null
+    const accent = readThemeColor('--accent')
 
     function tick(now: number): void {
       const engine = AudioEngine.getInstance()
@@ -64,11 +74,11 @@ export function NormalizationIndicator(): React.JSX.Element | null {
             gainRef.current.textContent = text
           }
           if (db > 0.05) {
-            gainRef.current.style.color = ACCENT
+            gainRef.current.style.color = 'var(--accent)'
           } else if (db < -0.05) {
-            gainRef.current.style.color = TEXT_SECONDARY
+            gainRef.current.style.color = 'var(--text-secondary)'
           } else {
-            gainRef.current.style.color = TEXT_TERTIARY
+            gainRef.current.style.color = 'var(--text-tertiary)'
           }
         }
       }
@@ -111,7 +121,7 @@ export function NormalizationIndicator(): React.JSX.Element | null {
         ctx.clearRect(0, 0, CANVAS_PX_W, CANVAS_PX_H)
 
         if (isReducedMotion) {
-          ctx.fillStyle = ACCENT
+          ctx.fillStyle = accent
           ctx.beginPath()
           ctx.arc(CANVAS_PX_H / 2, CANVAS_PX_H / 2, CANVAS_PX_H / 2, 0, Math.PI * 2)
           ctx.fill()
@@ -120,8 +130,8 @@ export function NormalizationIndicator(): React.JSX.Element | null {
           if (fillWidth > 0) {
             if (!gradientRef.current) {
               const gradient = ctx.createLinearGradient(0, 0, CANVAS_PX_W, 0)
-              gradient.addColorStop(0, ACCENT)
-              gradient.addColorStop(1, `${ACCENT}40`)
+              gradient.addColorStop(0, accent)
+              gradient.addColorStop(1, `color-mix(in srgb, ${accent} 25%, transparent)`)
               gradientRef.current = gradient
             }
             ctx.fillStyle = gradientRef.current
