@@ -6,7 +6,7 @@ import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
 import { SoundboardEngine } from '@/audio/SoundboardEngine'
-import { probeLocalTrack } from '@/audio/probeTrack'
+import { probeSoundboardTrack } from '@/audio/probeTrack'
 import { toast } from 'sonner'
 import { toRemoteCampaigns, toRemoteFullState } from '../../../shared/remoteDto'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
@@ -50,7 +50,7 @@ function soundboardDiagnosticsChanged(
   const soundIds = useCampaignStore
     .getState()
     .campaigns.flatMap((campaign) => campaign.soundboard?.map((sound) => sound.id) ?? [])
-  return soundIds.some((soundId) => current[soundId] !== previous[soundId])
+  return soundIds.some((soundId) => !!current[soundId] !== !!previous[soundId])
 }
 
 export function useRemoteSync(): void {
@@ -197,7 +197,7 @@ export function useRemoteSync(): void {
             void (async () => {
               const diagnostics = useDiagnosticsStore.getState()
               if (diagnostics.unplayable[sound.id]) {
-                const probe = await probeLocalTrack(sound.localFilePath)
+                const probe = await probeSoundboardTrack(sound.localFilePath)
                 if (!probe.ok) {
                   diagnostics.setUnplayable(sound.id, {
                     source: 'probe',

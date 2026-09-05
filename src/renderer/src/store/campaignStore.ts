@@ -610,7 +610,13 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
         ? {
             ...campaign,
             soundboard: (campaign.soundboard ?? []).map((sound) =>
-              sound.id === soundId ? { ...sound, localFilePath, duration } : sound,
+              sound.id === soundId
+                ? {
+                    ...sound,
+                    localFilePath,
+                    ...(duration === undefined ? {} : { duration }),
+                  }
+                : sound,
             ),
             updatedAt: now(),
           }

@@ -309,7 +309,6 @@ button {
 }
 
 .soundboard__key.unavailable {
-  opacity: 0.4;
   border-style: dashed;
   color: var(--text-secondary);
 }

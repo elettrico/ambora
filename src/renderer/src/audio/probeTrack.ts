@@ -50,5 +50,11 @@ export async function probeLocalTrack(filePath: string): Promise<ProbeResult> {
   }
   const result = await window.api.probeAudioFile(filePath)
   if (result.ok) return { ok: true }
+  return { ok: false, reason: result.reason }
+}
+
+export async function probeSoundboardTrack(filePath: string): Promise<ProbeResult> {
+  const result = await probeLocalTrack(filePath)
+  if (result.ok) return result
   return { ok: false, reason: userFacingAudioFailure(result.reason) }
 }

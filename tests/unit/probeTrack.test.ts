@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { resultForOutcome, userFacingAudioFailure } from '../../src/renderer/src/audio/probeTrack'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  probeLocalTrack,
+  probeSoundboardTrack,
+  resultForOutcome,
+  userFacingAudioFailure,
+} from '../../src/renderer/src/audio/probeTrack'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('resultForOutcome', () => {
   it('maps loadedmetadata to ok', () => {
@@ -53,5 +62,37 @@ describe('userFacingAudioFailure', () => {
   it('does not treat a generic not-found diagnostic as a missing audio file', () => {
     const reason = 'ffmpeg binary not found (tried: /app/ffmpeg)'
     expect(userFacingAudioFailure(reason)).toBe(reason)
+  })
+})
+
+describe('audio probe consumers', () => {
+  it('preserves raw probe details for climate and ambient consumers', async () => {
+    vi.stubGlobal('window', {
+      api: {
+        probeAudioFile: vi
+          .fn()
+          .mockResolvedValue({ ok: false, reason: '/music/rain.wav: No such file or directory' }),
+      },
+    })
+
+    await expect(probeLocalTrack('/music/rain.wav')).resolves.toEqual({
+      ok: false,
+      reason: '/music/rain.wav: No such file or directory',
+    })
+  })
+
+  it('maps raw probe details to actionable soundboard copy', async () => {
+    vi.stubGlobal('window', {
+      api: {
+        probeAudioFile: vi
+          .fn()
+          .mockResolvedValue({ ok: false, reason: '/music/rain.wav: No such file or directory' }),
+      },
+    })
+
+    await expect(probeSoundboardTrack('/music/rain.wav')).resolves.toEqual({
+      ok: false,
+      reason: 'Audio file is missing — locate it to play',
+    })
   })
 })

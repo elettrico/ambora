@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SoundboardEngine, type SoundboardActivity } from '@/audio/SoundboardEngine'
-import { probeLocalTrack } from '@/audio/probeTrack'
+import { probeSoundboardTrack } from '@/audio/probeTrack'
 import { SoundKey } from '@/components/SoundKey'
 import { SoundIconPicker } from '@/components/SoundIconPicker'
 import { Button } from '@/components/ui/button'
@@ -135,7 +135,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
     try {
       const diagnostics = useDiagnosticsStore.getState()
       if (diagnostics.unplayable[sound.id]) {
-        const probe = await probeLocalTrack(sound.localFilePath)
+        const probe = await probeSoundboardTrack(sound.localFilePath)
         if (!probe.ok) {
           const reason = probe.reason ?? 'Audio file could not be read — locate it to play'
           diagnostics.setUnplayable(sound.id, { source: 'probe', reason })
@@ -173,7 +173,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
         if (cancelled) return
         const diagnostics = useDiagnosticsStore.getState()
         if (diagnostics.hasProbed(sound.id)) continue
-        const { ok, reason } = await probeLocalTrack(sound.localFilePath)
+        const { ok, reason } = await probeSoundboardTrack(sound.localFilePath)
         if (cancelled) return
         diagnostics.markProbed(sound.id)
         if (!ok) {
