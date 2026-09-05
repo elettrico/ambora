@@ -145,7 +145,7 @@ export function ClimateCard({
           </span>
           {unplayableCount > 0 && (
             <span
-              className="flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              className="flex items-center gap-1 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
               title={`${unplayableCount} track${unplayableCount === 1 ? '' : 's'} can't be played`}
             >
               <AlertTriangle className="size-3" />

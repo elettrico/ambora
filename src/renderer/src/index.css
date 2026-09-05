@@ -31,6 +31,7 @@
   --accent-muted: #7b93f520;
   --danger: #f07070;
   --success: #5ec269;
+  --warning: #f5a45d;
 }
 
 @theme inline {
@@ -49,6 +50,7 @@
   --color-accent-muted: var(--accent-muted);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-warning: var(--warning);
 
   /* === Spacing (4px base grid) === */
   --spacing-1: 4px;

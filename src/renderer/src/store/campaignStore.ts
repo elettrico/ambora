@@ -102,6 +102,12 @@ interface CampaignStore {
       >
     >,
   ) => void
+  relinkSoundboardSound: (
+    campaignId: string,
+    soundId: string,
+    localFilePath: string,
+    duration?: number,
+  ) => void
   deleteSoundboardSound: (campaignId: string, soundId: string) => void
 
   // Helpers
@@ -593,6 +599,28 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
             updatedAt: now(),
           }
         : c,
+    )
+    set({ campaigns })
+    persist(campaigns)
+  },
+
+  relinkSoundboardSound: (campaignId, soundId, localFilePath, duration) => {
+    const campaigns = get().campaigns.map((campaign) =>
+      campaign.id === campaignId
+        ? {
+            ...campaign,
+            soundboard: (campaign.soundboard ?? []).map((sound) =>
+              sound.id === soundId
+                ? {
+                    ...sound,
+                    localFilePath,
+                    ...(duration === undefined ? {} : { duration }),
+                  }
+                : sound,
+            ),
+            updatedAt: now(),
+          }
+        : campaign,
     )
     set({ campaigns })
     persist(campaigns)

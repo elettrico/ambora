@@ -19,7 +19,10 @@ import type {
   Track,
 } from './types'
 
-function toRemoteSound(sound: SoundboardSound): RemoteSoundboardSound {
+function toRemoteSound(
+  sound: SoundboardSound,
+  unavailableIds: ReadonlySet<string>,
+): RemoteSoundboardSound {
   return {
     id: sound.id,
     name: sound.name,
@@ -27,6 +30,7 @@ function toRemoteSound(sound: SoundboardSound): RemoteSoundboardSound {
     icon: sound.icon,
     iconColor: sound.iconColor,
     order: sound.order,
+    ...(unavailableIds.has(sound.id) ? { unavailable: true } : {}),
   }
 }
 
@@ -64,27 +68,36 @@ function toRemoteClimate(climate: Climate): RemoteClimate {
   return remote
 }
 
-export function toRemoteCampaign(campaign: Campaign): RemoteCampaign {
+export function toRemoteCampaign(
+  campaign: Campaign,
+  unavailableIds: ReadonlySet<string> = new Set(),
+): RemoteCampaign {
   const remote: RemoteCampaign = {
     id: campaign.id,
     name: campaign.name,
     climates: campaign.climates.map(toRemoteClimate),
   }
-  if (campaign.soundboard?.length) remote.soundboard = campaign.soundboard.map(toRemoteSound)
+  if (campaign.soundboard?.length) {
+    remote.soundboard = campaign.soundboard.map((sound) => toRemoteSound(sound, unavailableIds))
+  }
   return remote
 }
 
-export function toRemoteCampaigns(campaigns: Campaign[]): RemoteCampaign[] {
-  return campaigns.map(toRemoteCampaign)
+export function toRemoteCampaigns(
+  campaigns: Campaign[],
+  unavailableIds: ReadonlySet<string> = new Set(),
+): RemoteCampaign[] {
+  return campaigns.map((campaign) => toRemoteCampaign(campaign, unavailableIds))
 }
 
 export function toRemoteFullState(state: {
   campaigns: Campaign[]
   activeCampaignId: string | null
   playback: PlaybackState
+  unavailableIds?: ReadonlySet<string>
 }): RemoteFullState {
   return {
-    campaigns: toRemoteCampaigns(state.campaigns),
+    campaigns: toRemoteCampaigns(state.campaigns, state.unavailableIds),
     activeCampaignId: state.activeCampaignId,
     playback: state.playback,
   }

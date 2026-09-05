@@ -706,6 +706,7 @@
       var sound = sounds[i]
       var activity = state.soundboardRuntime[sound.id]
       var playing = activity && activity.playing
+      var unavailable = sound.unavailable === true
       var visual =
         sound.icon && ICONS[sound.icon]
           ? icon(sound.icon, 22)
@@ -713,12 +714,14 @@
       html +=
         '<button class="soundboard__key' +
         (playing ? ' playing' : '') +
+        (unavailable ? ' unavailable' : '') +
         '" data-sound-id="' +
         escapeAttr(sound.id) +
-        '" aria-label="Play ' +
-        escapeAttr(sound.name) +
+        '"' +
+        ' aria-label="' +
+        escapeAttr(unavailable ? 'Retry ' + sound.name : 'Play ' + sound.name) +
         '" title="' +
-        escapeAttr(sound.name) +
+        escapeAttr(unavailable ? sound.name + ' — audio unavailable, tap to retry' : sound.name) +
         '" style="--sound-color:' +
         safeColor(sound.iconColor || SAFE_FALLBACK_COLOR) +
         '">' +

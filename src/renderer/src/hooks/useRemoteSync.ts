@@ -2,9 +2,11 @@ import { useEffect } from 'react'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useConnectionStore } from '@/store/connectionStore'
+import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { AudioEngine } from '@/audio/AudioEngine'
 import { AmbientEngine } from '@/audio/AmbientEngine'
 import { SoundboardEngine } from '@/audio/SoundboardEngine'
+import { probeSoundboardTrack } from '@/audio/probeTrack'
 import { toast } from 'sonner'
 import { toRemoteCampaigns, toRemoteFullState } from '../../../shared/remoteDto'
 import type { PlaybackState, RemoteFullState } from '@/lib/types'
@@ -27,11 +29,28 @@ function getPlaybackState(): PlaybackState {
 
 function getFullState(): RemoteFullState {
   const { campaigns, activeCampaignId } = useCampaignStore.getState()
+  const unavailableIds = new Set(Object.keys(useDiagnosticsStore.getState().unplayable))
   return toRemoteFullState({
     campaigns,
     activeCampaignId,
     playback: getPlaybackState(),
+    unavailableIds,
   })
+}
+
+function getRemoteCampaigns(): RemoteFullState['campaigns'] {
+  const unavailableIds = new Set(Object.keys(useDiagnosticsStore.getState().unplayable))
+  return toRemoteCampaigns(useCampaignStore.getState().campaigns, unavailableIds)
+}
+
+function soundboardDiagnosticsChanged(
+  current: ReturnType<typeof useDiagnosticsStore.getState>['unplayable'],
+  previous: ReturnType<typeof useDiagnosticsStore.getState>['unplayable'],
+): boolean {
+  const soundIds = useCampaignStore
+    .getState()
+    .campaigns.flatMap((campaign) => campaign.soundboard?.map((sound) => sound.id) ?? [])
+  return soundIds.some((soundId) => !!current[soundId] !== !!previous[soundId])
 }
 
 export function useRemoteSync(): void {
@@ -82,10 +101,24 @@ export function useRemoteSync(): void {
       if (state.campaigns !== prev.campaigns || state.activeCampaignId !== prev.activeCampaignId) {
         window.api.sendStateUpdate({
           type: 'campaigns-update',
-          payload: { campaigns: toRemoteCampaigns(state.campaigns) },
+          payload: { campaigns: getRemoteCampaigns() },
         })
         window.api.sendFullState(getFullState())
       }
+    })
+
+    const unsubDiagnostics = useDiagnosticsStore.subscribe((state, prev) => {
+      if (
+        state.unplayable === prev.unplayable ||
+        !soundboardDiagnosticsChanged(state.unplayable, prev.unplayable)
+      ) {
+        return
+      }
+      window.api.sendStateUpdate({
+        type: 'campaigns-update',
+        payload: { campaigns: getRemoteCampaigns() },
+      })
+      window.api.sendFullState(getFullState())
     })
 
     // Soundboard playback lives outside Zustand because it is short-lived audio
@@ -161,11 +194,23 @@ export function useRemoteSync(): void {
           )
           const sound = campaign?.soundboard?.find((item) => item.id === command.payload.soundId)
           if (sound) {
-            void SoundboardEngine.getInstance()
-              .trigger(sound)
-              .catch((error: unknown) => {
-                toast.error(error instanceof Error ? error.message : `Could not play ${sound.name}`)
-              })
+            void (async () => {
+              const diagnostics = useDiagnosticsStore.getState()
+              if (diagnostics.unplayable[sound.id]) {
+                const probe = await probeSoundboardTrack(sound.localFilePath)
+                if (!probe.ok) {
+                  diagnostics.setUnplayable(sound.id, {
+                    source: 'probe',
+                    reason: probe.reason ?? 'Audio file could not be read — locate it to play',
+                  })
+                  return
+                }
+                diagnostics.clearUnplayable(sound.id)
+              }
+              await SoundboardEngine.getInstance().trigger(sound)
+            })().catch((error: unknown) => {
+              toast.error(error instanceof Error ? error.message : `Could not play ${sound.name}`)
+            })
           }
           break
         }
@@ -176,6 +221,7 @@ export function useRemoteSync(): void {
       unsubAudio()
       unsubCampaigns()
       unsubSoundboard()
+      unsubDiagnostics()
       unsubCommands()
       unsubConnection()
       SoundboardEngine.getInstance().stopAll()

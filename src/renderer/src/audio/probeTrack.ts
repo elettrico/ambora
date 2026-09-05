@@ -17,6 +17,17 @@ export interface MediaErrorLike {
   message?: string
 }
 
+export function userFacingAudioFailure(reason?: string): string {
+  if (!reason) return 'Audio file could not be read — locate or replace it to play'
+  if (/HTTP 404|no such file or directory/i.test(reason)) {
+    return 'Audio file is missing — locate it to play'
+  }
+  if (/permission denied|EACCES/i.test(reason)) {
+    return 'Audio file cannot be accessed — check the drive or file permissions'
+  }
+  return reason
+}
+
 /**
  * Pure mapping from a load outcome to a ProbeResult, split out from the DOM so it
  * is unit-testable. A timeout is treated as inconclusive (ok) so a slow disk never
@@ -40,4 +51,10 @@ export async function probeLocalTrack(filePath: string): Promise<ProbeResult> {
   const result = await window.api.probeAudioFile(filePath)
   if (result.ok) return { ok: true }
   return { ok: false, reason: result.reason }
+}
+
+export async function probeSoundboardTrack(filePath: string): Promise<ProbeResult> {
+  const result = await probeLocalTrack(filePath)
+  if (result.ok) return result
+  return { ok: false, reason: userFacingAudioFailure(result.reason) }
 }

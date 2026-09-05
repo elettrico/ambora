@@ -150,6 +150,17 @@ describe('toRemoteCampaigns', () => {
     expect(remotePayloadContainsPaths(state)).toBe(false)
   })
 
+  it('marks unavailable soundboard pads without exposing diagnostic details', () => {
+    const remote = toRemoteCampaigns([campaignWithPaths], new Set(['sound-1']))
+
+    expect(remote[0].soundboard?.[0]).toMatchObject({
+      id: 'sound-1',
+      unavailable: true,
+    })
+    expect(JSON.stringify(remote)).not.toContain('/Users/')
+    expect(JSON.stringify(remote)).not.toContain('reason')
+  })
+
   it('detects leaked paths in a payload', () => {
     expect(remotePayloadContainsPaths({ localFilePath: '/tmp/x.mp3' })).toBe(true)
     expect(remotePayloadContainsPaths({ path: 'C:\\Users\\dm\\a.mp3' })).toBe(true)

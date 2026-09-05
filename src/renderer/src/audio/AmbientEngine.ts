@@ -2,6 +2,7 @@ import { getAudioContext } from './audioContext'
 import { localAudioUrl } from '@/lib/localAudioUrl'
 import { AmbientClipSelector, nextDelaySec, sortedClips } from './ambientScheduling'
 import { audioLog, extOf } from './audioLog'
+import { userFacingAudioFailure } from './probeTrack'
 import { useAudioStore } from '@/store/audioStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import { AMBIENT_DEFAULTS } from '@/lib/constants'
@@ -264,14 +265,15 @@ export class AmbientEngine {
       this.onClipDuration?.(clip.localFilePath, buffer.duration)
       return buffer
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'Could not decode audio file'
+      const detail = error instanceof Error ? error.message : 'Could not decode audio file'
+      const reason = userFacingAudioFailure(detail)
       useDiagnosticsStore.getState().setUnplayable(clip.id, { source: 'playback', reason })
       audioLog('ambient', 'decode-failed', {
         trackId: clip.id,
         title: clip.title,
         localFilePath: clip.localFilePath,
         ext: extOf(clip.localFilePath),
-        detail: reason,
+        detail,
       })
       return null
     } finally {

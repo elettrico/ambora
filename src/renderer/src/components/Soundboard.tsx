@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SoundboardEngine, type SoundboardActivity } from '@/audio/SoundboardEngine'
+import { probeSoundboardTrack } from '@/audio/probeTrack'
 import { SoundKey } from '@/components/SoundKey'
 import { SoundIconPicker } from '@/components/SoundIconPicker'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ import { ACCEPTED_AUDIO, ACCEPTED_AUDIO_EXTENSIONS, SOUNDBOARD_DEFAULTS } from '
 import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import { SOUND_ICON_MAP, type SoundboardIconName } from '@/lib/soundIconMap'
 import { useCampaignStore } from '@/store/campaignStore'
+import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 import type { Campaign, SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
 
 interface SoundboardProps {
@@ -53,8 +55,58 @@ function isEditableTarget(target: EventTarget | null): boolean {
   )
 }
 
+function RelinkSoundWarning({
+  sound,
+  reason,
+  onRelink,
+}: {
+  sound: SoundboardSound
+  reason: string
+  onRelink: (file: File) => void | Promise<void>
+}): React.JSX.Element {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED_AUDIO}
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void onRelink(file)
+          event.target.value = ''
+        }}
+      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="flex size-6 shrink-0 items-center justify-center rounded text-warning hover:bg-warning/10"
+            onClick={() => inputRef.current?.click()}
+            aria-label={`Relocate ${sound.name}: ${reason}`}
+          >
+            <TriangleAlert className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={8} className="max-w-[280px]">
+          <p className="font-medium">This sound can&rsquo;t be played</p>
+          <p className="text-text-secondary">{reason}</p>
+          <p className="text-accent">Click to locate the file</p>
+        </TooltipContent>
+      </Tooltip>
+    </>
+  )
+}
+
 export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
-  const { addSoundboardSound, updateSoundboardSound, deleteSoundboardSound } = useCampaignStore()
+  const {
+    addSoundboardSound,
+    updateSoundboardSound,
+    relinkSoundboardSound,
+    deleteSoundboardSound,
+  } = useCampaignStore()
   const sounds = useMemo(
     () => [...(campaign.soundboard ?? [])].sort((a, b) => a.order - b.order),
     [campaign.soundboard],
@@ -68,7 +120,12 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
+  const unplayable = useDiagnosticsStore((state) => state.unplayable)
   const assignedSounds = sounds.filter((sound) => sound.shortcutKey)
+  const unavailableCount = sounds.reduce(
+    (count, sound) => count + (unplayable[sound.id] ? 1 : 0),
+    0,
+  )
 
   useEffect(() => {
     localStorage.setItem('ambora:soundboard-mode', panelMode)
@@ -76,6 +133,17 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
 
   const play = useCallback(async (sound: SoundboardSound, fullVolume = false): Promise<void> => {
     try {
+      const diagnostics = useDiagnosticsStore.getState()
+      if (diagnostics.unplayable[sound.id]) {
+        const probe = await probeSoundboardTrack(sound.localFilePath)
+        if (!probe.ok) {
+          const reason = probe.reason ?? 'Audio file could not be read — locate it to play'
+          diagnostics.setUnplayable(sound.id, { source: 'probe', reason })
+          toast.error(reason)
+          return
+        }
+        diagnostics.clearUnplayable(sound.id)
+      }
       await SoundboardEngine.getInstance().trigger(sound, fullVolume)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Could not play ${sound.name}`)
@@ -94,6 +162,35 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
     const engine = SoundboardEngine.getInstance()
     return () => engine.stopAll()
   }, [campaign.id])
+
+  useEffect(() => {
+    const toProbe = sounds.filter((sound) => !useDiagnosticsStore.getState().hasProbed(sound.id))
+    if (toProbe.length === 0) return
+
+    let cancelled = false
+    void (async () => {
+      for (const sound of toProbe) {
+        if (cancelled) return
+        const diagnostics = useDiagnosticsStore.getState()
+        if (diagnostics.hasProbed(sound.id)) continue
+        const { ok, reason } = await probeSoundboardTrack(sound.localFilePath)
+        if (cancelled) return
+        diagnostics.markProbed(sound.id)
+        if (!ok) {
+          diagnostics.setUnplayable(sound.id, {
+            source: 'probe',
+            reason: reason ?? 'Audio file could not be read — locate it to play',
+          })
+        } else if (diagnostics.unplayable[sound.id]?.source === 'probe') {
+          diagnostics.clearUnplayable(sound.id)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sounds])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -165,6 +262,17 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
     if (folderInputRef.current) folderInputRef.current.value = ''
   }
 
+  async function relinkSound(soundId: string, file: File): Promise<void> {
+    const validated = await validateLocalAudioFile(file)
+    if (!validated) return
+    SoundboardEngine.getInstance().stop(soundId)
+    relinkSoundboardSound(campaign.id, soundId, validated.localFilePath, validated.duration)
+    const diagnostics = useDiagnosticsStore.getState()
+    diagnostics.forgetTrack(soundId)
+    diagnostics.markProbed(soundId)
+    toast.success('Sound file relocated')
+  }
+
   return (
     <section
       className="shrink-0 border-t border-border bg-surface-1"
@@ -191,6 +299,23 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
               <span className="text-[11px] font-semibold uppercase tracking-[0.06em]">
                 Soundboard ({String(sounds.length)})
               </span>
+              {panelMode === 'hidden' && unavailableCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="flex size-5 items-center justify-center text-warning"
+                      aria-label={`${String(unavailableCount)} unavailable sound${unavailableCount === 1 ? '' : 's'}`}
+                      tabIndex={0}
+                    >
+                      <TriangleAlert className="size-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {String(unavailableCount)} sound{unavailableCount === 1 ? '' : 's'} cannot be
+                    played
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {panelMode !== 'hidden' && (
                 <span className="truncate text-[11px] text-text-tertiary">
                   Letter plays · Shift + letter plays at 100%
@@ -292,7 +417,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                   {sounds.map((sound) => (
                     <div
                       key={sound.id}
-                      className="grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_132px_32px_24px] items-center gap-2 bg-surface-1 px-3"
+                      className={`grid min-h-14 grid-cols-[48px_minmax(80px,1fr)_32px_92px_minmax(80px,140px)_132px_32px_24px] items-center gap-2 px-3 ${unplayable[sound.id] ? 'bg-warning/5' : 'bg-surface-1'}`}
                     >
                       <SoundKey
                         letter={
@@ -323,7 +448,13 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                             {fileName(sound.localFilePath)}
                           </TooltipContent>
                         </Tooltip>
-                        {!sound.icon && !sound.shortcutKey && (
+                        {unplayable[sound.id] ? (
+                          <RelinkSoundWarning
+                            sound={sound}
+                            reason={unplayable[sound.id].reason}
+                            onRelink={(file) => relinkSound(sound.id, file)}
+                          />
+                        ) : !sound.icon && !sound.shortcutKey ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
@@ -338,7 +469,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                               Assign an icon or letter to show this sound on the phone
                             </TooltipContent>
                           </Tooltip>
-                        )}
+                        ) : null}
                       </div>
                       <SoundIconPicker
                         selectedIcon={sound.icon}
@@ -418,6 +549,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         onClick={() => {
                           SoundboardEngine.getInstance().stop(sound.id)
                           deleteSoundboardSound(campaign.id, sound.id)
+                          useDiagnosticsStore.getState().forgetTrack(sound.id)
                         }}
                       >
                         <Trash2 className="size-3.5" />
@@ -433,22 +565,36 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
               {assignedSounds.length > 0 ? (
                 <div className="grid w-fit max-w-full grid-cols-[repeat(6,44px)] gap-2">
                   {assignedSounds.map((sound) => (
-                    <Tooltip key={sound.id}>
-                      <TooltipTrigger asChild>
-                        <SoundKey
-                          letter={sound.shortcutKey?.toLocaleUpperCase() ?? ''}
-                          activity={activityById[sound.id]}
-                          icon={iconFor(sound.icon)}
-                          iconColor={sound.iconColor}
-                          size="large"
-                          onClick={(event) => void play(sound, event.shiftKey)}
-                          aria-label={`Play ${sound.name}`}
+                    <div key={sound.id} className="relative">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SoundKey
+                            letter={sound.shortcutKey?.toLocaleUpperCase() ?? ''}
+                            activity={activityById[sound.id]}
+                            icon={iconFor(sound.icon)}
+                            iconColor={sound.iconColor}
+                            className={unplayable[sound.id] ? 'opacity-50' : undefined}
+                            size="large"
+                            onClick={(event) => void play(sound, event.shiftKey)}
+                            aria-label={
+                              unplayable[sound.id]
+                                ? `${sound.name}: ${unplayable[sound.id].reason}. Click to retry`
+                                : `Play ${sound.name}`
+                            }
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          {sound.name} ·{' '}
+                          {unplayable[sound.id]?.reason ?? fileName(sound.localFilePath)}
+                        </TooltipContent>
+                      </Tooltip>
+                      {unplayable[sound.id] && (
+                        <TriangleAlert
+                          className="pointer-events-none absolute -top-1 -right-1 z-30 size-4 rounded-full bg-surface-1 text-warning"
+                          aria-hidden="true"
                         />
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        {sound.name} · {fileName(sound.localFilePath)}
-                      </TooltipContent>
-                    </Tooltip>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
