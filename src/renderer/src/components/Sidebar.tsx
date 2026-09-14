@@ -305,8 +305,8 @@ function CollectionFailures({
         {failures.length} file{failures.length === 1 ? '' : 's'} could not be collected
       </div>
       <ul className="flex flex-col gap-2">
-        {failures.map((failure) => (
-          <li key={failure.sourcePath} className="min-w-0 text-[12px] text-warning/80">
+        {failures.map((failure, index) => (
+          <li key={index} className="min-w-0 text-[12px] text-warning/80">
             <p className="break-all text-text-secondary">{failure.sourcePath}</p>
             <p>{failure.reason}</p>
           </li>
@@ -323,8 +323,9 @@ function CollectProgress({
   progress: CollectMediaProgress
   complete: boolean
 }): React.JSX.Element {
-  const percentage =
-    progress.totalBytes > 0
+  const percentage = complete
+    ? 100
+    : progress.totalBytes > 0
       ? Math.round((progress.completedBytes / progress.totalBytes) * 100)
       : progress.totalFiles > 0 && progress.completedFiles === progress.totalFiles
         ? 100

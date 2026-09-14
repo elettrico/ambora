@@ -260,6 +260,48 @@ describe('one voice per layer', () => {
     expect(liveSources()).toHaveLength(1)
   })
 
+  it('keeps a live layer playing when Collect Media remaps its file path', async () => {
+    const engine = AmbientEngine.getInstance()
+    engine.startClimate(climate([layer({ mode: 'loop' })]), 0)
+    await flush()
+    const firstSource = liveSources()[0]
+
+    const collectedPath = '/managed/media/ambient/a.wav'
+    engine.remapLocalPaths(new Set(['climate-1']), new Map([['/sfx/a.wav', collectedPath]]))
+    engine.syncClimate(
+      climate([
+        layer({
+          mode: 'loop',
+          clips: [{ id: 'clip-1', title: 'a.wav', localFilePath: collectedPath, order: 0 }],
+        }),
+      ]),
+    )
+    await flush()
+
+    expect(firstSource.choked).toBe(false)
+    expect(startedSources).toHaveLength(1)
+    expect(liveSources()).toEqual([firstSource])
+  })
+
+  it('does not remap a live climate from another campaign', async () => {
+    const engine = AmbientEngine.getInstance()
+    const activeClimate = climate([layer({ mode: 'loop' })])
+    engine.startClimate(activeClimate, 0)
+    await flush()
+    const firstSource = liveSources()[0]
+
+    engine.remapLocalPaths(
+      new Set(['other-climate']),
+      new Map([['/sfx/a.wav', '/other-campaign/media/ambient/a.wav']]),
+    )
+    engine.syncClimate(activeClimate)
+    await flush()
+
+    expect(firstSource.choked).toBe(false)
+    expect(startedSources).toHaveLength(1)
+    expect(liveSources()).toEqual([firstSource])
+  })
+
   it('never has two clips playing at once in random mode', async () => {
     const engine = AmbientEngine.getInstance()
     engine.startClimate(climate([layer()]), 0)

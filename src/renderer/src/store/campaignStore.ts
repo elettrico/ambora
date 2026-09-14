@@ -11,6 +11,7 @@ import type {
   Track,
 } from '@/lib/types'
 import { DEFAULTS, CLIMATE_COLORS, CLIMATE_ICONS, AMBIENT_DEFAULTS } from '@/lib/constants'
+import { AmbientEngine } from '@/audio/AmbientEngine'
 import { clampPitchVariation } from '@/audio/playbackVariation'
 
 interface CampaignStore {
@@ -198,10 +199,6 @@ function normalizePitchVariation(campaign: Campaign): Campaign {
   }
 }
 
-function mediaKey(mediaType: 'music' | 'ambient' | 'sfx', localFilePath: string): string {
-  return `${mediaType}\0${localFilePath}`
-}
-
 function replaceLocalPaths(campaign: Campaign, replacements: Map<string, string>): Campaign {
   return {
     ...campaign,
@@ -209,7 +206,7 @@ function replaceLocalPaths(campaign: Campaign, replacements: Map<string, string>
       ...climate,
       tracks: climate.tracks.map((track) => {
         if (track.source !== 'local' || !track.localFilePath) return track
-        const replacement = replacements.get(mediaKey('music', track.localFilePath))
+        const replacement = replacements.get(track.localFilePath)
         return replacement
           ? {
               ...track,
@@ -222,7 +219,7 @@ function replaceLocalPaths(campaign: Campaign, replacements: Map<string, string>
             ambientLayers: climate.ambientLayers.map((layer) => ({
               ...layer,
               clips: layer.clips.map((clip) => {
-                const replacement = replacements.get(mediaKey('ambient', clip.localFilePath))
+                const replacement = replacements.get(clip.localFilePath)
                 return replacement
                   ? {
                       ...clip,
@@ -237,7 +234,7 @@ function replaceLocalPaths(campaign: Campaign, replacements: Map<string, string>
     ...(campaign.soundboard
       ? {
           soundboard: campaign.soundboard.map((sound) => {
-            const replacement = replacements.get(mediaKey('sfx', sound.localFilePath))
+            const replacement = replacements.get(sound.localFilePath)
             return replacement
               ? {
                   ...sound,
@@ -306,11 +303,15 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     if (result.pathUpdates.length === 0) return result
 
     const replacements = new Map(
-      result.pathUpdates.map(({ mediaType, sourcePath, collectedPath }) => [
-        mediaKey(mediaType, sourcePath),
-        collectedPath,
-      ]),
+      result.pathUpdates.map(({ sourcePath, collectedPath }) => [sourcePath, collectedPath]),
     )
+    const currentCampaign = get().campaigns.find((candidate) => candidate.id === id)
+    if (currentCampaign) {
+      AmbientEngine.getInstance().remapLocalPaths(
+        new Set(currentCampaign.climates.map((climate) => climate.id)),
+        replacements,
+      )
+    }
     const campaigns = get().campaigns.map((candidate) =>
       candidate.id === id
         ? { ...replaceLocalPaths(candidate, replacements), updatedAt: now() }

@@ -94,9 +94,7 @@ function applyUpdates(campaign: Campaign, updates: CollectMediaPathUpdate[]): Ca
   for (const climate of clone.climates) {
     for (const track of climate.tracks) {
       if (track.localFilePath) {
-        const update = updates.find(
-          (item) => item.mediaType === 'music' && item.sourcePath === track.localFilePath,
-        )
+        const update = updates.find((item) => item.sourcePath === track.localFilePath)
         if (update) {
           track.localFilePath = update.collectedPath
         }
@@ -104,9 +102,7 @@ function applyUpdates(campaign: Campaign, updates: CollectMediaPathUpdate[]): Ca
     }
     for (const layer of climate.ambientLayers ?? []) {
       for (const clip of layer.clips) {
-        const update = updates.find(
-          (item) => item.mediaType === 'ambient' && item.sourcePath === clip.localFilePath,
-        )
+        const update = updates.find((item) => item.sourcePath === clip.localFilePath)
         if (update) {
           clip.localFilePath = update.collectedPath
         }
@@ -114,9 +110,7 @@ function applyUpdates(campaign: Campaign, updates: CollectMediaPathUpdate[]): Ca
     }
   }
   for (const sound of clone.soundboard ?? []) {
-    const update = updates.find(
-      (item) => item.mediaType === 'sfx' && item.sourcePath === sound.localFilePath,
-    )
+    const update = updates.find((item) => item.sourcePath === sound.localFilePath)
     if (update) {
       sound.localFilePath = update.collectedPath
     }
@@ -141,26 +135,26 @@ describe('collectCampaignMedia', () => {
     const onProgress = vi.fn()
     const result = await collectCampaignMedia(campaign, onProgress)
 
-    expect(result.copiedFiles).toBe(3)
-    expect(result.copiedBytes).toBe(14)
+    expect(result.copiedFiles).toBe(2)
+    expect(result.copiedBytes).toBe(9)
     expect(result.skippedFiles).toBe(0)
     expect(result.failures).toEqual([])
-    expect(result.pathUpdates).toHaveLength(3)
+    expect(result.pathUpdates).toHaveLength(2)
     expect(result.finalProgress).toEqual({
-      completedFiles: 3,
-      totalFiles: 3,
-      copiedFiles: 3,
+      completedFiles: 2,
+      totalFiles: 2,
+      copiedFiles: 2,
       skippedFiles: 0,
       failedFiles: 0,
-      completedBytes: 14,
-      copiedBytes: 14,
-      totalBytes: 14,
+      completedBytes: 9,
+      copiedBytes: 9,
+      totalBytes: 9,
       failures: [],
     })
     expect(onProgress.mock.calls[0]).toEqual([
       {
         completedFiles: 0,
-        totalFiles: 3,
+        totalFiles: 2,
         copiedFiles: 0,
         skippedFiles: 0,
         failedFiles: 0,
@@ -173,14 +167,14 @@ describe('collectCampaignMedia', () => {
     expect(onProgress.mock.calls.some(([progress]) => progress.copiedBytes > 0)).toBe(true)
     expect(onProgress.mock.calls.at(-1)).toEqual([
       {
-        completedFiles: 3,
-        totalFiles: 3,
-        copiedFiles: 3,
+        completedFiles: 2,
+        totalFiles: 2,
+        copiedFiles: 2,
         skippedFiles: 0,
         failedFiles: 0,
-        completedBytes: 14,
-        copiedBytes: 14,
-        totalBytes: 14,
+        completedBytes: 9,
+        copiedBytes: 9,
+        totalBytes: 9,
         failures: [],
       },
     ])
@@ -188,8 +182,9 @@ describe('collectCampaignMedia', () => {
     expect(await readFile(clipPath, 'utf8')).toBe('wind')
 
     for (const update of result.pathUpdates) {
+      const expectedTypeDir = update.sourcePath === sharedPath ? 'music' : 'ambient'
       expect(update.collectedPath).toContain(
-        join('ambora-data', 'campaigns', campaign.id, 'media', update.mediaType),
+        join('ambora-data', 'campaigns', campaign.id, 'media', expectedTypeDir),
       )
       expect(await readFile(update.collectedPath, 'utf8')).toBe(
         update.sourcePath === sharedPath ? 'music' : 'wind',
@@ -205,19 +200,41 @@ describe('collectCampaignMedia', () => {
     const second = await collectCampaignMedia(applyUpdates(campaign, first.pathUpdates))
 
     expect(second.copiedFiles).toBe(0)
-    expect(second.skippedFiles).toBe(3)
+    expect(second.skippedFiles).toBe(1)
     expect(second.failures).toEqual([])
     expect(second.pathUpdates).toEqual([])
     expect(second.finalProgress).toMatchObject({
-      completedFiles: 3,
-      totalFiles: 3,
+      completedFiles: 1,
+      totalFiles: 1,
       copiedFiles: 0,
-      skippedFiles: 3,
+      skippedFiles: 1,
       failedFiles: 0,
       completedBytes: 0,
       totalBytes: 0,
       failures: [],
     })
+  })
+
+  it('treats type directories as filing hints and does not reclassify managed media', async () => {
+    const managedAmbientDir = join(
+      paths.userData,
+      'ambora-data',
+      'campaigns',
+      'campaign-1',
+      'media',
+      'ambient',
+    )
+    await mkdir(managedAmbientDir, { recursive: true })
+    const managedPath = join(managedAmbientDir, 'thunder.wav')
+    await writeFile(managedPath, 'thunder')
+    const campaign = campaignWithPaths({ track: '', clip: '', sound: managedPath })
+
+    const result = await collectCampaignMedia(campaign)
+
+    expect(result.copiedFiles).toBe(0)
+    expect(result.skippedFiles).toBe(1)
+    expect(result.pathUpdates).toEqual([])
+    expect(await readFile(managedPath, 'utf8')).toBe('thunder')
   })
 
   it('reports deleted managed media as missing without falling back to original files', async () => {
@@ -240,11 +257,11 @@ describe('collectCampaignMedia', () => {
       })),
     )
     expect(second.finalProgress).toMatchObject({
-      completedFiles: 3,
-      totalFiles: 3,
+      completedFiles: 1,
+      totalFiles: 1,
       copiedFiles: 0,
       skippedFiles: 0,
-      failedFiles: 3,
+      failedFiles: 1,
     })
   })
 
@@ -290,12 +307,11 @@ describe('collectCampaignMedia', () => {
     })
     const result = await collectCampaignMedia(campaign)
 
-    expect(result.copiedFiles).toBe(4)
-    expect(
-      result.pathUpdates
-        .filter((item) => item.mediaType === 'music')
-        .map((item) => item.collectedPath),
-    ).toEqual([expect.stringMatching(/rain\.wav$/), expect.stringMatching(/rain-2\.wav$/)])
+    expect(result.copiedFiles).toBe(2)
+    expect(result.pathUpdates.map((item) => item.collectedPath)).toEqual([
+      expect.stringMatching(/rain\.wav$/),
+      expect.stringMatching(/rain-2\.wav$/),
+    ])
   })
 
   it('reports unavailable sources and still collects the remaining files', async () => {
@@ -309,9 +325,9 @@ describe('collectCampaignMedia', () => {
       onProgress,
     )
 
-    expect(result.copiedFiles).toBe(2)
+    expect(result.copiedFiles).toBe(1)
     expect(result.failures).toEqual([{ sourcePath: missingPath, reason: 'File not found' }])
-    expect(result.pathUpdates).toHaveLength(2)
+    expect(result.pathUpdates).toHaveLength(1)
     expect(result.finalProgress.failures).toEqual(result.failures)
     expect(
       onProgress.mock.calls.some(([progress]) =>
@@ -320,6 +336,24 @@ describe('collectCampaignMedia', () => {
         ),
       ),
     ).toBe(true)
+  })
+
+  it('ignores imported media placeholders with empty local paths', async () => {
+    const campaign = campaignWithPaths({ track: '', clip: '', sound: '' })
+    const result = await collectCampaignMedia(campaign)
+
+    expect(result).toMatchObject({
+      copiedFiles: 0,
+      skippedFiles: 0,
+      copiedBytes: 0,
+      failures: [],
+      pathUpdates: [],
+      finalProgress: {
+        completedFiles: 0,
+        totalFiles: 0,
+        failedFiles: 0,
+      },
+    })
   })
 
   it('rejects campaign ids that escape the managed campaigns directory', async () => {

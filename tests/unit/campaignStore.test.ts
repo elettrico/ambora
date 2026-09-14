@@ -152,19 +152,8 @@ describe('campaign CRUD', () => {
       failures: [],
       pathUpdates: [
         {
-          mediaType: 'music',
           sourcePath: '/library/shared.wav',
           collectedPath: '/ambora-data/campaigns/id/media/music/shared.wav',
-        },
-        {
-          mediaType: 'ambient',
-          sourcePath: '/library/shared.wav',
-          collectedPath: '/ambora-data/campaigns/id/media/ambient/shared.wav',
-        },
-        {
-          mediaType: 'sfx',
-          sourcePath: '/library/shared.wav',
-          collectedPath: '/ambora-data/campaigns/id/media/sfx/shared.wav',
         },
       ],
     })
@@ -177,9 +166,9 @@ describe('campaign CRUD', () => {
     expect(result?.copiedFiles).toBe(1)
     expect(updated.climates[0].tracks[0].localFilePath).toContain('/media/music/shared.wav')
     expect(updated.climates[0].ambientLayers?.[0].clips[0].localFilePath).toContain(
-      '/media/ambient/shared.wav',
+      '/media/music/shared.wav',
     )
-    expect(updated.soundboard?.[0].localFilePath).toContain('/media/sfx/shared.wav')
+    expect(updated.soundboard?.[0].localFilePath).toContain('/media/music/shared.wav')
     expect(mockApi.saveCampaigns).toHaveBeenCalledOnce()
     expect(mockApi.collectCampaignMedia).toHaveBeenCalledWith(
       expect.objectContaining({ id: campaign.id }),

@@ -197,7 +197,9 @@ function registerIpcHandlers(serverPort: number): void {
 
   ipcMain.handle('campaign:collect-media', (event, campaign: Campaign, requestId: string) =>
     collectCampaignMedia(campaign, (progress: CollectMediaProgress) => {
-      event.sender.send('campaign:collect-media-progress', { requestId, progress })
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('campaign:collect-media-progress', { requestId, progress })
+      }
     }),
   )
 

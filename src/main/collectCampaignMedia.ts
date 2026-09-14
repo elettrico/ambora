@@ -34,16 +34,20 @@ function mediaReferences(campaign: Campaign): MediaReference[] {
           localFilePath: track.localFilePath,
         })),
       ...(climate.ambientLayers ?? []).flatMap((layer) =>
-        layer.clips.map((clip) => ({
-          mediaType: 'ambient' as const,
-          localFilePath: clip.localFilePath,
-        })),
+        layer.clips
+          .filter((clip) => Boolean(clip.localFilePath))
+          .map((clip) => ({
+            mediaType: 'ambient' as const,
+            localFilePath: clip.localFilePath,
+          })),
       ),
     ]),
-    ...(campaign.soundboard ?? []).map((sound) => ({
-      mediaType: 'sfx' as const,
-      localFilePath: sound.localFilePath,
-    })),
+    ...(campaign.soundboard ?? [])
+      .filter((sound) => Boolean(sound.localFilePath))
+      .map((sound) => ({
+        mediaType: 'sfx' as const,
+        localFilePath: sound.localFilePath,
+      })),
   ]
 }
 
@@ -133,14 +137,15 @@ export async function collectCampaignMedia(
     pathUpdates: [],
   }
 
-  const uniqueReferences = [
-    ...new Map(
-      mediaReferences(campaign).map((reference) => [
-        `${reference.mediaType}\0${reference.localFilePath}`,
-        reference,
-      ]),
-    ).values(),
-  ]
+  const referencesByPath = new Map<string, MediaReference>()
+  for (const reference of mediaReferences(campaign)) {
+    // Store each source once. Its first role only decides which human-readable
+    // type directory receives the copy; the directory has no semantic meaning.
+    if (!referencesByPath.has(reference.localFilePath)) {
+      referencesByPath.set(reference.localFilePath, reference)
+    }
+  }
+  const uniqueReferences = [...referencesByPath.values()]
   const createdDirs = new Set<string>()
   let completedFiles = 0
   let completedBytes = 0
@@ -169,7 +174,9 @@ export async function collectCampaignMedia(
         continue
       }
 
-      if (isInside(typeDir, resolve(localFilePath))) {
+      // Any location below media/ is already managed, regardless of the filing
+      // directory chosen when the source was first collected.
+      if (isInside(mediaDir, resolve(localFilePath))) {
         result.skippedFiles += 1
         completedFiles += 1
         continue
@@ -226,7 +233,6 @@ export async function collectCampaignMedia(
       result.copiedFiles += 1
       result.copiedBytes += task.size
       result.pathUpdates.push({
-        mediaType: task.mediaType,
         sourcePath: task.localFilePath,
         collectedPath: destination,
       })

@@ -136,7 +136,6 @@ export interface CollectMediaFailure {
 export type CampaignMediaType = 'music' | 'ambient' | 'sfx'
 
 export interface CollectMediaPathUpdate {
-  mediaType: CampaignMediaType
   sourcePath: string
   collectedPath: string
 }

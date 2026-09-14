@@ -174,6 +174,41 @@ export class AmbientEngine {
     this.onClipDuration = callback
   }
 
+  /**
+   * Adopt paths produced by Collect Media without restarting byte-identical
+   * audio that is already playing. Ordinary path edits still flow through
+   * syncClimate and re-arm the affected layer.
+   */
+  remapLocalPaths(
+    climateIds: ReadonlySet<string>,
+    replacements: ReadonlyMap<string, string>,
+  ): void {
+    const stack = this.stack
+    if (!stack || stack.disposed || !climateIds.has(stack.climateId) || replacements.size === 0) {
+      return
+    }
+
+    for (const live of stack.layers.values()) {
+      let changed = false
+      const clips = live.layer.clips.map((clip) => {
+        const replacement = replacements.get(clip.localFilePath)
+        if (!replacement) return clip
+
+        changed = true
+        const cached = this.bufferCache.get(clip.localFilePath)
+        if (cached && !this.bufferCache.has(replacement)) {
+          this.bufferCache.set(replacement, cached)
+        }
+        return { ...clip, localFilePath: replacement }
+      })
+
+      if (changed) {
+        live.layer = { ...live.layer, clips }
+        live.structuralKey = structuralKeyOf(live.layer)
+      }
+    }
+  }
+
   // ── Graph setup ──────────────────────────────────────────────────────────
 
   private ensureGraph(): AudioContext {
