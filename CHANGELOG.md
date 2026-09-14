@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-14
+
+### Fixed
+
+- Open the desktop window when the preferred port is already in use, walking to
+  the next free port instead of leaving the app running with no window
+- Report missing local audio files in the soundboard and ambient layers instead
+  of failing with a raw HTTP error
+- Silence the ambient audition on fade-to-silence and go-idle
+- Discard ambient layer triggers superseded by a re-arm
+- Synchronise the active climate's runtime state
+- Soundboard follow-ups from the missing-file work: surface a phone-initiated
+  retry failure on the desktop, stop the ambient copy promising a relink that
+  does not exist, and re-read playback diagnostics after the probe completes
+
+### Changed
+
+- Make colour tokens swappable at runtime, so a second palette can override them
+- Add `docs/DESIGN.md` documenting the design system and how the tokens are wired
+
 ## [0.8.0] - 2026-08-28
 
 ### Added
