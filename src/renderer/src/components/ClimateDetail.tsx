@@ -46,7 +46,7 @@ export function ClimateDetail({
   onClose,
 }: ClimateDetailProps): React.JSX.Element {
   const campaignId = campaign.id
-  const { updateClimate, deleteClimate, addTrack, removeTrack } = useCampaignStore()
+  const { updateClimate, deleteClimate, addTrack, removeTrack, reorderTracks } = useCampaignStore()
   const audioEngine = useAudioEngine()
   const activeClimateId = useAudioStore((state) => state.activeClimateId)
   const isPlaying = useAudioStore((state) => state.isPlaying)
@@ -357,6 +357,7 @@ export function ClimateDetail({
                 onDeleteTrack={handleDeleteTrack}
                 climateColor={climate.color}
                 onPlayTrack={handlePlayTrack}
+                onReorderTracks={(trackIds) => reorderTracks(campaignId, climate.id, trackIds)}
               />
             </div>
           </TabsContent>
