@@ -39,6 +39,7 @@ import { QRCodePanel } from './QRCodePanel'
 import { SidebarSection } from './SidebarSection'
 import { AudioMixer } from './AudioMixer'
 import { ActiveSounds } from './ActiveSounds'
+import { CampaignSearch } from './CampaignSearch'
 
 function CampaignItem({
   campaign,
@@ -145,9 +146,20 @@ function CampaignItem({
   )
 }
 
-export function Sidebar(): React.JSX.Element {
-  const { campaigns, activeCampaignId, setActiveCampaign, createCampaign, importCampaign } =
-    useCampaignStore()
+interface SidebarProps {
+  onOpenClimate: (climateId: string) => void
+}
+
+export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
+  const {
+    campaigns,
+    activeCampaignId,
+    setActiveCampaign,
+    createCampaign,
+    importCampaign,
+    getActiveCampaign,
+  } = useCampaignStore()
+  const activeCampaign = getActiveCampaign()
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [mode, setMode] = useState<'campaigns' | 'live'>(() =>
     localStorage.getItem('ambora:sidebar-mode') === 'live' ? 'live' : 'campaigns',
@@ -301,6 +313,7 @@ export function Sidebar(): React.JSX.Element {
       >
         <ActiveSounds fill onCountChange={setLiveCount} />
         <div className="mt-auto">
+          <CampaignSearch campaign={activeCampaign} onOpenClimate={onOpenClimate} />
           <AudioMixer />
         </div>
       </div>

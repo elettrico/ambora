@@ -8,9 +8,15 @@ import type { Campaign } from '@/lib/types'
 
 interface CampaignViewProps {
   campaign: Campaign
+  selectedClimateId: string | null
+  onSelectClimate: (climateId: string | null) => void
 }
 
-export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element {
+export function CampaignView({
+  campaign,
+  selectedClimateId,
+  onSelectClimate,
+}: CampaignViewProps): React.JSX.Element {
   const { updateCampaign } = useCampaignStore()
 
   const {
@@ -96,7 +102,11 @@ export function CampaignView({ campaign }: CampaignViewProps): React.JSX.Element
         </p>
       </div>
 
-      <ClimateGrid campaign={campaign} />
+      <ClimateGrid
+        campaign={campaign}
+        selectedClimateId={selectedClimateId}
+        onSelectClimate={onSelectClimate}
+      />
     </div>
   )
 }

@@ -15,13 +15,18 @@ import { useDiagnosticsStore } from '@/store/diagnosticsStore'
 
 interface ClimateGridProps {
   campaign: Campaign
+  selectedClimateId: string | null
+  onSelectClimate: (climateId: string | null) => void
 }
 
-export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
+export function ClimateGrid({
+  campaign,
+  selectedClimateId,
+  onSelectClimate,
+}: ClimateGridProps): React.JSX.Element {
   const { createClimate, duplicateClimate, addTrack, reorderClimates } = useCampaignStore()
   const { activeClimateId, isPlaying, fadeAnimations, clearAllFadeAnimations } = useAudioStore()
   const audioEngine = useAudioEngine()
-  const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
   const [draggedClimateId, setDraggedClimateId] = useState<string | null>(null)
   const [reorderTargetId, setReorderTargetId] = useState<string | null>(null)
   const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -88,7 +93,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
   function handleAddClimate(): void {
     const climate = createClimate(campaign.id, 'New Climate')
     if (climate) {
-      setSelectedClimateId(climate.id)
+      onSelectClimate(climate.id)
     } else {
       toast.error(`Maximum of ${DEFAULTS.maxClimates} climates reached`)
     }
@@ -100,7 +105,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
       toast.error(`Maximum of ${DEFAULTS.maxClimates} climates reached`)
       return
     }
-    setSelectedClimateId(duplicate.id)
+    onSelectClimate(duplicate.id)
     toast.success('Climate duplicated')
   }
 
@@ -148,7 +153,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
       <ClimateDetail
         climate={selectedClimate}
         campaign={campaign}
-        onClose={() => setSelectedClimateId(null)}
+        onClose={() => onSelectClimate(null)}
         onDuplicate={() => handleDuplicateClimate(selectedClimate.id)}
       />
     )
@@ -164,7 +169,7 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
           isActive={climate.id === activeClimateId && isPlaying}
           isSelected={false}
           fadeAnimation={fadeAnimations.find((fa) => fa.climateId === climate.id)}
-          onClick={() => setSelectedClimateId(climate.id)}
+          onClick={() => onSelectClimate(climate.id)}
           onPlay={() => audioEngine.activateClimate(climate)}
           onDuplicate={() => handleDuplicateClimate(climate.id)}
           onDropFiles={handleDropFiles}

@@ -1,5 +1,5 @@
 import '@fontsource-variable/inter'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2, Map } from 'lucide-react'
 import { toast } from 'sonner'
 import { Sidebar } from '@/components/Sidebar'
@@ -14,6 +14,11 @@ import { useAmbientSync } from '@/hooks/useAmbientSync'
 function App(): React.JSX.Element {
   const { isLoaded, loadCampaigns, getActiveCampaign } = useCampaignStore()
   const activeCampaign = getActiveCampaign()
+  const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSelectedClimateId(null)
+  }, [activeCampaign?.id])
 
   useEffect(() => {
     void loadCampaigns().then((result) => {
@@ -48,11 +53,15 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar onOpenClimate={setSelectedClimateId} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <main className="flex min-h-0 flex-1 overflow-y-auto">
           {activeCampaign ? (
-            <CampaignView campaign={activeCampaign} />
+            <CampaignView
+              campaign={activeCampaign}
+              selectedClimateId={selectedClimateId}
+              onSelectClimate={setSelectedClimateId}
+            />
           ) : (
             <EmptyState
               icon={Map}
