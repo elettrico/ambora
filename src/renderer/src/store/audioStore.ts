@@ -49,6 +49,7 @@ interface AudioStore {
   setAmbientLayerVolume: (layerId: string, volume: number) => void
   markAmbientLayerTriggered: (layerId: string) => void
   setAmbientLayerSounding: (layerId: string, sounding: boolean) => void
+  setAmbientLayerActiveClip: (layerId: string, clipId: string | null) => void
   setAmbientLayerProgress: (layerId: string, startedAt: number, durationMs: number) => void
   setAuditioningLayerId: (layerId: string | null) => void
 }
@@ -140,7 +141,26 @@ export const useAudioStore = create<AudioStore>((set) => ({
       const current = state.ambientRuntime[layerId]
       if (!current || (current.sounding ?? false) === sounding) return state
       return {
-        ambientRuntime: { ...state.ambientRuntime, [layerId]: { ...current, sounding } },
+        ambientRuntime: {
+          ...state.ambientRuntime,
+          [layerId]: {
+            ...current,
+            sounding,
+            soundingStartedAt: sounding ? Date.now() : undefined,
+          },
+        },
+      }
+    }),
+
+  setAmbientLayerActiveClip: (layerId, clipId) =>
+    set((state) => {
+      const current = state.ambientRuntime[layerId]
+      if (!current || current.activeClipId === clipId) return state
+      return {
+        ambientRuntime: {
+          ...state.ambientRuntime,
+          [layerId]: { ...current, activeClipId: clipId ?? undefined },
+        },
       }
     }),
 

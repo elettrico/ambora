@@ -774,6 +774,14 @@ export class AudioEngine {
     this.goIdle(0)
   }
 
+  /**
+   * Forget the in-memory resume point for every climate. The current player is
+   * left alone; future climate activations start from their first track.
+   */
+  resetClimatePositions(): void {
+    this.climateSnapshots.clear()
+  }
+
   async activateClimate(climate: Climate, startTrackId?: string): Promise<void> {
     const storeState = useAudioStore.getState()
 

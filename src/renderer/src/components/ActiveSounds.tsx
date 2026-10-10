@@ -10,9 +10,10 @@ import { SidebarSection } from './SidebarSection'
 
 interface ActiveRowProps {
   icon: React.ReactNode
-  category: string
   name: string
   detail?: string
+  progress?: { startedAtMs: number; durationMs: number }
+  nowMs?: number
   onStop?: () => void
 }
 
@@ -21,16 +22,30 @@ interface ActiveSoundsProps {
   onCountChange?: (count: number) => void
 }
 
-function ActiveRow({ icon, category, name, detail, onStop }: ActiveRowProps): React.JSX.Element {
+function ActiveRow({
+  icon,
+  name,
+  detail,
+  progress,
+  nowMs,
+  onStop,
+}: ActiveRowProps): React.JSX.Element {
+  const remaining = progress
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          1 - ((nowMs ?? progress.startedAtMs) - progress.startedAtMs) / progress.durationMs,
+        ),
+      )
+    : null
+
   return (
-    <div className="group flex min-h-9 items-center gap-2 rounded px-2 hover:bg-surface-2">
-      <span className="shrink-0 text-accent">{icon}</span>
-      <div className="min-w-0 flex-1">
+    <div className="group relative flex min-h-9 items-center gap-2 overflow-hidden rounded px-2 hover:bg-surface-2">
+      <span className="relative z-10 shrink-0 text-accent">{icon}</span>
+      <div className="relative z-10 min-w-0 flex-1">
         <div className="truncate text-[12px] text-text-primary">{name}</div>
-        <div className="truncate text-[10px] uppercase tracking-[0.05em] text-text-tertiary">
-          {category}
-          {detail ? ` · ${detail}` : ''}
-        </div>
+        {detail && <div className="truncate text-[10px] text-text-tertiary">{detail}</div>}
       </div>
       {onStop && (
         <Button
@@ -44,7 +59,31 @@ function ActiveRow({ icon, category, name, detail, onStop }: ActiveRowProps): Re
           <Square className="size-3 fill-current" />
         </Button>
       )}
+      {remaining !== null && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 left-2 right-2 h-px origin-left bg-accent/70 transition-transform duration-200 ease-linear motion-reduce:transition-none"
+          style={{ transform: `scaleX(${String(remaining)})` }}
+        />
+      )}
     </div>
+  )
+}
+
+function ActiveSection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <section className="flex flex-col gap-0.5">
+      <h3 className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+        {title}
+      </h3>
+      {children}
+    </section>
   )
 }
 
@@ -61,6 +100,7 @@ export function ActiveSounds({
   const [soundboardActivity, setSoundboardActivity] = useState<Record<string, SoundboardActivity>>(
     {},
   )
+  const [progressNowMs, setProgressNowMs] = useState(() => Date.now())
 
   useEffect(
     () =>
@@ -104,14 +144,41 @@ export function ActiveSounds({
 
   const soundingLayers = Object.entries(ambientRuntime)
     .filter(([, runtime]) => runtime.sounding)
-    .map(([layerId]) => lookup.ambientLayers.get(layerId))
-    .filter((layer): layer is AmbientLayer => layer !== undefined)
+    .flatMap(([layerId, runtime]) => {
+      const layer = lookup.ambientLayers.get(layerId)
+      if (!layer) return []
+      return [
+        {
+          layer,
+          clipName: layer.clips.find((clip) => clip.id === runtime.activeClipId)?.title,
+          startedAt: runtime.soundingStartedAt ?? 0,
+          progress:
+            runtime.playbackStartedAt !== undefined && runtime.playbackDurationMs !== undefined
+              ? { startedAtMs: runtime.playbackStartedAt, durationMs: runtime.playbackDurationMs }
+              : undefined,
+        },
+      ]
+    })
+    .sort((a, b) => a.startedAt - b.startedAt)
   const activeSounds = Object.entries(soundboardActivity)
     .map(([soundId, activity]) => ({ sound: lookup.sounds.get(soundId), activity }))
     .filter(
       (entry): entry is { sound: SoundboardSound; activity: SoundboardActivity } =>
         entry.sound !== undefined,
     )
+    .sort((a, b) => (a.activity.startedAtMs ?? 0) - (b.activity.startedAtMs ?? 0))
+  const hasTimedPlayback =
+    soundingLayers.some((entry) => entry.progress !== undefined) ||
+    activeSounds.some(
+      ({ activity }) => activity.startedAtMs !== undefined && activity.durationMs !== undefined,
+    )
+
+  useEffect(() => {
+    if (!hasTimedPlayback) return
+    const interval = setInterval(() => setProgressNowMs(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [hasTimedPlayback])
+
   const count =
     (isPlaying && lookup.trackName ? 1 : 0) +
     soundingLayers.length +
@@ -147,41 +214,57 @@ export function ActiveSounds({
       {count === 0 ? (
         <p className="px-2 py-3 text-[11px] text-text-tertiary">Nothing playing</p>
       ) : (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {isPlaying && lookup.trackName && (
-            <ActiveRow
-              icon={<Music2 className="size-3.5" />}
-              category="Music"
-              name={lookup.trackName}
-              detail={lookup.activeClimateName}
-            />
+            <ActiveSection title="Music">
+              <ActiveRow
+                icon={<Music2 className="size-3.5" />}
+                name={lookup.trackName}
+                detail={lookup.activeClimateName}
+              />
+            </ActiveSection>
           )}
-          {soundingLayers.map((layer) => (
-            <ActiveRow
-              key={layer.id}
-              icon={<Waves className="size-3.5" />}
-              category="Ambient"
-              name={layer.name}
-              onStop={() => AmbientEngine.getInstance().setLayerEnabled(layer.id, false)}
-            />
-          ))}
-          {activeSounds.map(({ sound, activity }) => (
-            <ActiveRow
-              key={sound.id}
-              icon={<Zap className="size-3.5" />}
-              category="SFX"
-              name={sound.name}
-              detail={activity.voiceCount > 1 ? `×${String(activity.voiceCount)}` : undefined}
-              onStop={() => SoundboardEngine.getInstance().stop(sound.id)}
-            />
-          ))}
-          {lookup.previewLayer && (
-            <ActiveRow
-              icon={<Play className="size-3.5" />}
-              category="Preview"
-              name={lookup.previewLayer.name}
-              onStop={() => AmbientEngine.getInstance().stopAudition()}
-            />
+          {(soundingLayers.length > 0 || lookup.previewLayer) && (
+            <ActiveSection title="Ambient">
+              {soundingLayers.map(({ layer, clipName, progress }) => (
+                <ActiveRow
+                  key={layer.id}
+                  icon={<Waves className="size-3.5" />}
+                  name={layer.name}
+                  detail={clipName}
+                  progress={progress}
+                  nowMs={progressNowMs}
+                  onStop={() => AmbientEngine.getInstance().setLayerEnabled(layer.id, false)}
+                />
+              ))}
+              {lookup.previewLayer && (
+                <ActiveRow
+                  icon={<Play className="size-3.5" />}
+                  name={lookup.previewLayer.name}
+                  detail="Preview"
+                  onStop={() => AmbientEngine.getInstance().stopAudition()}
+                />
+              )}
+            </ActiveSection>
+          )}
+          {activeSounds.length > 0 && (
+            <ActiveSection title="SFX">
+              {activeSounds.map(({ sound, activity }) => (
+                <ActiveRow
+                  key={sound.id}
+                  icon={<Zap className="size-3.5" />}
+                  name={sound.name}
+                  detail={activity.voiceCount > 1 ? `×${String(activity.voiceCount)}` : undefined}
+                  progress={
+                    activity.startedAtMs !== undefined && activity.durationMs !== undefined
+                      ? { startedAtMs: activity.startedAtMs, durationMs: activity.durationMs }
+                      : undefined
+                  }
+                  nowMs={progressNowMs}
+                  onStop={() => SoundboardEngine.getInstance().stop(sound.id)}
+                />
+              ))}
+            </ActiveSection>
           )}
         </div>
       )}

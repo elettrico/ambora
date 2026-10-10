@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -12,11 +12,13 @@ import { SidebarSection } from './SidebarSection'
 interface CampaignSearchProps {
   campaign: Campaign | undefined
   onOpenClimate: (climateId: string) => void
+  focusRequest: number
 }
 
 export function CampaignSearch({
   campaign,
   onOpenClimate,
+  focusRequest,
 }: CampaignSearchProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -35,6 +37,15 @@ export function CampaignSearch({
     [results],
   )
 
+  useEffect(() => {
+    if (focusRequest === 0) return
+    const openFrame = requestAnimationFrame(() => {
+      setOpen(true)
+      requestAnimationFrame(() => document.getElementById('campaign-search')?.focus())
+    })
+    return () => cancelAnimationFrame(openFrame)
+  }, [focusRequest])
+
   return (
     <SidebarSection
       title="Search campaign"
@@ -46,6 +57,7 @@ export function CampaignSearch({
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-text-tertiary" />
         <Input
+          id="campaign-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={campaign ? `Search ${campaign.name}` : 'Select a campaign first'}

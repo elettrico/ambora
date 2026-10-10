@@ -107,9 +107,13 @@ export interface AmbientLayerRuntime {
    * rather than having to trust that the timer is running.
    */
   sounding?: boolean
+  /** Epoch ms when the layer most recently began sounding, for Live ordering. */
+  soundingStartedAt?: number
   /** Timing for the current one-shot/sequence, used by compact playback controls. */
   playbackStartedAt?: number
   playbackDurationMs?: number
+  /** Clip currently sounding on this layer, when one is active. */
+  activeClipId?: string
 }
 
 export interface Track {

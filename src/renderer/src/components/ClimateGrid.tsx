@@ -6,7 +6,6 @@ import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useAudioStore } from '@/store/audioStore'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
-import { DEFAULTS } from '@/lib/constants'
 import type { Campaign } from '@/lib/types'
 import { toast } from 'sonner'
 import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
@@ -33,7 +32,6 @@ export function ClimateGrid({
 
   const sorted = [...campaign.climates].sort((a, b) => a.order - b.order)
   const selectedClimate = sorted.find((c) => c.id === selectedClimateId)
-  const canAdd = campaign.climates.length < DEFAULTS.maxClimates
 
   // Safety timer: clear fade animations if they overshoot
   useEffect(() => {
@@ -94,17 +92,12 @@ export function ClimateGrid({
     const climate = createClimate(campaign.id, 'New Climate')
     if (climate) {
       onSelectClimate(climate.id)
-    } else {
-      toast.error(`Maximum of ${DEFAULTS.maxClimates} climates reached`)
     }
   }
 
   function handleDuplicateClimate(climateId: string): void {
     const duplicate = duplicateClimate(campaign.id, climateId)
-    if (!duplicate) {
-      toast.error(`Maximum of ${DEFAULTS.maxClimates} climates reached`)
-      return
-    }
+    if (!duplicate) return
     onSelectClimate(duplicate.id)
     toast.success('Climate duplicated')
   }
@@ -170,7 +163,17 @@ export function ClimateGrid({
           isSelected={false}
           fadeAnimation={fadeAnimations.find((fa) => fa.climateId === climate.id)}
           onClick={() => onSelectClimate(climate.id)}
-          onPlay={() => audioEngine.activateClimate(climate)}
+          onPlay={() => {
+            if (climate.id === activeClimateId) {
+              if (isPlaying) {
+                audioEngine.fadeToSilence()
+              } else {
+                audioEngine.resume()
+              }
+              return
+            }
+            void audioEngine.activateClimate(climate)
+          }}
           onDuplicate={() => handleDuplicateClimate(climate.id)}
           onDropFiles={handleDropFiles}
           isReordering={draggedClimateId !== null}
@@ -184,16 +187,14 @@ export function ClimateGrid({
           }}
         />
       ))}
-      {canAdd && (
-        <button
-          type="button"
-          className="flex min-h-[120px] min-w-[200px] flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border text-text-tertiary transition-colors duration-150 hover:border-text-tertiary hover:text-text-secondary"
-          onClick={handleAddClimate}
-        >
-          <Plus className="size-6" />
-          <span className="text-[13px]">Add Climate</span>
-        </button>
-      )}
+      <button
+        type="button"
+        className="flex min-h-[120px] min-w-[200px] flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border text-text-tertiary transition-colors duration-150 hover:border-text-tertiary hover:text-text-secondary"
+        onClick={handleAddClimate}
+      >
+        <Plus className="size-6" />
+        <span className="text-[13px]">Add Climate</span>
+      </button>
     </div>
   )
 }

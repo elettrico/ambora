@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
   /* === Color System === */
   --color-background: #0c0c0e;
   --color-surface-1: #141417;
@@ -83,6 +83,60 @@
   --radius: 10px;
 
   --animate-text-fade-in: text-fade-in 300ms ease-out;
+}
+
+/* The desktop uses semantic colour tokens throughout its components. Keeping the
+   alternate palette here means the light theme does not need per-view overrides. */
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-background: #f7f7f9;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f0f0f3;
+  --color-surface-3: #e6e6eb;
+  --color-border: #d4d4dc;
+  --color-border-subtle: #e4e4e9;
+  --color-text-primary: #202027;
+  --color-text-secondary: #5d5d69;
+  --color-text-tertiary: #81818d;
+  --color-accent: #526cd4;
+  --color-accent-hover: #405bc0;
+  --color-accent-muted: #526cd41f;
+  --color-danger: #c94e4e;
+  --color-success: #398b4b;
+
+  --color-sidebar-ring: #526cd4;
+  --color-sidebar-border: #d4d4dc;
+  --color-sidebar-accent-foreground: #202027;
+  --color-sidebar-accent: #e6e6eb;
+  --color-sidebar-foreground: #5d5d69;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-primary: #526cd4;
+  --color-sidebar-background: #ffffff;
+  --color-chart-5: #c94e4e;
+  --color-chart-4: #398b4b;
+  --color-chart-3: #526cd4;
+  --color-chart-2: #5d5d69;
+  --color-chart-1: #202027;
+  --color-ring: #526cd4;
+  --color-input: #d4d4dc;
+  --color-destructive: #c94e4e;
+  --color-accent-foreground: #202027;
+  --color-muted-foreground: #5d5d69;
+  --color-muted: #f0f0f3;
+  --color-popover-foreground: #202027;
+  --color-popover: #ffffff;
+  --color-card-foreground: #202027;
+  --color-card: #ffffff;
+  --color-secondary-foreground: #202027;
+  --color-secondary: #f0f0f3;
+  --color-primary-foreground: #ffffff;
+  --color-primary: #202027;
+  --color-foreground: #202027;
 }
 
 @keyframes text-fade-in {

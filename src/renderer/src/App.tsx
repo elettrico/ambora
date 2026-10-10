@@ -10,11 +10,24 @@ import { Soundboard } from '@/components/Soundboard'
 import { useCampaignStore } from '@/store/campaignStore'
 import { useRemoteSync } from '@/hooks/useRemoteSync'
 import { useAmbientSync } from '@/hooks/useAmbientSync'
+import { Toaster } from '@/components/ui/sonner'
+
+type Theme = 'dark' | 'light'
+
+function getStoredTheme(): Theme {
+  return localStorage.getItem('ambora:theme') === 'light' ? 'light' : 'dark'
+}
 
 function App(): React.JSX.Element {
   const { isLoaded, loadCampaigns, getActiveCampaign } = useCampaignStore()
   const activeCampaign = getActiveCampaign()
   const [selectedClimateId, setSelectedClimateId] = useState<string | null>(null)
+  const [theme, setTheme] = useState<Theme>(getStoredTheme)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('ambora:theme', theme)
+  }, [theme])
 
   useEffect(() => {
     setSelectedClimateId(null)
@@ -52,28 +65,31 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar onOpenClimate={setSelectedClimateId} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <main className="flex min-h-0 flex-1 overflow-y-auto">
-          {activeCampaign ? (
-            <CampaignView
-              campaign={activeCampaign}
-              selectedClimateId={selectedClimateId}
-              onSelectClimate={setSelectedClimateId}
-            />
-          ) : (
-            <EmptyState
-              icon={Map}
-              title="No campaign selected"
-              description="Select a campaign from the sidebar or create a new one."
-            />
-          )}
-        </main>
-        {activeCampaign && <Soundboard campaign={activeCampaign} />}
-        <NowPlayingBar />
+    <>
+      <div className="flex h-screen bg-background">
+        <Sidebar onOpenClimate={setSelectedClimateId} theme={theme} onThemeChange={setTheme} />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <main className="flex min-h-0 flex-1 overflow-y-auto">
+            {activeCampaign ? (
+              <CampaignView
+                campaign={activeCampaign}
+                selectedClimateId={selectedClimateId}
+                onSelectClimate={setSelectedClimateId}
+              />
+            ) : (
+              <EmptyState
+                icon={Map}
+                title="No campaign selected"
+                description="Select a campaign from the sidebar or create a new one."
+              />
+            )}
+          </main>
+          {activeCampaign && <Soundboard campaign={activeCampaign} />}
+          <NowPlayingBar />
+        </div>
       </div>
-    </div>
+      <Toaster position="top-right" theme={theme} />
+    </>
   )
 }
 

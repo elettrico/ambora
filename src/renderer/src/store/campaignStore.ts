@@ -261,7 +261,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
 
   createClimate: (campaignId, name) => {
     const campaign = get().campaigns.find((c) => c.id === campaignId)
-    if (!campaign || campaign.climates.length >= DEFAULTS.maxClimates) {
+    if (!campaign) {
       return null
     }
 
@@ -294,7 +294,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   duplicateClimate: (campaignId, climateId) => {
     const campaign = get().campaigns.find((item) => item.id === campaignId)
     const source = campaign?.climates.find((climate) => climate.id === climateId)
-    if (!campaign || !source || campaign.climates.length >= DEFAULTS.maxClimates) return null
+    if (!campaign || !source) return null
 
     const existingNames = new Set(campaign.climates.map((climate) => climate.name))
     let name = `${source.name} copy`

@@ -6,9 +6,10 @@ import { SidebarSection } from './SidebarSection'
 interface QRCodePanelProps {
   open: boolean
   onToggle: () => void
+  theme: 'dark' | 'light'
 }
 
-export function QRCodePanel({ open, onToggle }: QRCodePanelProps): React.JSX.Element {
+export function QRCodePanel({ open, onToggle, theme }: QRCodePanelProps): React.JSX.Element {
   const { serverUrl, connectedClients } = useConnectionStore()
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
 
@@ -19,11 +20,11 @@ export function QRCodePanel({ open, onToggle }: QRCodePanelProps): React.JSX.Ele
       width: 120,
       margin: 1,
       color: {
-        dark: '#EAEAED',
+        dark: theme === 'light' ? '#202027' : '#EAEAED',
         light: '#00000000',
       },
     }).then(setQrDataUrl)
-  }, [serverUrl])
+  }, [serverUrl, theme])
 
   if (!serverUrl) {
     return (

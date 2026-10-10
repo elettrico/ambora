@@ -1,5 +1,15 @@
-import { useState } from 'react'
-import { Activity, AlertTriangle, Download, Library, MoreVertical, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  Activity,
+  AlertTriangle,
+  Download,
+  Library,
+  Moon,
+  MoreVertical,
+  Plus,
+  RotateCcw,
+  Sun,
+} from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,6 +50,16 @@ import { SidebarSection } from './SidebarSection'
 import { AudioMixer } from './AudioMixer'
 import { ActiveSounds } from './ActiveSounds'
 import { CampaignSearch } from './CampaignSearch'
+import { useAudioEngine } from '@/hooks/useAudioEngine'
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement
+  )
+}
 
 function CampaignItem({
   campaign,
@@ -148,9 +168,11 @@ function CampaignItem({
 
 interface SidebarProps {
   onOpenClimate: (climateId: string) => void
+  theme: 'dark' | 'light'
+  onThemeChange: (theme: 'dark' | 'light') => void
 }
 
-export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
+export function Sidebar({ onOpenClimate, theme, onThemeChange }: SidebarProps): React.JSX.Element {
   const {
     campaigns,
     activeCampaignId,
@@ -160,11 +182,13 @@ export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
     getActiveCampaign,
   } = useCampaignStore()
   const activeCampaign = getActiveCampaign()
+  const audioEngine = useAudioEngine()
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [mode, setMode] = useState<'campaigns' | 'live'>(() =>
     localStorage.getItem('ambora:sidebar-mode') === 'live' ? 'live' : 'campaigns',
   )
   const [liveCount, setLiveCount] = useState(0)
+  const [searchFocusRequest, setSearchFocusRequest] = useState(0)
   const [campaignsOpen, setCampaignsOpen] = useState(true)
   const [phoneOpen, setPhoneOpen] = useState(true)
   const [newName, setNewName] = useState('')
@@ -173,6 +197,29 @@ export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
     campaign: Campaign
     warnings: string[]
   } | null>(null)
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (
+        event.key !== '/' ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        event.defaultPrevented ||
+        isEditableTarget(event.target) ||
+        !activeCampaign
+      ) {
+        return
+      }
+      event.preventDefault()
+      setMode('live')
+      localStorage.setItem('ambora:sidebar-mode', 'live')
+      setSearchFocusRequest((current) => current + 1)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeCampaign])
 
   function handleCreate(): void {
     const trimmed = newName.trim()
@@ -211,6 +258,11 @@ export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
     setActiveCampaign(importPreview.campaign.id)
     toast.success(`Imported "${importPreview.campaign.name}"`)
     setImportPreview(null)
+  }
+
+  function handleResetPositions(): void {
+    audioEngine.resetClimatePositions()
+    toast.success('Saved climate positions reset')
   }
 
   return (
@@ -304,7 +356,11 @@ export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
           </div>
         </SidebarSection>
 
-        <QRCodePanel open={phoneOpen} onToggle={() => setPhoneOpen((open) => !open)} />
+        <QRCodePanel
+          open={phoneOpen}
+          onToggle={() => setPhoneOpen((open) => !open)}
+          theme={theme}
+        />
       </div>
 
       <div
@@ -313,9 +369,36 @@ export function Sidebar({ onOpenClimate }: SidebarProps): React.JSX.Element {
       >
         <ActiveSounds fill onCountChange={setLiveCount} />
         <div className="mt-auto">
-          <CampaignSearch campaign={activeCampaign} onOpenClimate={onOpenClimate} />
+          <div className="border-t border-border-subtle px-3 py-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-text-secondary"
+              onClick={handleResetPositions}
+              title="Start climates from their first track"
+            >
+              <RotateCcw className="size-4" />
+              Reset saved positions
+            </Button>
+          </div>
+          <CampaignSearch
+            campaign={activeCampaign}
+            onOpenClimate={onOpenClimate}
+            focusRequest={searchFocusRequest}
+          />
           <AudioMixer />
         </div>
+      </div>
+
+      <div className="border-t border-border-subtle px-3 py-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-text-secondary"
+          onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+        </Button>
       </div>
 
       <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>

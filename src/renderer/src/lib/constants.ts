@@ -50,7 +50,6 @@ export const DEFAULTS = {
   serverPort: 3000,
   minCrossfade: 1,
   maxCrossfade: 10,
-  maxClimates: 16,
 } as const
 
 export const AMBIENT_DEFAULTS = {

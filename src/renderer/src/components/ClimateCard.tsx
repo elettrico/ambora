@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, AlertTriangle, Copy, Plus } from 'lucide-react'
+import { Play, Pause, AlertTriangle, Copy, Plus } from 'lucide-react'
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
 import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
@@ -331,15 +331,26 @@ export function ClimateCard({
             <button
               type="button"
               data-no-climate-drag
-              aria-label={`Play ${climate.name}`}
-              className="flex size-8 items-center justify-center rounded-full opacity-0 transition-opacity duration-150 hover:brightness-125 group-hover:opacity-100"
-              style={{ backgroundColor: `${climate.color}33` }}
+              aria-label={`${isActive ? 'Pause' : 'Play'} ${climate.name}`}
+              title={`${isActive ? 'Pause' : 'Play'} climate`}
+              className={`flex size-11 items-center justify-center rounded-full opacity-60 transition-[background-color,opacity,filter] duration-150 hover:opacity-100 hover:brightness-125 focus-visible:opacity-100 ${
+                isActive
+                  ? 'bg-[var(--climate-control-background)]'
+                  : 'bg-transparent group-hover:bg-[var(--climate-control-background)] focus-visible:bg-[var(--climate-control-background)]'
+              }`}
+              style={
+                { '--climate-control-background': `${climate.color}33` } as React.CSSProperties
+              }
               onClick={(e) => {
                 e.stopPropagation()
                 onPlay()
               }}
             >
-              <Play className="size-4" style={{ color: climate.color }} />
+              {isActive ? (
+                <Pause className="size-4" style={{ color: climate.color }} />
+              ) : (
+                <Play className="size-4" style={{ color: climate.color }} />
+              )}
             </button>
           )}
         </div>

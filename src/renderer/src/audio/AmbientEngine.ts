@@ -44,6 +44,7 @@ interface Playback {
 }
 
 interface SequenceClip {
+  id: string
   buffer: AudioBuffer
   playbackRate: number
 }
@@ -108,8 +109,10 @@ function sameRuntime(
       left.volume !== right.volume ||
       left.triggeredAt !== right.triggeredAt ||
       left.sounding !== right.sounding ||
+      left.soundingStartedAt !== right.soundingStartedAt ||
       left.playbackStartedAt !== right.playbackStartedAt ||
-      left.playbackDurationMs !== right.playbackDurationMs
+      left.playbackDurationMs !== right.playbackDurationMs ||
+      left.activeClipId !== right.activeClipId
     ) {
       return false
     }
@@ -611,7 +614,7 @@ export class AmbientEngine {
     const clip = clips[live.selector.next(clips, live.layer.clipOrder)]
     void this.getBuffer(clip).then((buffer) => {
       if (!buffer || stack.disposed || !stack.running || !live.enabled) return
-      this.playClip(live, buffer, false)
+      this.playClip(live, clip.id, buffer, false)
     })
   }
 
@@ -628,7 +631,7 @@ export class AmbientEngine {
       ordered.map(async (clip): Promise<SequenceClip | null> => {
         const buffer = await this.getBuffer(clip)
         if (!buffer) return null
-        return { buffer, playbackRate: randomPlaybackRate(live.layer.pitchVariation) }
+        return { id: clip.id, buffer, playbackRate: randomPlaybackRate(live.layer.pitchVariation) }
       }),
     )
     const playable = decoded.filter((clip): clip is SequenceClip => clip !== null)
@@ -657,7 +660,7 @@ export class AmbientEngine {
         return
       }
       const clip = playable[index]
-      const { source } = this.playClip(live, clip.buffer, false, clip.playbackRate, false)
+      const { source } = this.playClip(live, clip.id, clip.buffer, false, clip.playbackRate, false)
       source.addEventListener('ended', () => playNext(index + 1))
     }
     playNext(0)
@@ -805,7 +808,7 @@ export class AmbientEngine {
       const buffer = await this.getBuffer(clip)
       if (!buffer || stack.disposed || !stack.running || !live.enabled) return
       if (live.sources.size > 0) return
-      this.playClip(live, buffer, true)
+      this.playClip(live, clip.id, buffer, true)
     } finally {
       live.loopStarting = false
     }
@@ -850,7 +853,7 @@ export class AmbientEngine {
         return
       }
 
-      const { source } = this.playClip(live, buffer, false)
+      const { source } = this.playClip(live, clip.id, buffer, false)
       // The next delay is measured from when this clip finishes, so the layer
       // never overlaps itself — the behaviour the RFC asked for.
       source.addEventListener('ended', () => this.scheduleNext(stack, live))
@@ -866,6 +869,7 @@ export class AmbientEngine {
    */
   private playClip(
     live: LiveLayer,
+    clipId: string,
     buffer: AudioBuffer,
     loop: boolean,
     playbackRate = randomPlaybackRate(live.layer.pitchVariation),
@@ -891,7 +895,10 @@ export class AmbientEngine {
       live.sources.delete(playback)
       source.disconnect()
       gain.disconnect()
-      if (live.sources.size === 0) this.setSounding(live, false)
+      if (live.sources.size === 0) {
+        this.setSounding(live, false)
+        useAudioStore.getState().setAmbientLayerActiveClip(live.layer.id, null)
+      }
     })
 
     source.start()
@@ -907,6 +914,7 @@ export class AmbientEngine {
       )
     }
     this.setSounding(live, true)
+    useAudioStore.getState().setAmbientLayerActiveClip(live.layer.id, clipId)
     if (!loop && publishProgress) {
       useAudioStore
         .getState()
@@ -947,7 +955,9 @@ export class AmbientEngine {
 
   /** Publishes "this layer has audio playing right now" for the UI indicators. */
   private setSounding(live: LiveLayer, sounding: boolean): void {
-    useAudioStore.getState().setAmbientLayerSounding(live.layer.id, sounding)
+    const store = useAudioStore.getState()
+    store.setAmbientLayerSounding(live.layer.id, sounding)
+    if (!sounding) store.setAmbientLayerActiveClip(live.layer.id, null)
   }
 
   private clearTimer(live: LiveLayer): void {
