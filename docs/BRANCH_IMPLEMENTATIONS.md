@@ -16,13 +16,14 @@ cherry-picks y resolver sus conflictos contra el estado actual de `origin/main`.
 
 ## Implementaciones confirmadas
 
-| Estado    | Implementación                                           | Origen    | Alcance antes de integrar                                                                                                                                                                                                                                 |
-| --------- | -------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pendiente | Controles ampliados de reproducción y ambiente por clima | `f8cb1a1` | Capas ambientales secuenciales, previsualización, modos de una sola reproducción/secuencia, volumen de música por clima, reordenamiento de climas y detección/reubicación de audio local faltante. Incluye cambios de IPC, remoto, exportación y pruebas. |
-| Pendiente | Mezclador global y controles de audio en vivo            | `ba1069d` | Mezclador por categorías, panel Live/sonidos activos, control de capas ambientales y sincronización con el remoto. Incluye UI de escritorio y remoto, motor de audio, IPC y pruebas.                                                                      |
-| Pendiente | Limpieza de atajos al borrar un sonido de la soundboard  | `7c5ed3f` | Elimina correctamente la asignación de tecla del sonido borrado; incluye prueba unitaria.                                                                                                                                                                 |
-| Pendiente | Controles ambientales adicionales                        | `49818df` | Extiende el motor y las tarjetas de clima para controles ambientales, exportación y estado. Algunos cambios se solapan con `f8cb1a1`; deben integrarse como una serie, no como funcionalidades aisladas.                                                  |
-| Pendiente | Búsqueda en la campaña activa                            | `d957bda` | Búsqueda de climas, pistas, capas y sonidos de la campaña activa, con componente, utilidades y pruebas.                                                                                                                                                   |
+| Estado    | Implementación                                           | Origen    | Alcance antes de integrar                                                                                                                                                                                                                                                          |
+| --------- | -------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pendiente | Controles ampliados de reproducción y ambiente por clima | `f8cb1a1` | Capas ambientales secuenciales, previsualización, modos de una sola reproducción/secuencia, volumen de música por clima, reordenamiento de climas y detección/reubicación de audio local faltante. Incluye cambios de IPC, remoto, exportación y pruebas.                          |
+| Pendiente | Mezclador global y controles de audio en vivo            | `ba1069d` | Mezclador por categorías, panel Live/sonidos activos, control de capas ambientales y sincronización con el remoto. Incluye UI de escritorio y remoto, motor de audio, IPC y pruebas.                                                                                               |
+| Pendiente | Limpieza de atajos al borrar un sonido de la soundboard  | `7c5ed3f` | Elimina correctamente la asignación de tecla del sonido borrado; incluye prueba unitaria.                                                                                                                                                                                          |
+| Pendiente | Controles ambientales adicionales                        | `49818df` | Extiende el motor y las tarjetas de clima para controles ambientales, exportación y estado. Algunos cambios se solapan con `f8cb1a1`; deben integrarse como una serie, no como funcionalidades aisladas.                                                                           |
+| Pendiente | Búsqueda en la campaña activa                            | `d957bda` | Búsqueda de climas, pistas, capas y sonidos de la campaña activa, con componente, utilidades y pruebas.                                                                                                                                                                            |
+| Pendiente | Tema claro de escritorio y mejoras de controles Live     | `0fff9f2` | Tema persistente con tokens intercambiables; QR, notificaciones e indicador de normalización adaptados. También amplía el panel Live, permite pausar/reanudar desde tarjetas, elimina el límite de climas, restablece posiciones de reproducción y añade el atajo `/` para buscar. |
 
 ## Trabajo local sin commit
 
@@ -30,14 +31,9 @@ Estas modificaciones están presentes en el árbol de trabajo al redactar este
 inventario. No deben llevarse a `main` hasta que se separen, revisen y tengan
 commits propios.
 
-| Estado   | Implementación                          | Alcance observado                                                                                                                                    |
-| -------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| En curso | Tema claro para escritorio              | Selector persistente en la barra lateral, paleta CSS intercambiable, notificaciones, QR e indicador de normalización adaptados. No aplica al remoto. |
-| En curso | Mejoras del panel Live                  | Agrupa música, ambiente y SFX; muestra clip activo, orden de inicio y progreso de reproducciones temporizadas.                                       |
-| En curso | Pausar/reanudar desde tarjetas de clima | La tarjeta activa cambia entre pausar y reanudar; los demás climas siguen activándose normalmente.                                                   |
-| En curso | Sin límite máximo de climas             | Permite crear y duplicar climas más allá de la paleta predefinida, reutilizando colores.                                                             |
-| En curso | Restablecer posiciones de clima         | Añade la acción para olvidar posiciones de reproducción guardadas antes de futuras activaciones.                                                     |
-| En curso | Atajo `/` para buscar                   | Abre y enfoca la búsqueda de la campaña activa desde el panel Live.                                                                                  |
+| Estado   | Implementación                                | Alcance observado                                                                                                                 |
+| -------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| En curso | Contraste de controles de clima en tema claro | Oscurece de forma contextual los iconos de control de Gold, Silver y otros colores claros, sin cambiar la paleta de las tarjetas. |
 
 ## Cómo mantener este inventario
 

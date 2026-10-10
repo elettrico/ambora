@@ -139,6 +139,21 @@
   --color-foreground: #202027;
 }
 
+/* Climate swatches were selected for the dark interface. On a light surface,
+   pale swatches such as Gold and Silver need a darker control glyph to remain
+   legible while retaining the hue of their climate. */
+.climate-card {
+  --climate-control-foreground: var(--climate-color);
+}
+
+:root[data-theme='light'] .climate-card {
+  --climate-control-foreground: color-mix(
+    in srgb,
+    var(--climate-color) 50%,
+    var(--color-text-primary)
+  );
+}
+
 @keyframes text-fade-in {
   from {
     opacity: 0;

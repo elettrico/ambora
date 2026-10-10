@@ -137,16 +137,19 @@ export function ClimateCard({
   return (
     <article
       draggable
-      className="group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3"
-      style={{
-        borderLeft: `3px solid ${climate.color}B3`,
-        outline: isReorderTarget
-          ? `2px dashed ${climate.color}`
-          : isSelected
-            ? `2px solid ${climate.color}`
-            : undefined,
-        outlineOffset: isReorderTarget || isSelected ? '-2px' : undefined,
-      }}
+      className="climate-card group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3"
+      style={
+        {
+          '--climate-color': climate.color,
+          borderLeft: `3px solid ${climate.color}B3`,
+          outline: isReorderTarget
+            ? `2px dashed ${climate.color}`
+            : isSelected
+              ? `2px solid ${climate.color}`
+              : undefined,
+          outlineOffset: isReorderTarget || isSelected ? '-2px' : undefined,
+        } as React.CSSProperties
+      }
       onDragStart={(e) => {
         if ((e.target as HTMLElement).closest('[data-no-climate-drag]')) {
           e.preventDefault()
@@ -254,7 +257,7 @@ export function ClimateCard({
                 >
                   <Plus
                     className={`size-4 transition-transform ${ambientExpanded ? 'rotate-45' : ''}`}
-                    style={{ color: climate.color }}
+                    style={{ color: 'var(--climate-control-foreground)' }}
                   />
                 </button>
               </PopoverPrimitive.Trigger>
@@ -296,7 +299,10 @@ export function ClimateCard({
                               AmbientEngine.getInstance().triggerLayer(layer.id)
                             }}
                           >
-                            <Play className="size-3.5" style={{ color: climate.color }} />
+                            <Play
+                              className="size-3.5"
+                              style={{ color: 'var(--climate-control-foreground)' }}
+                            />
                           </button>
                         ) : (
                           <button
@@ -347,9 +353,9 @@ export function ClimateCard({
               }}
             >
               {isActive ? (
-                <Pause className="size-4" style={{ color: climate.color }} />
+                <Pause className="size-4" style={{ color: 'var(--climate-control-foreground)' }} />
               ) : (
-                <Play className="size-4" style={{ color: climate.color }} />
+                <Play className="size-4" style={{ color: 'var(--climate-control-foreground)' }} />
               )}
             </button>
           )}
