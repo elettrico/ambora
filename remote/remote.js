@@ -318,10 +318,8 @@
   }
 
   // ── Ambient Drawer State ──
-  var AMBIENT_OPEN_KEY = 'ambora.ambient.open'
-  var ambientOpen = false
-  var SOUNDBOARD_OPEN_KEY = 'ambora.soundboard.open'
-  var soundboardOpen = false
+  var OPEN_TOOL_KEY = 'ambora.open-tool'
+  var openTools = { ambient: false, soundboard: false, mixer: false }
   // Signature of the rendered layer set. The panel is only rebuilt when this
   // changes, so a state push can't yank a slider out from under a dragging thumb.
   var ambientSignature = null
@@ -353,18 +351,15 @@
     dom.disconnectedOverlay = document.getElementById('disconnected-overlay')
     dom.wifiOffIcon = document.getElementById('wifi-off-icon')
     dom.ambient = document.getElementById('ambient')
-    dom.ambientHandle = document.getElementById('ambient-handle')
     dom.ambientPanel = document.getElementById('ambient-panel')
     dom.ambientLayers = document.getElementById('ambient-layers')
     dom.ambientShots = document.getElementById('ambient-shots')
-    dom.ambientIcon = document.getElementById('ambient-icon')
-    dom.ambientCount = document.getElementById('ambient-count')
-    dom.ambientChevron = document.getElementById('ambient-chevron')
     dom.soundboard = document.getElementById('soundboard')
-    dom.soundboardHandle = document.getElementById('soundboard-handle')
-    dom.soundboardCount = document.getElementById('soundboard-count')
-    dom.soundboardChevron = document.getElementById('soundboard-chevron')
     dom.soundboardList = document.getElementById('soundboard-list')
+    dom.mixer = document.getElementById('mixer')
+    dom.toolAmbient = document.getElementById('tool-ambient')
+    dom.toolSoundboard = document.getElementById('tool-soundboard')
+    dom.toolMixer = document.getElementById('tool-mixer')
   }
 
   // ── WebSocket ──
@@ -536,6 +531,25 @@
     return null
   }
 
+  // Compact labels keep the scene grid scannable when a campaign has more
+  // climates than can comfortably fit on one phone screen. The full name
+  // remains available to assistive technology and as the native long-press
+  // tooltip on the button.
+  function climateShortLabel(name) {
+    return String(name || '')
+      .replace(/\s+/g, '')
+      .slice(0, 3)
+      .toLocaleUpperCase()
+  }
+
+  function remoteClimateLabel(climate) {
+    var customLabel = String(climate.remoteLabel || '')
+      .replace(/\s+/g, '')
+      .slice(0, 3)
+      .toLocaleUpperCase()
+    return customLabel || climateShortLabel(climate.name) || '---'
+  }
+
   function renderClimateGrid() {
     var campaign = getActiveCampaign()
     if (!campaign || campaign.climates.length === 0) {
@@ -556,14 +570,19 @@
       var isActive = cl.id === state.playback.activeClimateId
       var cardClass = 'climate-card' + (isActive ? ' active' : '')
       var color = safeColor(cl.color)
-      var bgColor = hexToRgba(color, 0.18)
+      var bgColor = hexToRgba(color, isActive ? 0.28 : 0.18)
       var borderColor = isActive ? color : 'transparent'
+      var label = remoteClimateLabel(cl)
 
       html +=
         '<button class="' +
         cardClass +
         '" data-climate-id="' +
         escapeAttr(cl.id) +
+        '" aria-label="Activate ' +
+        escapeAttr(cl.name) +
+        '" title="' +
+        escapeAttr(cl.name) +
         '" style="background:' +
         bgColor +
         ';--card-color:' +
@@ -572,10 +591,10 @@
         borderColor +
         '">' +
         '<span class="climate-card__icon">' +
-        icon(cl.icon, 28) +
+        icon(cl.icon, 26) +
         '</span>' +
-        '<span class="climate-card__name">' +
-        escapeHtml(cl.name) +
+        '<span class="climate-card__label" aria-hidden="true">' +
+        escapeHtml(label) +
         '</span>' +
         '</button>'
     }
@@ -653,15 +672,31 @@
     return parts.join('|')
   }
 
-  function setAmbientOpen(open) {
-    ambientOpen = open
-    dom.ambientPanel.hidden = !open
-    dom.ambientHandle.setAttribute('aria-expanded', open ? 'true' : 'false')
-    dom.ambientChevron.innerHTML = icon(open ? 'ChevronDown' : 'ChevronUp', 16)
+  function syncOpenTools() {
+    dom.ambientPanel.hidden = !openTools.ambient
+    dom.soundboardList.hidden = !openTools.soundboard
+    dom.mixer.hidden = !openTools.mixer
+
+    var tools = [
+      ['ambient', dom.toolAmbient],
+      ['soundboard', dom.toolSoundboard],
+      ['mixer', dom.toolMixer],
+    ]
+    for (var i = 0; i < tools.length; i++) {
+      var isOpen = openTools[tools[i][0]]
+      tools[i][1].classList.toggle('active', isOpen)
+      tools[i][1].setAttribute('aria-expanded', isOpen ? 'true' : 'false')
+    }
+  }
+
+  function setToolOpen(tool, isOpen) {
+    openTools[tool] = isOpen
+    syncOpenTools()
+
     try {
-      localStorage.setItem(AMBIENT_OPEN_KEY, open ? '1' : '0')
+      localStorage.setItem(OPEN_TOOL_KEY, JSON.stringify(openTools))
     } catch (e) {
-      // Private browsing or storage disabled — the drawer just won't persist.
+      // Private browsing or storage disabled — the panel just won't persist.
     }
   }
 
@@ -670,6 +705,8 @@
 
     if (layers.length === 0) {
       dom.ambient.hidden = true
+      dom.toolAmbient.hidden = true
+      if (openTools.ambient) setToolOpen('ambient', false)
       ambientSignature = null
       dom.ambientLayers.innerHTML = ''
       dom.ambientShots.innerHTML = ''
@@ -677,6 +714,7 @@
     }
 
     dom.ambient.hidden = false
+    dom.toolAmbient.hidden = false
     // Meters only mean something while the scene is actually running.
     dom.ambient.setAttribute('data-live', state.playback.isPlaying ? 'true' : 'false')
 
@@ -687,7 +725,6 @@
     }
 
     updateAmbientValues(layers)
-    updateAmbientHandle(layers)
   }
 
   function getSoundboardSounds() {
@@ -707,12 +744,15 @@
     var sounds = getSoundboardSounds()
     if (sounds.length === 0) {
       dom.soundboard.hidden = true
+      dom.toolSoundboard.hidden = true
+      if (openTools.soundboard) setToolOpen('soundboard', false)
       dom.soundboardList.innerHTML = ''
       return
     }
 
     dom.soundboard.hidden = false
-    dom.soundboardCount.textContent = String(sounds.length)
+    dom.toolSoundboard.hidden = false
+    dom.toolSoundboard.setAttribute('aria-label', 'Open soundboard, ' + sounds.length + ' sounds')
     var html = ''
     for (var i = 0; i < sounds.length; i++) {
       var sound = sounds[i]
@@ -739,18 +779,6 @@
         '</button>'
     }
     dom.soundboardList.innerHTML = html
-  }
-
-  function setSoundboardOpen(open) {
-    soundboardOpen = open
-    dom.soundboardList.hidden = !open
-    dom.soundboardHandle.setAttribute('aria-expanded', open ? 'true' : 'false')
-    dom.soundboardChevron.innerHTML = icon(open ? 'ChevronDown' : 'ChevronUp', 16)
-    try {
-      localStorage.setItem(SOUNDBOARD_OPEN_KEY, open ? '1' : '0')
-    } catch (e) {
-      // Private browsing or storage disabled — the drawer just won't persist.
-    }
   }
 
   function soundboardProgress(activity) {
@@ -874,23 +902,6 @@
         row.querySelector('.ambient-layer__volume').value = runtime.volume
       }
     }
-  }
-
-  function updateAmbientHandle(layers) {
-    var on = 0
-    for (var i = 0; i < layers.length; i++) {
-      if (
-        layers[i].mode !== 'oneshot' &&
-        layers[i].mode !== 'sequence' &&
-        layerRuntime(layers[i]).enabled
-      )
-        on++
-    }
-    var total = 0
-    for (var j = 0; j < layers.length; j++) {
-      if (layers[j].mode !== 'oneshot' && layers[j].mode !== 'sequence') total++
-    }
-    dom.ambientCount.textContent = total === 0 ? '' : '· ' + on + ' on'
   }
 
   function flashShot(layerId) {
@@ -1124,13 +1135,16 @@
       send({ type: 'toggle-shuffle' })
     })
 
-    // Ambient drawer handle
-    dom.ambientHandle.addEventListener('click', function () {
-      setAmbientOpen(!ambientOpen)
+    dom.toolAmbient.addEventListener('click', function () {
+      setToolOpen('ambient', !openTools.ambient)
     })
 
-    dom.soundboardHandle.addEventListener('click', function () {
-      setSoundboardOpen(!soundboardOpen)
+    dom.toolSoundboard.addEventListener('click', function () {
+      setToolOpen('soundboard', !openTools.soundboard)
+    })
+
+    dom.toolMixer.addEventListener('click', function () {
+      setToolOpen('mixer', !openTools.mixer)
     })
 
     // Layer toggles — event delegation
@@ -1252,25 +1266,23 @@
     dom.btnShuffle.innerHTML = icon('Shuffle', 20)
     dom.btnMute.innerHTML = icon('Volume2', 20)
     dom.wifiOffIcon.innerHTML = icon('WifiOff', 48)
-    dom.ambientIcon.innerHTML = icon('Waves', 16)
-
-    // The drawer stays where the GM left it, so one-shot pads remain one tap
-    // away across a whole scene.
-    var storedOpen = null
+    var storedTools = null
     try {
-      storedOpen = localStorage.getItem(AMBIENT_OPEN_KEY)
+      storedTools = localStorage.getItem(OPEN_TOOL_KEY)
     } catch (e) {
       // Storage unavailable — fall back to collapsed.
     }
-    setAmbientOpen(storedOpen === '1')
-
-    var storedSoundboardOpen = null
     try {
-      storedSoundboardOpen = localStorage.getItem(SOUNDBOARD_OPEN_KEY)
+      var parsedTools = JSON.parse(storedTools || '{}')
+      if (parsedTools && typeof parsedTools === 'object') {
+        openTools.ambient = parsedTools.ambient === true
+        openTools.soundboard = parsedTools.soundboard === true
+        openTools.mixer = parsedTools.mixer === true
+      }
     } catch (e) {
-      // Storage unavailable — fall back to collapsed.
+      // Older remotes stored one tool name, which safely falls back to closed.
     }
-    setSoundboardOpen(storedSoundboardOpen === '1')
+    syncOpenTools()
 
     bindEvents()
     renderAll()

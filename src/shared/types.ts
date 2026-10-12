@@ -34,6 +34,8 @@ export type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple' 
 export interface Climate {
   id: string
   name: string
+  /** Optional three-character code shown on the phone remote. */
+  remoteLabel?: string
   color: string
   icon: string
   tracks: Track[]
@@ -182,6 +184,7 @@ export interface RemoteAmbientLayer {
 export interface RemoteClimate {
   id: string
   name: string
+  remoteLabel?: string
   color: string
   icon: string
   order: number

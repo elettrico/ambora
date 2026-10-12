@@ -167,6 +167,15 @@ describe('climate CRUD', () => {
     expect(updated.name).toBe('Dark Forest')
   })
 
+  it('stores a custom compact label for the phone remote', () => {
+    const campaign = useCampaignStore.getState().createCampaign('Campaign')
+    const climate = useCampaignStore.getState().createClimate(campaign.id, 'The Forest')!
+
+    useCampaignStore.getState().updateClimate(campaign.id, climate.id, { remoteLabel: 'FOR' })
+
+    expect(useCampaignStore.getState().campaigns[0].climates[0].remoteLabel).toBe('FOR')
+  })
+
   it('deletes a climate and reorders remaining', () => {
     const campaign = useCampaignStore.getState().createCampaign('Campaign')
     useCampaignStore.getState().createClimate(campaign.id, 'First')

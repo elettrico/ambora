@@ -33,7 +33,7 @@ interface CampaignStore {
     campaignId: string,
     climateId: string,
     updates: Partial<
-      Pick<Climate, 'name' | 'color' | 'icon' | 'crossfadeDuration' | 'musicVolume'>
+      Pick<Climate, 'name' | 'remoteLabel' | 'color' | 'icon' | 'crossfadeDuration' | 'musicVolume'>
     >,
   ) => void
   deleteClimate: (campaignId: string, climateId: string) => void

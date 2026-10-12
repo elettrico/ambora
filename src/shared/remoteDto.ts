@@ -53,6 +53,7 @@ function toRemoteClimate(climate: Climate): RemoteClimate {
   const remote: RemoteClimate = {
     id: climate.id,
     name: climate.name,
+    ...(climate.remoteLabel ? { remoteLabel: climate.remoteLabel } : {}),
     color: climate.color,
     icon: climate.icon,
     order: climate.order,

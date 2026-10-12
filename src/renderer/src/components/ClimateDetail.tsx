@@ -41,6 +41,14 @@ interface ClimateDetailProps {
   onDuplicate: () => void
 }
 
+function remoteLabelFallback(name: string): string {
+  return name.replace(/\s+/g, '').slice(0, 3).toLocaleUpperCase()
+}
+
+function normalizeRemoteLabel(value: string): string {
+  return value.replace(/\s+/g, '').slice(0, 3).toLocaleUpperCase()
+}
+
 export function ClimateDetail({
   climate,
   campaign,
@@ -322,6 +330,30 @@ export function ClimateDetail({
                   selectedIcon={climate.icon}
                   onSelectIcon={(icon) => updateClimate(campaignId, climate.id, { icon })}
                 />
+              </div>
+              <div className="min-w-[160px] max-w-[200px]">
+                <label
+                  htmlFor="remote-label"
+                  className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary"
+                >
+                  Remote code
+                </label>
+                <Input
+                  id="remote-label"
+                  value={climate.remoteLabel ?? ''}
+                  placeholder={remoteLabelFallback(climate.name)}
+                  aria-label="Three-character code on the phone remote"
+                  className="h-8 font-mono uppercase tracking-[0.12em]"
+                  onChange={(event) => {
+                    const remoteLabel = normalizeRemoteLabel(event.target.value)
+                    updateClimate(campaignId, climate.id, {
+                      remoteLabel: remoteLabel || undefined,
+                    })
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-text-tertiary">
+                  Three characters, no spaces. Leave blank to use the name.
+                </p>
               </div>
               <div className="min-w-[200px] max-w-[300px] flex-1">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
