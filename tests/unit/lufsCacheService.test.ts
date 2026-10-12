@@ -38,7 +38,8 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 
 describe('main-process LUFS cache', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.useRealTimers()
+    vi.resetAllMocks()
     __resetLufsCacheForTests()
     mockLoadCache.mockReturnValue({ '/old/path.mp3': -18 })
     mockFingerprint.mockResolvedValue('v1:content-hash')
@@ -116,16 +117,25 @@ describe('main-process LUFS cache', () => {
     expect(mockCancelLufs).toHaveBeenCalledWith('request-1')
   })
 
-  it('shares an in-flight analysis for concurrent cache misses', async () => {
-    const analysis = deferred<{ ok: true; integratedLufs: number }>()
-    mockAnalyzeLufs.mockReturnValueOnce(analysis.promise)
+  it('starts a fresh analysis when a cancelled request returns to the same file', async () => {
+    const firstAnalysis = deferred<{ ok: false; reason: string; cancelled: true }>()
+    const secondAnalysis = deferred<{ ok: true; integratedLufs: number }>()
+    mockAnalyzeLufs
+      .mockReturnValueOnce(firstAnalysis.promise)
+      .mockReturnValueOnce(secondAnalysis.promise)
 
-    const first = getLufs('/music/first.mp3', 'request-1')
-    const second = getLufs('/music/second.mp3', 'request-2')
+    const first = getLufs('/music/track.mp3', 'request-1')
     await vi.waitFor(() => expect(mockAnalyzeLufs).toHaveBeenCalledOnce())
-    analysis.resolve({ ok: true, integratedLufs: -16.4 })
+    cancelLufsRequest('request-1')
 
-    await expect(first).resolves.toEqual({ ok: true, integratedLufs: -16.4 })
+    const second = getLufs('/music/track.mp3', 'request-2')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockAnalyzeLufs).toHaveBeenCalledTimes(2)
+
+    firstAnalysis.resolve({ ok: false, reason: 'cancelled', cancelled: true })
+    secondAnalysis.resolve({ ok: true, integratedLufs: -16.4 })
+
+    await expect(first).resolves.toEqual({ ok: false, reason: 'cancelled', cancelled: true })
     await expect(second).resolves.toEqual({ ok: true, integratedLufs: -16.4 })
   })
 

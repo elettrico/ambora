@@ -16,7 +16,6 @@ interface PathFingerprint {
 const pathFingerprintCache = new Map<string, PathFingerprint>()
 const cancelledRequestIds = new Set<string>()
 const inFlightRequestIds = new Set<string>()
-const inFlightAnalyses = new Map<string, Promise<LufsAnalyzeResult>>()
 let cache: Map<string, number> | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let dirty = false
@@ -91,19 +90,11 @@ export async function getLufs(filePath: string, requestId: string): Promise<Lufs
     const cached = getCache().get(fingerprint)
     if (cached !== undefined) return { ok: true, integratedLufs: cached, cached: true }
 
-    let analysis = inFlightAnalyses.get(fingerprint)
-    if (!analysis) {
-      analysis = analyzeLufs(filePath, requestId)
-      inFlightAnalyses.set(fingerprint, analysis)
-      void analysis.finally(() => {
-        // A test reset or a later analysis may have installed a new promise for
-        // this fingerprint before this one settles.
-        if (inFlightAnalyses.get(fingerprint) === analysis) {
-          inFlightAnalyses.delete(fingerprint)
-        }
-      })
-    }
-    const result = await analysis
+    // The renderer maintains one live LUFS request and cancels it before
+    // starting another. Sharing the subprocess here therefore brings little
+    // benefit, but it can make a new request inherit a just-cancelled owner's
+    // result during a rapid A → B → A switch.
+    const result = await analyzeLufs(filePath, requestId)
     if (cancelledRequestIds.has(requestId)) {
       return { ok: false, reason: 'cancelled', cancelled: true }
     }
@@ -150,5 +141,4 @@ export function __resetLufsCacheForTests(): void {
   pathFingerprintCache.clear()
   cancelledRequestIds.clear()
   inFlightRequestIds.clear()
-  inFlightAnalyses.clear()
 }
