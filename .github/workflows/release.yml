@@ -321,6 +321,13 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
+          # Both macOS jobs write dist/latest-mac.yml, each listing only its own
+          # arch. Uploaded under one name, the second clobbers the first and the
+          # auto-updater sends one arch the other's zip. Upload them per arch;
+          # the publish job merges them into the latest-mac.yml clients read.
+          if [ -f dist/latest-mac.yml ]; then
+            mv dist/latest-mac.yml "dist/latest-mac-${{ matrix.name }}.yml"
+          fi
           # Exclude names every matrix cell emits identically — concurrent
           # uploads of the same ReleaseAsset name race even with --clobber and
           # fail the job after the real installers may already have been built
@@ -344,6 +351,37 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # The x64 entry goes first and supplies the top-level path/sha512: an
+      # updater that ignores `files` then gets the build that runs on both
+      # architectures (via Rosetta) rather than one that runs only on Apple
+      # Silicon. electron-updater itself picks the arm64 zip on Apple Silicon
+      # from `files`.
+      - name: Merge macOS update manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          gh release download "${{ github.ref_name }}" --repo ${{ github.repository }} \
+            -p 'latest-mac-macos-arm64.yml' -p 'latest-mac-macos-x64.yml'
+          yq eval-all '
+            select(fileIndex == 0) as $arm |
+            select(fileIndex == 1) as $x64 |
+            $x64 | .files = ($x64.files + $arm.files)
+          ' latest-mac-macos-arm64.yml latest-mac-macos-x64.yml > latest-mac.yml
+          cat latest-mac.yml
+          for arch in arm64 x64; do
+            if ! yq -e ".files[] | select(.url | test(\"-${arch}-mac\\.zip$\"))" latest-mac.yml > /dev/null; then
+              echo "::error::merged latest-mac.yml has no ${arch} zip"
+              exit 1
+            fi
+          done
+          gh release upload "${{ github.ref_name }}" latest-mac.yml --repo ${{ github.repository }} --clobber
+          for f in latest-mac-macos-arm64.yml latest-mac-macos-x64.yml; do
+            gh release delete-asset "${{ github.ref_name }}" "$f" --repo ${{ github.repository }} --yes
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish release
         run: gh release edit "${{ github.ref_name }}" --draft=false --repo ${{ github.repository }}
         env:
