@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-12
+
+### Added
+
+- Collect Media: copy a campaign's local tracks, ambient clips, and soundboard
+  sounds into the campaign's own media folder, leaving the originals untouched
+- Reorder tracks in a climate by dragging their grip, or with the arrow keys
+  when the grip is focused
+
+### Changed
+
+- Remove the 16-climate limit per campaign; once every preset colour and icon
+  is in use, new climates cycle through them
+- Key the loudness cache by file content instead of path, so moved or collected
+  files keep their measurement, and apply cached corrections as soon as a track
+  starts
+- Recompute the OKLCH values in `docs/DESIGN.md` from the shipped hex colours
+- Bump electron-builder to 26.16.1
+
+### Fixed
+
+- Save a climate's resume point under the outgoing climate when switching
+  between playing climates, instead of the incoming one
+- Resume the right track after a climate's tracks are reordered
+- Stop the soundboard accepting internal track drags
+
 ## [0.8.1] - 2026-09-14
 
 ### Fixed
