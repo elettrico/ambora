@@ -2,7 +2,8 @@
 
 Releases are cut by pushing a `v*` tag. `.github/workflows/release.yml` then
 creates a draft release, builds macOS / Windows / Linux artifacts, uploads them,
-and finally publishes the release.
+merges the macOS update manifests, publishes the release, and deletes releases
+older than the previous one.
 
 ```bash
 # on main, with package.json already bumped and merged
@@ -153,6 +154,40 @@ Ambora-<version>-x64-mac.zip      ambora-<version>-x64.dmg
 Without `${arch}` in the artifact names the two jobs would emit identically named
 files and the second upload would silently clobber the first.
 
+## Update manifests
+
+The app updates itself from GitHub Releases (`src/main/autoUpdate.ts`), reading
+`latest.yml` (Windows), `latest-linux.yml` (AppImage) and `latest-mac.yml`.
+
+Both macOS jobs write a `latest-mac.yml` that lists only their own arch, so each
+uploads it as `latest-mac-macos-{arm64,x64}.yml`. The publish job merges the two
+with `yq` into `latest-mac.yml`, fails if either arch's zip is missing, and
+deletes the per-arch files. The x64 entry supplies the top-level `path`, so an
+updater that ignores `files` gets the build that runs on both architectures.
+
+## Old releases
+
+After publishing, `scripts/prune-old-releases.sh` deletes every published
+release older than the newest two, so the page always has the current version
+and the one before it. It orders by version rather than date, and leaves drafts,
+pre-releases and **all tags** alone. It does nothing unless the tag just
+published is the newest version.
+
+The publish step marks a release "Latest" only if it is the newest version.
+"Latest" is what the website links to and what the auto-updater reads, so a
+late rebuild of an older tag can't take it from a newer release.
+
+**Rolling back.** The auto-updater never downgrades, so a bad release is fixed
+by shipping a new patch version that reverts it. The previous release stays on
+the page for anyone who wants to reinstall it by hand. A deleted version can
+still be rebuilt from its tag, but `gh workflow run Release --ref <tag>` runs
+the workflow as it was at that tag, which for older tags lacks the manifest
+merge and the "Latest" guard.
+
+The updater needs only the latest release. The one cost of pruning is on
+Windows, where a differential download needs the installed version's blockmap
+from its release; without it, the updater downloads the full installer.
+
 ## Timeouts
 
 Each build job has a `timeout-minutes`, bounding a stuck job well below GitHub's
@@ -164,10 +199,6 @@ releases. Windows and Linux get 30; both normally finish in about five minutes.
 
 ## Known gaps
 
-- **`latest-mac.yml` is written by both macOS jobs**, so whichever uploads last
-  wins and the file describes only that architecture. Harmless today — nothing
-  consumes it, as the app has no auto-updater. It would need fixing before
-  adding `electron-updater`.
 - **`builder-debug.yml` is not uploaded** — every matrix cell emits the same
   filename, and concurrent `gh release upload` of identical names races (HTTP 422) even with `--clobber`. The installers are what matter; debug YAML stays
   in the job logs / `dist/` on the runner.

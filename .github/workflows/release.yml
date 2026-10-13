@@ -382,7 +382,32 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # GitHub marks a newly published release "Latest" by default, and
+      # "Latest" is what the website links to and the auto-updater reads. A
+      # rebuild of an old tag (a rollback) must not take that from a newer one.
       - name: Publish release
-        run: gh release edit "${{ github.ref_name }}" --draft=false --repo ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          newest=$( {
+            gh release list --repo ${{ github.repository }} --limit 200 \
+              --json tagName,isDraft,isPrerelease \
+              --jq '.[] | select((.isDraft | not) and (.isPrerelease | not)) | .tagName'
+            echo "$TAG"
+          } | sort -rV | head -n 1)
+          latest=false
+          if [ "$newest" = "$TAG" ]; then latest=true; fi
+          gh release edit "$TAG" --draft=false --latest="$latest" --repo ${{ github.repository }}
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Only after the new release is live: keep it and the one before it, for
+      # anyone who needs to reinstall the previous version by hand. Tags stay.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Prune old releases
+        run: scripts/prune-old-releases.sh "${{ github.ref_name }}" 2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
