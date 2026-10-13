@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-13
+
+### Added
+
+- Update Ambora from GitHub Releases: a new version downloads in the background
+  and installs the next time you quit, with **Restart now** in the sidebar if
+  you'd rather not wait. Ambora never restarts on its own. Works on macOS, the
+  Windows installer, and the Linux AppImage; this version needs one manual install
+
+### Fixed
+
+- List both macOS architectures in the update manifest; each build used to
+  overwrite the other's, so only arm64 was listed
+
+### Changed
+
+- Say in the README that macOS builds are signed and notarized
+
 ## [0.9.0] - 2026-10-12
 
 ### Added
