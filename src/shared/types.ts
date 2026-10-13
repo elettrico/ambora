@@ -34,6 +34,8 @@ export type SoundboardPlaybackMode = 'ignore' | 'stop' | 'restart' | 'multiple' 
 export interface Climate {
   id: string
   name: string
+  /** Optional three-character code shown on the phone remote. */
+  remoteLabel?: string
   color: string
   icon: string
   tracks: Track[]
@@ -128,6 +130,12 @@ export interface LoadCampaignsResult {
   error?: string
 }
 
+/** A phone currently connected to the local remote server. */
+export interface RemoteClientInfo {
+  label: string
+  address: string
+}
+
 export interface CollectMediaFailure {
   sourcePath: string
   reason: string
@@ -197,6 +205,7 @@ export interface RemoteAmbientLayer {
 export interface RemoteClimate {
   id: string
   name: string
+  remoteLabel?: string
   color: string
   icon: string
   order: number

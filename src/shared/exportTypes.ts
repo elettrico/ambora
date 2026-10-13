@@ -1,5 +1,5 @@
-/** v4 preserves authored pitch variation for soundboard and ambient playback. */
-export const AMBORA_FILE_VERSION = 4
+/** v5 preserves the optional author-defined climate code used by the phone remote. */
+export const AMBORA_FILE_VERSION = 5
 
 export const AMBORA_FILE_FILTER = {
   name: 'Ambora Campaign',
@@ -41,6 +41,7 @@ export interface ExportedAmbientLayer {
 
 export interface ExportedClimate {
   name: string
+  remoteLabel?: string
   color: string
   icon: string
   order: number

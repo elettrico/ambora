@@ -10,6 +10,7 @@ import type {
   CollectCampaignMediaResult,
   CollectMediaProgress,
   UpdateStatus,
+  RemoteClientInfo,
 } from '../shared/types'
 import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
@@ -62,7 +63,7 @@ const api = {
     }
   },
 
-  getServerInfo: (): Promise<{ port: number; localIP: string }> =>
+  getServerInfo: (): Promise<{ port: number; localIP: string; clients: RemoteClientInfo[] }> =>
     ipcRenderer.invoke('server:get-info'),
   onRemoteCommand: (callback: (command: RemoteCommand) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, command: RemoteCommand): void => {
@@ -73,10 +74,12 @@ const api = {
       ipcRenderer.removeListener('remote:command', handler)
     }
   },
-  onConnectionStatus: (callback: (status: { connectedClients: number }) => void): (() => void) => {
+  onConnectionStatus: (
+    callback: (status: { connectedClients: number; clients: RemoteClientInfo[] }) => void,
+  ): (() => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
-      status: { connectedClients: number },
+      status: { connectedClients: number; clients: RemoteClientInfo[] },
     ): void => {
       callback(status)
     }

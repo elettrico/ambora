@@ -56,15 +56,16 @@ function soundboardDiagnosticsChanged(
 export function useRemoteSync(): void {
   useEffect(() => {
     // Fetch server info and set URL in connection store
-    window.api.getServerInfo().then(({ port, localIP }) => {
+    window.api.getServerInfo().then(({ port, localIP, clients }) => {
       useConnectionStore.getState().setServerUrl(`http://${localIP}:${port}`)
+      useConnectionStore.getState().setConnectedClients(clients.length, clients)
     })
 
     // Subscribe to connection status updates
     let prevClients = useConnectionStore.getState().connectedClients
     const unsubConnection = window.api.onConnectionStatus((status) => {
       const wasZero = prevClients === 0
-      useConnectionStore.getState().setConnectedClients(status.connectedClients)
+      useConnectionStore.getState().setConnectedClients(status.connectedClients, status.clients)
       if (wasZero && status.connectedClients > 0) {
         toast.success('Phone connected')
       }
@@ -103,7 +104,11 @@ export function useRemoteSync(): void {
           type: 'campaigns-update',
           payload: { campaigns: getRemoteCampaigns() },
         })
-        window.api.sendFullState(getFullState())
+        // A campaign switch changes the remote's selected campaign, but the
+        // incremental campaign payload intentionally contains only the list.
+        // Broadcast the authoritative full state so connected phones update
+        // their active campaign immediately instead of waiting to reconnect.
+        window.api.sendFullState(getFullState(), state.activeCampaignId !== prev.activeCampaignId)
       }
     })
 

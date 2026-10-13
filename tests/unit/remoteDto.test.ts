@@ -26,6 +26,7 @@ const campaignWithPaths: Campaign = {
     {
       id: 'cl-1',
       name: 'Campfire',
+      remoteLabel: 'FIR',
       color: '#C4784A',
       icon: 'Flame',
       order: 0,
@@ -100,6 +101,7 @@ describe('toRemoteCampaigns', () => {
           {
             id: 'cl-1',
             name: 'Campfire',
+            remoteLabel: 'FIR',
             color: '#C4784A',
             icon: 'Flame',
             order: 0,
