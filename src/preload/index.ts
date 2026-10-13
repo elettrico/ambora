@@ -9,6 +9,7 @@ import type {
   RemoteFullState,
   CollectCampaignMediaResult,
   CollectMediaProgress,
+  UpdateStatus,
 } from '../shared/types'
 import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
@@ -89,6 +90,20 @@ const api = {
   },
   sendFullState: (state: RemoteFullState, broadcast = false): void => {
     ipcRenderer.send('remote:full-state', state, broadcast)
+  },
+
+  getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:get-status'),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus): void => {
+      callback(status)
+    }
+    ipcRenderer.on('update:status', handler)
+    return () => {
+      ipcRenderer.removeListener('update:status', handler)
+    }
+  },
+  installUpdate: (): void => {
+    ipcRenderer.send('update:install')
   },
 }
 

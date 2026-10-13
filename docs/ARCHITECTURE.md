@@ -115,6 +115,27 @@ When a maintenance operation turns out to run long enough in practice that the
 modal becomes a problem, that is the evidence to revisit it — not the
 hypothetical.
 
+## Auto-update
+
+`src/main/autoUpdate.ts` wraps `electron-updater` against GitHub Releases, which
+the release workflow already fills with the `latest*.yml` manifests it reads.
+
+- Runs only in a packaged app that can be replaced in place: macOS, the Windows
+  NSIS install, a Linux AppImage. Dev builds and `.deb` installs never check.
+- Checks 10 s after startup and every 4 h, downloads in the background, and
+  installs on quit. It never restarts on its own: an update is a maintenance
+  operation, and it must not end a session the GM is running.
+- The renderer sees only `idle`, `downloading` and `ready`. Failed checks are
+  logged and retried on the next interval. An error after an update is found
+  returns to `idle`, which also covers Squirrel.Mac rejecting a signature after
+  electron-updater has already reported the download complete.
+- **macOS needs one manifest for both arches.** The two macOS jobs each write a
+  `latest-mac.yml`, and the publish job merges them; electron-updater then picks
+  the arm64 zip on Apple Silicon and excludes it on Intel.
+- **Installs are only possible between builds with the same signing identity.**
+  A locally built, ad-hoc-signed app can find and download an update, but
+  Squirrel.Mac refuses to install it.
+
 ## Directory Structure
 
 ```

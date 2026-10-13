@@ -7,6 +7,7 @@ import type {
   RemoteFullState,
   CollectCampaignMediaResult,
   CollectMediaProgress,
+  UpdateStatus,
 } from '../shared/types'
 import type { AudioProbeResult, LufsAnalyzeResult } from '../shared/audioTools'
 
@@ -32,6 +33,9 @@ interface AmboraAPI {
   onConnectionStatus(callback: (status: { connectedClients: number }) => void): () => void
   sendStateUpdate(message: RemoteStateMessage): void
   sendFullState(state: RemoteFullState, broadcast?: boolean): void
+  getUpdateStatus(): Promise<UpdateStatus>
+  onUpdateStatus(callback: (status: UpdateStatus) => void): () => void
+  installUpdate(): void
 }
 
 declare global {

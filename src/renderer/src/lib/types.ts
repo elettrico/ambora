@@ -25,4 +25,5 @@ export type {
   RemoteAmbientLayer,
   RemoteSoundboardSound,
   PlaybackState,
+  UpdateStatus,
 } from '../../../shared/types'
