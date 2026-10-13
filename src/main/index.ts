@@ -31,6 +31,7 @@ import { cancelLufsRequest, flushLufsCache, getLufs } from './lufsCache'
 import { probeAudioFile } from './audioProbe'
 import { tokenFromLocalAudioUrl } from '../shared/localAudioUrl'
 import { collectCampaignMedia } from './collectCampaignMedia'
+import { initAutoUpdate } from './autoUpdate'
 import type { Campaign, CollectMediaProgress } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
@@ -381,6 +382,7 @@ async function startup(): Promise<void> {
 
   mainWindow = createWindow(serverPort)
   setMainWindow(mainWindow)
+  initAutoUpdate(() => mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

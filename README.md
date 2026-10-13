@@ -46,6 +46,19 @@ to your Applications folder:
 Windows SmartScreen may warn that the app is from an unknown publisher. Click
 **More info → Run anyway**.
 
+## Updates
+
+From 0.10.0, Ambora checks
+[GitHub Releases](https://github.com/xetorthio/ambora/releases) for a new
+version when it starts and every few hours. A new version downloads in the
+background and installs the next time you quit. Ambora never restarts on its
+own, and the sidebar offers **Restart now** if you'd rather not wait. Versions
+before 0.10.0 need one last manual install.
+
+This works on macOS, on Windows with the installer, and on Linux with the
+AppImage. A `.deb` install updates through your package manager. The check is a
+plain request to GitHub and sends no telemetry; offline, it fails silently.
+
 ## Quick Start
 
 ### Prerequisites

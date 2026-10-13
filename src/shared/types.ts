@@ -262,3 +262,12 @@ export interface RemoteFullState {
   activeCampaignId: string | null
   playback: PlaybackState
 }
+
+/**
+ * Where the auto-updater stands. Only the states the GM acts on are surfaced:
+ * checks and failures stay silent, and a failed check simply retries later.
+ */
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'downloading'; version: string }
+  | { state: 'ready'; version: string }

@@ -37,6 +37,7 @@ import { serializeCampaignForExport, deserializeCampaignFromImport } from '@/lib
 import type { Campaign, CollectCampaignMediaResult, CollectMediaProgress } from '@/lib/types'
 import { AmboraLogo } from './AmboraLogo'
 import { QRCodePanel } from './QRCodePanel'
+import { UpdateNotice } from './UpdateNotice'
 
 function CampaignItem({
   campaign,
@@ -455,6 +456,8 @@ export function Sidebar(): React.JSX.Element {
           Import Campaign
         </Button>
       </div>
+
+      <UpdateNotice />
 
       <QRCodePanel />
 
