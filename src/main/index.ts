@@ -23,6 +23,7 @@ import {
   broadcastToClients,
   updateCachedState,
   getLocalIP,
+  getConnectedClients,
   setMainWindow,
   DEFAULT_PORT,
   PORT_ATTEMPTS,
@@ -116,7 +117,7 @@ function registerIpcHandlers(serverPort: number): void {
   })
 
   ipcMain.handle('server:get-info', () => {
-    return { port: serverPort, localIP: getLocalIP() }
+    return { port: serverPort, localIP: getLocalIP(), clients: getConnectedClients() }
   })
 
   ipcMain.on('remote:state-update', (_event, message) => {

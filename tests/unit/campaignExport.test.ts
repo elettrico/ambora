@@ -15,6 +15,7 @@ const sampleCampaign: Campaign = {
     {
       id: 'climate-uuid-456',
       name: 'Barovia Village',
+      remoteLabel: 'BAR',
       color: '#DC3545',
       icon: 'Castle',
       order: 0,
@@ -87,6 +88,15 @@ describe('serializeCampaignForExport', () => {
     const parsed = JSON.parse(json) as AmboraExportFile
     expect(parsed.campaign.name).toBe('Curse of Strahd')
     expect(parsed.campaign.description).toBe('Gothic horror campaign')
+  })
+
+  it('round-trips an authored remote climate code', () => {
+    const result = deserializeCampaignFromImport(
+      serializeCampaignForExport(sampleCampaign, '0.8.1'),
+    )
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.climates[0].remoteLabel).toBe('BAR')
   })
 })
 

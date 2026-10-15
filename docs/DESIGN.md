@@ -156,10 +156,11 @@ Min window size:      900px × 600px
 **Phone remote dimensions:**
 
 ```
-Screen padding:       16px horizontal, 12px top, 16px bottom
+Screen padding:       12px around the climate grid
 Header:               48px
-Climate grid:         2 columns, 12px gap
-Climate card height:  80-120px (flexible to fill space)
+Climate grid:         2-8 columns, 8px gap; Auto or manual selection
+Climate card height:  76px minimum
+Climate card width:   Manual: 44px minimum; Auto: 64px minimum
 Now playing bar:      52px
 Control bar:          72px
 Respect:              env(safe-area-inset-bottom) for notched phones
@@ -249,7 +250,7 @@ Every tappable element must have a minimum **44×44px** touch area (padding exte
 
 | Element           | Visual size            | Touch target            | Spacing          |
 | ----------------- | ---------------------- | ----------------------- | ---------------- |
-| Climate card      | Full column × 80-120px | Same (large enough)     | 12px gap         |
+| Climate card      | Full column × 76px min | 44px minimum width      | 8px gap          |
 | Skip track        | 18px icon              | 48×48px (via padding)   | Isolated         |
 | Volume slider     | 6px track              | 44px tall (via padding) | 16px from edges  |
 | Fade to silence   | 48px circle            | 48px                    | 16px from slider |

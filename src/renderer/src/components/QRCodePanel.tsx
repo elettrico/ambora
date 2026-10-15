@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import { useConnectionStore } from '@/store/connectionStore'
 
 export function QRCodePanel(): React.JSX.Element {
-  const { serverUrl, connectedClients } = useConnectionStore()
+  const { serverUrl, connectedClients, clients } = useConnectionStore()
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,12 +30,6 @@ export function QRCodePanel(): React.JSX.Element {
   }
 
   const isConnected = connectedClients > 0
-  const statusText =
-    connectedClients === 0
-      ? 'Disconnected'
-      : connectedClients === 1
-        ? 'Connected'
-        : `${connectedClients} Connected`
 
   return (
     <div className="mt-auto border-t border-border-subtle p-4">
@@ -54,10 +48,23 @@ export function QRCodePanel(): React.JSX.Element {
 
         <p className="mt-2 select-all text-center text-[11px] text-text-tertiary">{serverUrl}</p>
 
-        <div className="mt-2 flex items-center justify-center gap-1.5">
-          <div className={`size-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
-          <p className="text-[11px] text-text-tertiary">{statusText}</p>
-        </div>
+        {isConnected ? (
+          <div className="mt-3 space-y-1.5">
+            {clients.map((client) => (
+              <div key={client.id} className="flex items-center gap-1.5">
+                <div className="size-2 shrink-0 rounded-full bg-success" />
+                <p className="min-w-0 truncate text-[11px] text-text-tertiary">
+                  {client.label} <span className="opacity-70">· {client.address}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 flex items-center justify-center gap-1.5">
+            <div className="size-2 rounded-full bg-danger" />
+            <p className="text-[11px] text-text-tertiary">Disconnected</p>
+          </div>
+        )}
       </div>
     </div>
   )

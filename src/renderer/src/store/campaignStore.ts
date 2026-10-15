@@ -38,7 +38,9 @@ interface CampaignStore {
   updateClimate: (
     campaignId: string,
     climateId: string,
-    updates: Partial<Pick<Climate, 'name' | 'color' | 'icon' | 'crossfadeDuration'>>,
+    updates: Partial<
+      Pick<Climate, 'name' | 'remoteLabel' | 'color' | 'icon' | 'crossfadeDuration'>
+    >,
   ) => void
   deleteClimate: (campaignId: string, climateId: string) => void
   reorderClimates: (campaignId: string, climateIds: string[]) => void

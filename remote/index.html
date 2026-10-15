@@ -88,47 +88,75 @@
           </svg>
           <span id="campaign-name" class="header__title">No campaign selected</span>
         </div>
-        <span id="connection-dot" class="header__status"></span>
+        <div class="header__right">
+          <button
+            id="grid-density-toggle"
+            class="header__settings"
+            aria-expanded="false"
+            aria-controls="grid-density"
+            aria-label="Grid settings"
+            title="Grid settings"
+          ></button>
+          <span id="connection-dot" class="header__status"></span>
+        </div>
       </header>
+
+      <div id="grid-density" class="grid-density" role="group" aria-label="Grid columns" hidden>
+        <span class="grid-density__label">Grid columns</span>
+        <div class="grid-density__options">
+          <button type="button" data-grid-columns="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-grid-columns="2" aria-pressed="false">2</button>
+          <button type="button" data-grid-columns="3" aria-pressed="false">3</button>
+          <button type="button" data-grid-columns="4" aria-pressed="false">4</button>
+          <button type="button" data-grid-columns="5" aria-pressed="false">5</button>
+          <button type="button" data-grid-columns="6" aria-pressed="false">6</button>
+          <button type="button" data-grid-columns="7" aria-pressed="false">7</button>
+          <button type="button" data-grid-columns="8" aria-pressed="false">8</button>
+        </div>
+      </div>
 
       <!-- Climate Grid -->
       <main id="climate-grid" class="climate-grid">
         <div class="climate-grid__empty">No campaign selected</div>
       </main>
 
-      <!-- Ambient Drawer — hidden unless the active climate has layers -->
+      <!-- Tool panels open above their compact toolbar. -->
       <section id="ambient" class="ambient" hidden>
         <div id="ambient-panel" class="ambient__panel" hidden>
           <div id="ambient-layers" class="ambient__layers"></div>
           <div id="ambient-shots" class="ambient__shots" hidden></div>
         </div>
-        <button
-          id="ambient-handle"
-          class="ambient__handle"
-          aria-expanded="false"
-          aria-controls="ambient-panel"
-        >
-          <span id="ambient-icon" class="ambient__handle-icon"></span>
-          <span class="ambient__handle-label">Ambient</span>
-          <span id="ambient-count" class="ambient__handle-count"></span>
-          <span id="ambient-chevron" class="ambient__handle-chevron"></span>
-        </button>
       </section>
 
-      <!-- Campaign soundboard — compact horizontal pad above playback -->
+      <!-- Campaign soundboard -->
       <section id="soundboard" class="soundboard" hidden>
-        <button
-          id="soundboard-handle"
-          class="soundboard__handle"
-          aria-expanded="false"
-          aria-controls="soundboard-list"
-        >
-          <span class="soundboard__handle-label">Soundboard</span>
-          <span id="soundboard-count" class="soundboard__handle-count"></span>
-          <span id="soundboard-chevron" class="soundboard__handle-chevron"></span>
-        </button>
         <div id="soundboard-list" class="soundboard__list" hidden></div>
       </section>
+
+      <nav id="tool-bar" class="tool-bar" aria-label="Scene tools" hidden>
+        <button
+          id="tool-ambient"
+          class="tool-bar__button"
+          aria-controls="ambient-panel"
+          aria-expanded="false"
+          aria-label="Open ambient controls"
+          title="Ambient"
+          hidden
+        >
+          <span>AMBIENT <span id="tool-ambient-count"></span></span>
+        </button>
+        <button
+          id="tool-soundboard"
+          class="tool-bar__button"
+          aria-controls="soundboard-list"
+          aria-expanded="false"
+          aria-label="Open soundboard"
+          title="Soundboard"
+          hidden
+        >
+          <span>SOUNDBOARD</span>
+        </button>
+      </nav>
 
       <!-- Now Playing -->
       <div class="now-playing">

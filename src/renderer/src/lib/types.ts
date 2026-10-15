@@ -11,6 +11,7 @@ export type {
   AmbientLayerRuntime,
   AppState,
   LoadCampaignsResult,
+  RemoteClientInfo,
   CollectCampaignMediaResult,
   CollectMediaFailure,
   CollectMediaPathUpdate,

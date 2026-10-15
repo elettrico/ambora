@@ -101,6 +101,78 @@ button {
   background: var(--success);
 }
 
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header__settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 -10px;
+  color: var(--text-secondary);
+  font-size: 21px;
+  line-height: 1;
+}
+
+.header__settings[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+.grid-density {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--surface-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.grid-density[hidden],
+.soundboard__list[hidden],
+.tool-bar[hidden] {
+  display: none;
+}
+
+.grid-density__label {
+  flex: 1 1 74px;
+  text-align: left;
+}
+
+.grid-density__options {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.grid-density__options button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--text-secondary);
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.grid-density__options button[aria-pressed='true'] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 /* ── Climate Grid ── */
 .climate-grid {
   flex: 1;
@@ -108,8 +180,8 @@ button {
   overflow-x: hidden;
   padding: 12px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(var(--climate-columns, 4), minmax(0, 1fr));
+  gap: 8px;
   align-content: start;
   -webkit-overflow-scrolling: touch;
 }
@@ -125,17 +197,17 @@ button {
   text-align: center;
 }
 
-/* ── Climate Card ── */
+/* ── Climate Pads ── */
 .climate-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 96px;
-  padding: 16px 8px;
-  border-radius: var(--radius);
+  gap: 5px;
+  min-height: 76px;
+  padding: 10px 4px;
+  border-radius: 12px;
   background: var(--surface-2);
   border: 2px solid transparent;
   overflow: hidden;
@@ -155,8 +227,8 @@ button {
 }
 
 .climate-card__icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   opacity: 0.9;
 }
 
@@ -165,9 +237,10 @@ button {
   height: 100%;
 }
 
-.climate-card__name {
-  font-size: 13px;
-  font-weight: 500;
+.climate-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -212,43 +285,13 @@ button {
   }
 }
 
-/* ── Ambient Drawer ──
-   Sits above Now Playing in normal flow: expanding it shrinks the climate grid
-   rather than covering it, so the GM can still see and switch scenes while the
-   one-shot pads stay one tap away. */
+/* ── Tool panels ── */
 
 /* ── Campaign Soundboard ── */
 .soundboard {
   flex-shrink: 0;
   border-top: 1px solid var(--surface-2);
   background: var(--surface-1);
-}
-
-.soundboard__handle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: 44px;
-  min-height: 44px;
-  padding: 0 16px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.soundboard__handle-label {
-  font-weight: 500;
-}
-
-.soundboard__handle-count {
-  flex: 1;
-  text-align: left;
-  opacity: 0.7;
-}
-
-.soundboard__handle-chevron {
-  display: flex;
-  align-items: center;
 }
 
 .soundboard__list {
@@ -262,8 +305,45 @@ button {
   border-top: 1px solid var(--surface-2);
 }
 
-.soundboard__list[hidden] {
-  display: none;
+.tool-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 44px;
+  gap: 4px;
+  padding: 0 12px;
+  border-top: 1px solid var(--surface-2);
+  background: var(--surface-1);
+}
+
+.tool-bar__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.tool-bar__button.active {
+  color: var(--accent);
+}
+
+.tool-bar__button > span {
+  padding: 6px 8px;
+  border-radius: 7px;
+}
+
+.tool-bar__button.active > span {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.tool-bar__button:active > span {
+  background: var(--surface-3);
 }
 
 .soundboard__key {
@@ -363,45 +443,6 @@ button {
   min-height: 0;
   border-top: 1px solid var(--surface-2);
   background: var(--surface-1);
-}
-
-.ambient__handle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: 44px;
-  min-height: 44px;
-  padding: 0 16px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.ambient__handle-icon,
-.ambient__handle-chevron {
-  display: flex;
-  align-items: center;
-}
-
-.ambient__handle-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.ambient__handle-chevron svg {
-  width: 16px;
-  height: 16px;
-}
-
-.ambient__handle-label {
-  font-weight: 500;
-}
-
-.ambient__handle-count {
-  flex: 1;
-  text-align: left;
-  color: var(--text-secondary);
-  opacity: 0.7;
 }
 
 .ambient__panel {
@@ -554,6 +595,7 @@ button {
 }
 
 .ambient-shot {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -576,6 +618,48 @@ button {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.ambient-shot__meter {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  visibility: hidden;
+  transform: translateY(-50%);
+}
+
+.ambient-shot__meter span {
+  width: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--surface-3);
+  transform-origin: bottom;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter {
+  visibility: visible;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span {
+  height: 11px;
+  background: var(--shot-color, var(--accent));
+  animation: ambient-pulse 1.1s ease-in-out infinite;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span:nth-child(2) {
+  height: 14px;
+  animation-delay: 160ms;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span:nth-child(3) {
+  animation-delay: 320ms;
 }
 
 .ambient-shot__label {

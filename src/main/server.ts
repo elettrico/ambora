@@ -1,11 +1,12 @@
-import { createServer, type Server } from 'http'
+import { createServer, type IncomingMessage, type Server } from 'http'
+import { randomUUID } from 'node:crypto'
 import { join } from 'path'
 import { networkInterfaces } from 'os'
 import express from 'express'
 import { WebSocketServer, WebSocket } from 'ws'
 import { app, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
-import type { RemoteFullState, RemoteStateMessage } from '../shared/types'
+import type { RemoteClientInfo, RemoteFullState, RemoteStateMessage } from '../shared/types'
 import { parseRemoteCommand } from '../shared/remoteCommand'
 
 /**
@@ -23,7 +24,40 @@ let wss: WebSocketServer | null = null
 let cachedState: RemoteFullState | null = null
 let mainWindow: BrowserWindow | null = null
 
-const clients = new Set<WebSocket>()
+const clients = new Map<WebSocket, RemoteClientInfo>()
+
+function clientLabel(headers: IncomingMessage['headers']): string {
+  const userAgent = headers['user-agent']
+  if (userAgent) {
+    // Check tablets first: Android tablet agents omit "Mobile", while iPad and
+    // some older devices advertise their tablet form factor explicitly.
+    if (/(iPad|Tablet|PlayBook|Silk)|(Android(?!.*Mobile))/i.test(userAgent)) {
+      return 'Tablet'
+    }
+    if (
+      /(Mobile|iPhone|iPod|BlackBerry|Opera Mini|IEMobile|Kindle|Silk-Accelerated)/i.test(userAgent)
+    ) {
+      return 'Phone'
+    }
+    return 'Desktop'
+  }
+
+  // Chromium's low-entropy Client Hint fills gaps left by reduced user agents.
+  return headers['sec-ch-ua-mobile'] === '?1' ? 'Phone' : 'Desktop'
+}
+
+function clientInfo(request: IncomingMessage): RemoteClientInfo {
+  const address = request.socket.remoteAddress ?? 'Unknown address'
+  return {
+    id: randomUUID(),
+    label: clientLabel(request.headers),
+    address: address.replace(/^::ffff:/, ''),
+  }
+}
+
+export function getConnectedClients(): RemoteClientInfo[] {
+  return Array.from(clients.values())
+}
 
 export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
@@ -45,7 +79,7 @@ export function getLocalIP(): string {
 
 export function broadcastToClients(message: RemoteStateMessage): void {
   const data = JSON.stringify(message)
-  for (const client of clients) {
+  for (const client of clients.keys()) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(data)
     }
@@ -151,12 +185,13 @@ export async function startServer(): Promise<number> {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('server:connection-status', {
         connectedClients: clients.size,
+        clients: getConnectedClients(),
       })
     }
   }
 
-  socketServer.on('connection', (ws) => {
-    clients.add(ws)
+  socketServer.on('connection', (ws, request) => {
+    clients.set(ws, clientInfo(request))
     notifyConnectionCount()
 
     // Send cached state to new connection
@@ -192,7 +227,7 @@ export async function startServer(): Promise<number> {
 }
 
 export function stopServer(): void {
-  for (const client of clients) {
+  for (const client of clients.keys()) {
     client.close()
   }
   clients.clear()

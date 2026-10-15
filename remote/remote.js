@@ -82,6 +82,15 @@
         },
       ],
     ],
+    Settings: [
+      [
+        'path',
+        {
+          d: 'M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915',
+        },
+      ],
+      ['circle', { cx: '12', cy: '12', r: '3' }],
+    ],
     Moon: [
       [
         'path',
@@ -319,6 +328,8 @@
   var ambientOpen = false
   var SOUNDBOARD_OPEN_KEY = 'ambora.soundboard.open'
   var soundboardOpen = false
+  var GRID_COLUMNS_KEY = 'ambora.grid-columns'
+  var gridColumns = 'auto'
   // Signature of the rendered layer set. The panel is only rebuilt when this
   // changes, so a state push can't yank a slider out from under a dragging thumb.
   var ambientSignature = null
@@ -333,6 +344,9 @@
   function cacheDom() {
     dom.campaignName = document.getElementById('campaign-name')
     dom.connectionDot = document.getElementById('connection-dot')
+    dom.gridDensity = document.getElementById('grid-density')
+    dom.gridDensityToggle = document.getElementById('grid-density-toggle')
+    dom.gridColumnOptions = dom.gridDensity.querySelectorAll('[data-grid-columns]')
     dom.climateGrid = document.getElementById('climate-grid')
     dom.trackTitle = document.getElementById('track-title')
     dom.nowPlayingDot = document.getElementById('now-playing-dot')
@@ -344,18 +358,15 @@
     dom.disconnectedOverlay = document.getElementById('disconnected-overlay')
     dom.wifiOffIcon = document.getElementById('wifi-off-icon')
     dom.ambient = document.getElementById('ambient')
-    dom.ambientHandle = document.getElementById('ambient-handle')
     dom.ambientPanel = document.getElementById('ambient-panel')
     dom.ambientLayers = document.getElementById('ambient-layers')
     dom.ambientShots = document.getElementById('ambient-shots')
-    dom.ambientIcon = document.getElementById('ambient-icon')
-    dom.ambientCount = document.getElementById('ambient-count')
-    dom.ambientChevron = document.getElementById('ambient-chevron')
     dom.soundboard = document.getElementById('soundboard')
-    dom.soundboardHandle = document.getElementById('soundboard-handle')
-    dom.soundboardCount = document.getElementById('soundboard-count')
-    dom.soundboardChevron = document.getElementById('soundboard-chevron')
     dom.soundboardList = document.getElementById('soundboard-list')
+    dom.toolBar = document.getElementById('tool-bar')
+    dom.toolAmbient = document.getElementById('tool-ambient')
+    dom.toolAmbientCount = document.getElementById('tool-ambient-count')
+    dom.toolSoundboard = document.getElementById('tool-soundboard')
   }
 
   // ── WebSocket ──
@@ -527,6 +538,95 @@
     return null
   }
 
+  function remoteClimateLabel(climate) {
+    return String(climate.remoteLabel || '---')
+  }
+
+  function maxGridColumnsForViewport() {
+    // A climate pad is its own touch target, so never make it narrower than
+    // the 44px minimum from the design system. The grid has 12px padding on
+    // either side and 8px gaps; account for both instead of imposing a fixed
+    // two-column limit on every phone.
+    var gridWidth = dom.climateGrid.clientWidth || window.innerWidth
+    var contentWidth = gridWidth - 24
+    return Math.max(2, Math.min(8, Math.floor((contentWidth + 8) / (44 + 8))))
+  }
+
+  function autoGridColumnsForViewport() {
+    // Auto should favour comfortably readable pads, not merely the absolute
+    // 44px touch minimum. Manual choices may still use every valid 44px slot.
+    var gridWidth = dom.climateGrid.clientWidth || window.innerWidth
+    var contentWidth = gridWidth - 24
+    return Math.max(2, Math.min(8, Math.floor((contentWidth + 8) / (64 + 8))))
+  }
+
+  function visibleClimateRows() {
+    // Cards are at least 76px tall and separated by 8px. This is used only to
+    // favour the arrangement that exposes the most climates before scrolling.
+    var gridHeight = dom.climateGrid.clientHeight || window.innerHeight
+    var contentHeight = gridHeight - 24
+    return Math.max(1, Math.floor((contentHeight + 8) / (76 + 8)))
+  }
+
+  function autoGridColumns(climateCount) {
+    var maxForWidth = autoGridColumnsForViewport()
+    var visibleRows = visibleClimateRows()
+    var bestColumns = 2
+    var bestVisible = -1
+    var bestRows = Infinity
+    var bestEmpty = Infinity
+
+    for (var columns = 2; columns <= maxForWidth; columns++) {
+      var rows = Math.ceil(climateCount / columns)
+      var visible = Math.min(climateCount, columns * visibleRows)
+      var empty = columns * rows - climateCount
+
+      // First fill as much of the available screen as possible. Once the same
+      // number fits, prefer fewer rows, then a complete final row.
+      if (
+        visible > bestVisible ||
+        (visible === bestVisible && rows < bestRows) ||
+        (visible === bestVisible && rows === bestRows && empty < bestEmpty) ||
+        (visible === bestVisible &&
+          rows === bestRows &&
+          empty === bestEmpty &&
+          columns > bestColumns)
+      ) {
+        bestColumns = columns
+        bestVisible = visible
+        bestRows = rows
+        bestEmpty = empty
+      }
+    }
+
+    return bestColumns
+  }
+
+  function applyGridColumns(climateCount) {
+    var columns =
+      gridColumns === 'auto'
+        ? autoGridColumns(climateCount)
+        : Math.min(Number(gridColumns), maxGridColumnsForViewport())
+    dom.climateGrid.style.setProperty('--climate-columns', String(columns))
+  }
+
+  function syncGridColumnOptions() {
+    var maxColumns = maxGridColumnsForViewport()
+    var selected =
+      gridColumns === 'auto' ? 'auto' : String(Math.min(Number(gridColumns), maxColumns))
+    for (var i = 0; i < dom.gridColumnOptions.length; i++) {
+      var option = dom.gridColumnOptions[i]
+      var value = option.getAttribute('data-grid-columns')
+      option.hidden = value !== 'auto' && Number(value) > maxColumns
+      option.setAttribute('aria-pressed', value === selected ? 'true' : 'false')
+    }
+  }
+
+  function setGridDensityOpen(isOpen) {
+    dom.gridDensity.hidden = !isOpen
+    dom.gridDensityToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
+  }
+
   function renderClimateGrid() {
     var campaign = getActiveCampaign()
     if (!campaign || campaign.climates.length === 0) {
@@ -540,6 +640,7 @@
     var climates = campaign.climates.slice().sort(function (a, b) {
       return a.order - b.order
     })
+    applyGridColumns(climates.length)
 
     var html = ''
     for (var i = 0; i < climates.length; i++) {
@@ -547,14 +648,19 @@
       var isActive = cl.id === state.playback.activeClimateId
       var cardClass = 'climate-card' + (isActive ? ' active' : '')
       var color = safeColor(cl.color)
-      var bgColor = hexToRgba(color, 0.18)
+      var bgColor = hexToRgba(color, isActive ? 0.28 : 0.18)
       var borderColor = isActive ? color : 'transparent'
+      var label = remoteClimateLabel(cl)
 
       html +=
         '<button class="' +
         cardClass +
         '" data-climate-id="' +
         escapeAttr(cl.id) +
+        '" aria-label="Activate ' +
+        escapeAttr(cl.name) +
+        '" title="' +
+        escapeAttr(cl.name) +
         '" style="background:' +
         bgColor +
         ';--card-color:' +
@@ -563,10 +669,10 @@
         borderColor +
         '">' +
         '<span class="climate-card__icon">' +
-        icon(cl.icon, 28) +
+        icon(cl.icon, 26) +
         '</span>' +
-        '<span class="climate-card__name">' +
-        escapeHtml(cl.name) +
+        '<span class="climate-card__label" aria-hidden="true">' +
+        escapeHtml(label) +
         '</span>' +
         '</button>'
     }
@@ -644,8 +750,8 @@
   function setAmbientOpen(open) {
     ambientOpen = open
     dom.ambientPanel.hidden = !open
-    dom.ambientHandle.setAttribute('aria-expanded', open ? 'true' : 'false')
-    dom.ambientChevron.innerHTML = icon(open ? 'ChevronDown' : 'ChevronUp', 16)
+    dom.toolAmbient.classList.toggle('active', open)
+    dom.toolAmbient.setAttribute('aria-expanded', open ? 'true' : 'false')
     try {
       localStorage.setItem(AMBIENT_OPEN_KEY, open ? '1' : '0')
     } catch (e) {
@@ -653,11 +759,17 @@
     }
   }
 
+  function updateToolBarVisibility() {
+    dom.toolBar.hidden = dom.toolAmbient.hidden && dom.toolSoundboard.hidden
+  }
+
   function renderAmbient() {
     var layers = getAmbientLayers()
 
     if (layers.length === 0) {
       dom.ambient.hidden = true
+      dom.toolAmbient.hidden = true
+      updateToolBarVisibility()
       ambientSignature = null
       dom.ambientLayers.innerHTML = ''
       dom.ambientShots.innerHTML = ''
@@ -665,6 +777,21 @@
     }
 
     dom.ambient.hidden = false
+    dom.toolAmbient.hidden = false
+    var activeLayerCount = 0
+    var controllableLayerCount = 0
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].mode === 'oneshot') continue
+      controllableLayerCount++
+      if (layerRuntime(layers[i]).enabled) activeLayerCount++
+    }
+    dom.toolAmbientCount.textContent =
+      controllableLayerCount === 0 ? '' : '(' + activeLayerCount + ' on)'
+    dom.toolAmbient.setAttribute(
+      'aria-label',
+      'Open ambient controls, ' + activeLayerCount + ' of ' + controllableLayerCount + ' layers on',
+    )
+    updateToolBarVisibility()
     // Meters only mean something while the scene is actually running.
     dom.ambient.setAttribute('data-live', state.playback.isPlaying ? 'true' : 'false')
 
@@ -675,7 +802,6 @@
     }
 
     updateAmbientValues(layers)
-    updateAmbientHandle(layers)
   }
 
   function getSoundboardSounds() {
@@ -695,12 +821,16 @@
     var sounds = getSoundboardSounds()
     if (sounds.length === 0) {
       dom.soundboard.hidden = true
+      dom.toolSoundboard.hidden = true
+      updateToolBarVisibility()
       dom.soundboardList.innerHTML = ''
       return
     }
 
     dom.soundboard.hidden = false
-    dom.soundboardCount.textContent = String(sounds.length)
+    dom.toolSoundboard.hidden = false
+    updateToolBarVisibility()
+    dom.toolSoundboard.setAttribute('aria-label', 'Open soundboard, ' + sounds.length + ' sounds')
     var html = ''
     for (var i = 0; i < sounds.length; i++) {
       var sound = sounds[i]
@@ -735,8 +865,8 @@
   function setSoundboardOpen(open) {
     soundboardOpen = open
     dom.soundboardList.hidden = !open
-    dom.soundboardHandle.setAttribute('aria-expanded', open ? 'true' : 'false')
-    dom.soundboardChevron.innerHTML = icon(open ? 'ChevronDown' : 'ChevronUp', 16)
+    dom.toolSoundboard.classList.toggle('active', open)
+    dom.toolSoundboard.setAttribute('aria-expanded', open ? 'true' : 'false')
     try {
       localStorage.setItem(SOUNDBOARD_OPEN_KEY, open ? '1' : '0')
     } catch (e) {
@@ -791,6 +921,7 @@
           '" style="--shot-color:' +
           color +
           '">' +
+          '<span class="ambient-shot__meter" aria-hidden="true"><span></span><span></span><span></span></span>' +
           icon('Play', 16) +
           '<span class="ambient-shot__label">' +
           escapeHtml(layer.name) +
@@ -842,6 +973,7 @@
         var pad = dom.ambientShots.querySelector('[data-layer-id="' + layer.id + '"]')
         if (pad) {
           pad.setAttribute('data-enabled', runtime.enabled ? 'true' : 'false')
+          pad.setAttribute('data-sounding', runtime.sounding ? 'true' : 'false')
         }
         // A trigger from any client (this phone, another phone, the desktop)
         // flashes the pad, so confirmation doesn't depend on hearing the room.
@@ -867,18 +999,6 @@
     }
   }
 
-  function updateAmbientHandle(layers) {
-    var on = 0
-    for (var i = 0; i < layers.length; i++) {
-      if (layers[i].mode !== 'oneshot' && layerRuntime(layers[i]).enabled) on++
-    }
-    var total = 0
-    for (var j = 0; j < layers.length; j++) {
-      if (layers[j].mode !== 'oneshot') total++
-    }
-    dom.ambientCount.textContent = total === 0 ? '' : '· ' + on + ' on'
-  }
-
   function flashShot(layerId) {
     var pad = dom.ambientShots.querySelector('[data-layer-id="' + layerId + '"]')
     if (!pad) return
@@ -901,9 +1021,11 @@
         card.classList.add('active')
         var color = card.style.getPropertyValue('--card-color')
         card.style.borderColor = color
+        card.style.background = hexToRgba(color, 0.28)
       } else {
         card.classList.remove('active')
         card.style.borderColor = 'transparent'
+        card.style.background = hexToRgba(card.style.getPropertyValue('--card-color'), 0.18)
       }
     }
 
@@ -1011,6 +1133,26 @@
 
   // ── Event Handlers ──
   function bindEvents() {
+    dom.gridDensityToggle.addEventListener('click', function () {
+      setGridDensityOpen(dom.gridDensity.hidden)
+    })
+    dom.gridDensity.addEventListener('click', function (e) {
+      var option = e.target.closest('[data-grid-columns]')
+      if (!option) return
+      gridColumns = option.getAttribute('data-grid-columns')
+      if (!gridColumns) return
+      try {
+        localStorage.setItem(GRID_COLUMNS_KEY, gridColumns)
+      } catch (e) {
+        // Storage unavailable — the selection remains for this session.
+      }
+      syncGridColumnOptions()
+      renderClimateGrid()
+    })
+    window.addEventListener('resize', function () {
+      syncGridColumnOptions()
+      renderClimateGrid()
+    })
     // Climate grid — event delegation
     dom.climateGrid.addEventListener('click', function (e) {
       var card = e.target.closest('.climate-card')
@@ -1018,8 +1160,9 @@
       var climateId = card.getAttribute('data-climate-id')
       if (!climateId) return
 
-      // Already playing — no-op
-      if (climateId === state.playback.activeClimateId) return
+      // Already playing this climate — no-op. When it is selected but stopped,
+      // activating it again restarts the climate just like a different pad.
+      if (climateId === state.playback.activeClimateId && state.playback.isPlaying) return
 
       // Haptic feedback
       if (navigator.vibrate) {
@@ -1083,12 +1226,11 @@
       send({ type: 'toggle-shuffle' })
     })
 
-    // Ambient drawer handle
-    dom.ambientHandle.addEventListener('click', function () {
+    dom.toolAmbient.addEventListener('click', function () {
       setAmbientOpen(!ambientOpen)
     })
 
-    dom.soundboardHandle.addEventListener('click', function () {
+    dom.toolSoundboard.addEventListener('click', function () {
       setSoundboardOpen(!soundboardOpen)
     })
 
@@ -1211,8 +1353,25 @@
     dom.btnShuffle.innerHTML = icon('Shuffle', 20)
     dom.btnMute.innerHTML = icon('Volume2', 20)
     dom.wifiOffIcon.innerHTML = icon('WifiOff', 48)
-    dom.ambientIcon.innerHTML = icon('Waves', 16)
-
+    dom.gridDensityToggle.innerHTML = icon('Settings', 20)
+    try {
+      var storedGridColumns = localStorage.getItem(GRID_COLUMNS_KEY)
+      if (
+        storedGridColumns === '2' ||
+        storedGridColumns === '3' ||
+        storedGridColumns === '4' ||
+        storedGridColumns === '5' ||
+        storedGridColumns === '6' ||
+        storedGridColumns === '7' ||
+        storedGridColumns === '8'
+      ) {
+        gridColumns = storedGridColumns
+      }
+    } catch (e) {
+      // Storage unavailable — Auto remains the default.
+    }
+    syncGridColumnOptions()
+    setGridDensityOpen(false)
     // The drawer stays where the GM left it, so one-shot pads remain one tap
     // away across a whole scene.
     var storedOpen = null

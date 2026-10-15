@@ -18,6 +18,7 @@ import type {
   SoundboardSound,
   Track,
 } from './types'
+import { resolveRemoteLabel } from './remoteLabel'
 
 function toRemoteSound(
   sound: SoundboardSound,
@@ -57,6 +58,7 @@ function toRemoteClimate(climate: Climate): RemoteClimate {
   const remote: RemoteClimate = {
     id: climate.id,
     name: climate.name,
+    remoteLabel: resolveRemoteLabel(climate.name, climate.remoteLabel),
     color: climate.color,
     icon: climate.icon,
     order: climate.order,
