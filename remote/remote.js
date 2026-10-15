@@ -789,7 +789,6 @@
     if (layers.length === 0) {
       dom.ambient.hidden = true
       dom.toolAmbient.hidden = true
-      if (ambientOpen) setAmbientOpen(false)
       updateToolBarVisibility()
       ambientSignature = null
       dom.ambientLayers.innerHTML = ''
@@ -831,7 +830,6 @@
     if (sounds.length === 0) {
       dom.soundboard.hidden = true
       dom.toolSoundboard.hidden = true
-      if (soundboardOpen) setSoundboardOpen(false)
       updateToolBarVisibility()
       dom.soundboardList.innerHTML = ''
       return
@@ -1029,9 +1027,11 @@
         card.classList.add('active')
         var color = card.style.getPropertyValue('--card-color')
         card.style.borderColor = color
+        card.style.background = hexToRgba(color, 0.28)
       } else {
         card.classList.remove('active')
         card.style.borderColor = 'transparent'
+        card.style.background = hexToRgba(card.style.getPropertyValue('--card-color'), 0.18)
       }
     }
 
