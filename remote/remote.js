@@ -82,6 +82,15 @@
         },
       ],
     ],
+    Settings: [
+      [
+        'path',
+        {
+          d: 'M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915',
+        },
+      ],
+      ['circle', { cx: '12', cy: '12', r: '3' }],
+    ],
     Moon: [
       [
         'path',
@@ -529,37 +538,8 @@
     return null
   }
 
-  function climateShortLabel(name) {
-    var words = String(name || '')
-      .trim()
-      .split(/\s+/)
-      .map(function (word) {
-        return word.replace(/[^\p{L}\p{N}]/gu, '')
-      })
-      .filter(Boolean)
-
-    if (words.length >= 3) {
-      return words
-        .slice(0, 3)
-        .map(function (word) {
-          return word[0]
-        })
-        .join('')
-        .toLocaleUpperCase()
-    }
-    if (words.length === 2) {
-      var first = words[0].slice(0, 2)
-      return (first + words[1].slice(0, 3 - first.length)).toLocaleUpperCase()
-    }
-    return (words[0] || '').slice(0, 3).toLocaleUpperCase()
-  }
-
   function remoteClimateLabel(climate) {
-    var customLabel = String(climate.remoteLabel || '')
-      .replace(/\s+/g, '')
-      .slice(0, 3)
-      .toLocaleUpperCase()
-    return customLabel || climateShortLabel(climate.name) || '---'
+    return String(climate.remoteLabel || '---')
   }
 
   function maxGridColumnsForViewport() {
@@ -798,7 +778,19 @@
 
     dom.ambient.hidden = false
     dom.toolAmbient.hidden = false
-    dom.toolAmbientCount.textContent = '(' + layers.length + ')'
+    var activeLayerCount = 0
+    var controllableLayerCount = 0
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].mode === 'oneshot') continue
+      controllableLayerCount++
+      if (layerRuntime(layers[i]).enabled) activeLayerCount++
+    }
+    dom.toolAmbientCount.textContent =
+      controllableLayerCount === 0 ? '' : '(' + activeLayerCount + ' on)'
+    dom.toolAmbient.setAttribute(
+      'aria-label',
+      'Open ambient controls, ' + activeLayerCount + ' of ' + controllableLayerCount + ' layers on',
+    )
     updateToolBarVisibility()
     // Meters only mean something while the scene is actually running.
     dom.ambient.setAttribute('data-live', state.playback.isPlaying ? 'true' : 'false')
@@ -929,6 +921,7 @@
           '" style="--shot-color:' +
           color +
           '">' +
+          '<span class="ambient-shot__meter" aria-hidden="true"><span></span><span></span><span></span></span>' +
           icon('Play', 16) +
           '<span class="ambient-shot__label">' +
           escapeHtml(layer.name) +
@@ -980,6 +973,7 @@
         var pad = dom.ambientShots.querySelector('[data-layer-id="' + layer.id + '"]')
         if (pad) {
           pad.setAttribute('data-enabled', runtime.enabled ? 'true' : 'false')
+          pad.setAttribute('data-sounding', runtime.sounding ? 'true' : 'false')
         }
         // A trigger from any client (this phone, another phone, the desktop)
         // flashes the pad, so confirmation doesn't depend on hearing the room.
@@ -1166,8 +1160,9 @@
       var climateId = card.getAttribute('data-climate-id')
       if (!climateId) return
 
-      // Already playing — no-op
-      if (climateId === state.playback.activeClimateId) return
+      // Already playing this climate — no-op. When it is selected but stopped,
+      // activating it again restarts the climate just like a different pad.
+      if (climateId === state.playback.activeClimateId && state.playback.isPlaying) return
 
       // Haptic feedback
       if (navigator.vibrate) {
@@ -1358,6 +1353,7 @@
     dom.btnShuffle.innerHTML = icon('Shuffle', 20)
     dom.btnMute.innerHTML = icon('Volume2', 20)
     dom.wifiOffIcon.innerHTML = icon('WifiOff', 48)
+    dom.gridDensityToggle.innerHTML = icon('Settings', 20)
     try {
       var storedGridColumns = localStorage.getItem(GRID_COLUMNS_KEY)
       if (

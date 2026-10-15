@@ -96,6 +96,23 @@ describe('AudioEngine climate synchronisation', () => {
     expect(snapshot).toEqual({ trackIndex: 0, positionSec: 150 })
   })
 
+  it('resumes when the active climate is selected after playback stopped', async () => {
+    const current = climate(['track-a'])
+    const resume = vi.spyOn(engine, 'resume').mockImplementation(() => {})
+    internal.engineState = 'fading-to-silence'
+    useAudioStore.setState({
+      activeClimateId: current.id,
+      activeTrackId: 'track-a',
+      isPlaying: false,
+      isFadingToSilence: false,
+    })
+
+    await engine.activateClimate(current)
+
+    expect(resume).toHaveBeenCalledOnce()
+    resume.mockRestore()
+  })
+
   describe('switching climates while music plays', () => {
     const forest = climate(['track-a', 'track-b', 'track-c'], 'forest')
     const tavern = climate(['track-x', 'track-y'], 'tavern')

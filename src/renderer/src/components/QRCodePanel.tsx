@@ -51,7 +51,7 @@ export function QRCodePanel(): React.JSX.Element {
         {isConnected ? (
           <div className="mt-3 space-y-1.5">
             {clients.map((client) => (
-              <div key={`${client.address}-${client.label}`} className="flex items-center gap-1.5">
+              <div key={client.id} className="flex items-center gap-1.5">
                 <div className="size-2 shrink-0 rounded-full bg-success" />
                 <p className="min-w-0 truncate text-[11px] text-text-tertiary">
                   {client.label} <span className="opacity-70">· {client.address}</span>

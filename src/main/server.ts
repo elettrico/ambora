@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server } from 'http'
+import { randomUUID } from 'node:crypto'
 import { join } from 'path'
 import { networkInterfaces } from 'os'
 import express from 'express'
@@ -48,6 +49,7 @@ function clientLabel(headers: IncomingMessage['headers']): string {
 function clientInfo(request: IncomingMessage): RemoteClientInfo {
   const address = request.socket.remoteAddress ?? 'Unknown address'
   return {
+    id: randomUUID(),
     label: clientLabel(request.headers),
     address: address.replace(/^::ffff:/, ''),
   }

@@ -18,6 +18,7 @@ import type {
 import { AMBORA_FILE_VERSION } from '../../../shared/exportTypes'
 import { AMBIENT_DEFAULTS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
 import { clampPitchVariation } from '@/audio/playbackVariation'
+import { normalizeRemoteLabel } from '../../../shared/remoteLabel'
 
 function clampVolume(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -266,7 +267,7 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
         id: crypto.randomUUID(),
         name: typeof cl.name === 'string' ? cl.name : 'Untitled Climate',
         ...(typeof cl.remoteLabel === 'string' && cl.remoteLabel.trim()
-          ? { remoteLabel: cl.remoteLabel.replace(/\s+/g, '').slice(0, 3).toLocaleUpperCase() }
+          ? { remoteLabel: normalizeRemoteLabel(cl.remoteLabel) }
           : {}),
         color: typeof cl.color === 'string' ? cl.color : '#7B93F5',
         icon: typeof cl.icon === 'string' ? cl.icon : 'Swords',

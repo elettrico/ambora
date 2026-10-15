@@ -752,11 +752,25 @@ export class AudioEngine {
   async activateClimate(climate: Climate, startTrackId?: string): Promise<void> {
     const storeState = useAudioStore.getState()
 
+    // Every climate entry point uses this method (desktop cards and the
+    // phone remote). Re-selecting the active climate after it was stopped is
+    // a resume request, not a new activation.
+    if (
+      !startTrackId &&
+      storeState.activeClimateId === climate.id &&
+      !storeState.isPlaying &&
+      !storeState.isFadingToSilence
+    ) {
+      this.resume()
+      return
+    }
+
     // Already playing this climate — no-op. An explicit track request (startTrackId)
     // always takes effect, even when this climate is already the active one.
     if (
       !startTrackId &&
       storeState.activeClimateId === climate.id &&
+      storeState.isPlaying &&
       (this.engineState === 'playing' || this.engineState === 'ambient')
     ) {
       return

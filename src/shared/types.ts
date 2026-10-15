@@ -132,6 +132,7 @@ export interface LoadCampaignsResult {
 
 /** A phone currently connected to the local remote server. */
 export interface RemoteClientInfo {
+  id: string
   label: string
   address: string
 }
@@ -205,7 +206,7 @@ export interface RemoteAmbientLayer {
 export interface RemoteClimate {
   id: string
   name: string
-  remoteLabel?: string
+  remoteLabel: string
   color: string
   icon: string
   order: number

@@ -595,6 +595,7 @@ button {
 }
 
 .ambient-shot {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -617,6 +618,48 @@ button {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.ambient-shot__meter {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  visibility: hidden;
+  transform: translateY(-50%);
+}
+
+.ambient-shot__meter span {
+  width: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--surface-3);
+  transform-origin: bottom;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter {
+  visibility: visible;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span {
+  height: 11px;
+  background: var(--shot-color, var(--accent));
+  animation: ambient-pulse 1.1s ease-in-out infinite;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span:nth-child(2) {
+  height: 14px;
+  animation-delay: 160ms;
+}
+
+.ambient-shot[data-sounding='true'] .ambient-shot__meter span:nth-child(3) {
+  animation-delay: 320ms;
 }
 
 .ambient-shot__label {

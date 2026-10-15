@@ -34,35 +34,12 @@ import type { Campaign, Climate, Track } from '@/lib/types'
 import { toast } from 'sonner'
 import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import { TRACK_DRAG_TYPE } from '@/lib/reorderItems'
+import { normalizeRemoteLabel, remoteLabelFallback } from '../../../shared/remoteLabel'
 
 interface ClimateDetailProps {
   climate: Climate
   campaign: Campaign
   onClose: () => void
-}
-
-function remoteLabelFallback(name: string): string {
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
-    .filter(Boolean)
-
-  if (words.length >= 3)
-    return words
-      .slice(0, 3)
-      .map((word) => word[0])
-      .join('')
-      .toLocaleUpperCase()
-  if (words.length === 2) {
-    const first = words[0].slice(0, 2)
-    return (first + words[1].slice(0, 3 - first.length)).toLocaleUpperCase()
-  }
-  return (words[0] ?? '').slice(0, 3).toLocaleUpperCase()
-}
-
-function normalizeRemoteLabel(value: string): string {
-  return value.replace(/\s+/g, '').slice(0, 3).toLocaleUpperCase()
 }
 
 export function ClimateDetail({

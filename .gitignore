@@ -39,6 +39,3 @@ npm-debug.log*
 
 # Test coverage
 coverage/
-
-# Local test launcher — may reference a user's campaign data.
-/testrun.sh
