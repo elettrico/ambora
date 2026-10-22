@@ -14,7 +14,7 @@ import { YouTubeAGC } from './YouTubeAGC'
 import { ShuffleBag, nextSequentialIndex } from './trackSelection'
 import { AmbientEngine } from './AmbientEngine'
 import { SoundboardEngine } from './SoundboardEngine'
-import { getAudioContext, closeAudioContext } from './audioContext'
+import { getAudioContext, getAudioOutputNode, closeAudioContext } from './audioContext'
 import { audioLog, extOf } from './audioLog'
 import { useAudioStore } from '@/store/audioStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
@@ -117,6 +117,7 @@ export class AudioEngine {
   private climateSnapshots = new Map<string, ClimatePlaybackSnapshot>()
   private lufsCache = new LufsCache()
   private channelNormChains = new Map<ChannelId, NormalizationChain>()
+  private musicMeter: AnalyserNode | null = null
   private youtubeAGC = new YouTubeAGC()
   private positionInterval: ReturnType<typeof setInterval> | null = null
   private autoAdvancing = false
@@ -168,9 +169,18 @@ export class AudioEngine {
       // Shared with the AmbientEngine so music and ambient graph into one output.
       this.audioContext = getAudioContext()
 
+      this.musicMeter =
+        typeof this.audioContext.createAnalyser === 'function'
+          ? this.audioContext.createAnalyser()
+          : null
+      if (this.musicMeter) {
+        this.musicMeter.fftSize = 256
+        this.musicMeter.smoothingTimeConstant = 0.75
+      }
+
       const gainA = this.audioContext.createGain()
       gainA.gain.value = 0
-      gainA.connect(this.audioContext.destination)
+      gainA.connect(getAudioOutputNode())
       this.channelA = {
         id: 'A',
         gainNode: gainA,
@@ -181,7 +191,7 @@ export class AudioEngine {
 
       const gainB = this.audioContext.createGain()
       gainB.gain.value = 0
-      gainB.connect(this.audioContext.destination)
+      gainB.connect(getAudioOutputNode())
       this.channelB = {
         id: 'B',
         gainNode: gainB,
@@ -276,6 +286,7 @@ export class AudioEngine {
       const chain = new NormalizationChain(ctx)
       source.connect(chain.input)
       chain.output.connect(channel.gainNode)
+      if (this.musicMeter) chain.output.connect(this.musicMeter)
       this.channelNormChains.set(channel.id, chain)
     }
   }
@@ -920,6 +931,7 @@ export class AudioEngine {
       // Currently playing — crossfade to new climate
       this.saveClimateSnapshot()
       const previousClimateId = useAudioStore.getState().activeClimateId
+      const previousTrackId = useAudioStore.getState().activeTrackId
 
       const outChannel = this.getActiveChannel()
       const inId = this.getInactiveChannelId()
@@ -956,6 +968,7 @@ export class AudioEngine {
         if (previousClimateId) {
           store.startFadeAnimation({
             climateId: previousClimateId,
+            trackId: previousTrackId ?? undefined,
             direction: 'out',
             durationMs,
             startedAt: now,
@@ -1352,6 +1365,10 @@ export class AudioEngine {
     return none
   }
 
+  getMeterAnalyser(): AnalyserNode | null {
+    return this.musicMeter
+  }
+
   /**
    * Read-only playback position for the Now Playing progress indicator.
    *
@@ -1397,6 +1414,8 @@ export class AudioEngine {
     removeOrphanedYouTubeContainers()
     this.lufsCache.dispose()
     this.volumeUnsub?.()
+    this.musicMeter?.disconnect()
+    this.musicMeter = null
     closeAudioContext()
     this.audioContext = null
     this.channelA = null

@@ -1,4 +1,4 @@
-import { getAudioContext } from './audioContext'
+import { getAudioContext, getAudioOutputNode } from './audioContext'
 import { localAudioUrl } from '@/lib/localAudioUrl'
 import { AmbientClipSelector, nextDelaySec, sortedClips } from './ambientScheduling'
 import { audioLog, extOf } from './audioLog'
@@ -151,6 +151,7 @@ export class AmbientEngine {
 
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
+  private meter: AnalyserNode | null = null
   private auditionGain: GainNode | null = null
   private stack: Stack | null = null
 
@@ -215,7 +216,12 @@ export class AmbientEngine {
       this.ctx = ctx
       this.masterGain = ctx.createGain()
       this.masterGain.gain.value = this.masterVolume01()
-      this.masterGain.connect(ctx.destination)
+      this.meter = typeof ctx.createAnalyser === 'function' ? ctx.createAnalyser() : null
+      if (this.meter) {
+        this.meter.fftSize = 256
+        this.meter.smoothingTimeConstant = 0.75
+      }
+      this.masterGain.connect(getAudioOutputNode())
 
       this.auditionGain = ctx.createGain()
       this.auditionGain.gain.value = 1
@@ -230,6 +236,10 @@ export class AmbientEngine {
   private masterVolume01(): number {
     const { volume, ambientVolume } = useAudioStore.getState()
     return (volume / 100) * (ambientVolume / 100)
+  }
+
+  getMeterAnalyser(): AnalyserNode | null {
+    return this.meter
   }
 
   private subscribeToVolume(): void {
@@ -359,6 +369,7 @@ export class AmbientEngine {
     const stackGain = ctx.createGain()
     stackGain.gain.value = 0
     stackGain.connect(this.masterGain!)
+    if (this.meter) stackGain.connect(this.meter)
 
     const stack: Stack = {
       climateId: climate.id,
@@ -995,6 +1006,8 @@ export class AmbientEngine {
     this.auditionGain = null
     this.masterGain?.disconnect()
     this.masterGain = null
+    this.meter?.disconnect()
+    this.meter = null
     this.bufferCache.clear()
     this.decoding.clear()
     this.ctx = null

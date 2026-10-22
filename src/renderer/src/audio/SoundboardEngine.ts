@@ -1,4 +1,4 @@
-import { getAudioContext } from './audioContext'
+import { getAudioContext, getAudioOutputNode } from './audioContext'
 import { localAudioUrl } from '@/lib/localAudioUrl'
 import { useAudioStore } from '@/store/audioStore'
 import type { SoundboardPlaybackMode, SoundboardSound } from '@/lib/types'
@@ -42,6 +42,7 @@ export class SoundboardEngine {
   private static instance: SoundboardEngine | null = null
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
+  private meter: AnalyserNode | null = null
   private volumeUnsub: (() => void) | null = null
   private buffers = new Map<string, AudioBuffer>()
   private decoding = new Map<string, Promise<AudioBuffer>>()
@@ -60,6 +61,10 @@ export class SoundboardEngine {
     return () => this.listeners.delete(listener)
   }
 
+  getMeterAnalyser(): AnalyserNode | null {
+    return this.meter
+  }
+
   private ensureGraph(): AudioContext {
     const ctx = getAudioContext()
     if (this.ctx !== ctx) {
@@ -73,7 +78,12 @@ export class SoundboardEngine {
       this.masterGain = ctx.createGain()
       const audio = useAudioStore.getState()
       this.masterGain.gain.value = (audio.volume / 100) * (audio.sfxVolume / 100)
-      this.masterGain.connect(ctx.destination)
+      this.meter = typeof ctx.createAnalyser === 'function' ? ctx.createAnalyser() : null
+      if (this.meter) {
+        this.meter.fftSize = 256
+        this.meter.smoothingTimeConstant = 0.75
+      }
+      this.masterGain.connect(getAudioOutputNode())
       this.volumeUnsub = useAudioStore.subscribe((state, previous) => {
         if (
           (state.volume !== previous.volume || state.sfxVolume !== previous.sfxVolume) &&
@@ -161,6 +171,7 @@ export class SoundboardEngine {
     gain.gain.value = (fullVolume ? 100 : sound.volume) / 100
     source.connect(gain)
     gain.connect(this.masterGain!)
+    if (this.meter) gain.connect(this.meter)
 
     const voices = this.voices.get(sound.id) ?? new Set<Voice>()
     voices.add(voice)
@@ -199,6 +210,8 @@ export class SoundboardEngine {
     this.decoding.clear()
     this.masterGain?.disconnect()
     this.masterGain = null
+    this.meter?.disconnect()
+    this.meter = null
     this.ctx = null
   }
 

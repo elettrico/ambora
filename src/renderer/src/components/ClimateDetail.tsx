@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
+import { WheelSlider } from '@/components/WheelSlider'
 import { Separator } from '@/components/ui/separator'
 import { ColorPicker } from '@/components/ColorPicker'
 import { IconPicker } from '@/components/IconPicker'
@@ -360,7 +360,7 @@ export function ClimateDetail({
                   Crossfade Duration
                 </p>
                 <div className="flex items-center gap-3">
-                  <Slider
+                  <WheelSlider
                     value={[climate.crossfadeDuration]}
                     min={DEFAULTS.minCrossfade}
                     max={DEFAULTS.maxCrossfade}
@@ -397,7 +397,7 @@ export function ClimateDetail({
                 </p>
                 <div className="flex min-w-[160px] max-w-[260px] flex-1 items-center gap-3">
                   <span className="shrink-0 text-[11px] text-text-secondary">Volume</span>
-                  <Slider
+                  <WheelSlider
                     value={[climate.musicVolume ?? DEFAULTS.musicVolume]}
                     min={0}
                     max={100}

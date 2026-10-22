@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
+import { WheelSlider } from '@/components/WheelSlider'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -394,7 +394,7 @@ export function AmbientLayerRow({
           </TooltipProvider>
         ) : null}
 
-        <Slider
+        <WheelSlider
           value={[displayVolume]}
           min={0}
           max={100}
@@ -526,7 +526,7 @@ export function AmbientLayerRow({
               <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
                 Pitch ±{layer.pitchVariation ?? 0}%
               </span>
-              <Slider
+              <WheelSlider
                 min={0}
                 max={20}
                 step={1}
@@ -543,7 +543,7 @@ export function AmbientLayerRow({
                   Activation fade{' '}
                   {(layer.activationFadeSec ?? AMBIENT_DEFAULTS.activationFadeSec).toFixed(1)}s
                 </span>
-                <Slider
+                <WheelSlider
                   min={AMBIENT_DEFAULTS.minActivationFadeSec}
                   max={AMBIENT_DEFAULTS.maxActivationFadeSec}
                   step={0.1}

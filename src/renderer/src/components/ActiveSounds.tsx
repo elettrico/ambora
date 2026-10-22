@@ -1,64 +1,41 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Music2, Play, Square, Waves, Zap } from 'lucide-react'
+import { ArrowRight, Music2, Play, Waves, Zap } from 'lucide-react'
 import { AmbientEngine } from '@/audio/AmbientEngine'
+import { AudioEngine } from '@/audio/AudioEngine'
 import { SoundboardEngine, type SoundboardActivity } from '@/audio/SoundboardEngine'
-import { Button } from '@/components/ui/button'
+import { AudioLevelMeter } from '@/components/AudioLevelMeter'
+import type { AmbientLayer, SoundboardSound } from '@/lib/types'
 import { useAudioStore } from '@/store/audioStore'
 import { useCampaignStore } from '@/store/campaignStore'
-import type { AmbientLayer, SoundboardSound } from '@/lib/types'
 import { SidebarSection } from './SidebarSection'
 
+interface Progress {
+  startedAtMs: number
+  durationMs: number
+}
 interface ActiveRowProps {
-  icon: React.ReactNode
   name: string
   detail?: string
-  progress?: { startedAtMs: number; durationMs: number }
-  nowMs?: number
-  onStop?: () => void
+  progress?: Progress
+  nowMs: number
+  control?: React.ReactNode
 }
-
 interface ActiveSoundsProps {
   fill?: boolean
   onCountChange?: (count: number) => void
 }
 
-function ActiveRow({
-  icon,
-  name,
-  detail,
-  progress,
-  nowMs,
-  onStop,
-}: ActiveRowProps): React.JSX.Element {
+function ActiveRow({ name, detail, progress, nowMs, control }: ActiveRowProps): React.JSX.Element {
   const remaining = progress
-    ? Math.max(
-        0,
-        Math.min(
-          1,
-          1 - ((nowMs ?? progress.startedAtMs) - progress.startedAtMs) / progress.durationMs,
-        ),
-      )
+    ? Math.max(0, Math.min(1, 1 - (nowMs - progress.startedAtMs) / progress.durationMs))
     : null
-
   return (
-    <div className="group relative flex min-h-9 items-center gap-2 overflow-hidden rounded px-2 hover:bg-surface-2">
-      <span className="relative z-10 shrink-0 text-accent">{icon}</span>
-      <div className="relative z-10 min-w-0 flex-1">
-        <div className="truncate text-[12px] text-text-primary">{name}</div>
-        {detail && <div className="truncate text-[10px] text-text-tertiary">{detail}</div>}
+    <div className="relative flex min-h-9 items-center gap-2 overflow-hidden rounded px-2 hover:bg-surface-2">
+      {control}
+      <div className="relative z-10 grid min-h-[26px] min-w-0 flex-1 grid-rows-[14px_12px]">
+        <div className="truncate text-[12px] text-[#D8D8D8]">{name}</div>
+        <div className="truncate text-[10px] text-text-tertiary">{detail}</div>
       </div>
-      {onStop && (
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="shrink-0 text-text-tertiary opacity-0 hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={onStop}
-          aria-label={`Stop ${name}`}
-          title={`Stop ${name}`}
-        >
-          <Square className="size-3 fill-current" />
-        </Button>
-      )}
       {remaining !== null && (
         <span
           aria-hidden="true"
@@ -72,15 +49,21 @@ function ActiveRow({
 
 function ActiveSection({
   title,
+  icon,
+  meter,
   children,
 }: {
   title: string
+  icon: React.ReactNode
+  meter: React.ReactNode
   children: React.ReactNode
 }): React.JSX.Element {
   return (
     <section className="flex flex-col gap-0.5">
-      <h3 className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+      <h3 className="flex items-center gap-1.5 px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+        <span>{icon}</span>
         {title}
+        <span className="ml-auto">{meter}</span>
       </h3>
       {children}
     </section>
@@ -92,19 +75,48 @@ export function ActiveSounds({
   onCountChange,
 }: ActiveSoundsProps): React.JSX.Element {
   const campaigns = useCampaignStore((state) => state.campaigns)
-  const { isPlaying, activeClimateId, activeTrackId, ambientRuntime, auditioningLayerId } =
-    useAudioStore()
+  const {
+    isPlaying,
+    activeClimateId,
+    activeTrackId,
+    previousActiveClimateId,
+    previousActiveTrackId,
+    isTrackLoading,
+    ambientRuntime,
+    fadeAnimations,
+  } = useAudioStore()
   const [open, setOpen] = useState(
     () => localStorage.getItem('ambora:active-sounds-open') !== 'false',
   )
   const [soundboardActivity, setSoundboardActivity] = useState<Record<string, SoundboardActivity>>(
     {},
   )
-  const [progressNowMs, setProgressNowMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const registeredFadeOut = fadeAnimations.find((animation) => animation.direction === 'out')
+  // A fade-out can mean either a transition to another climate or stopping the
+  // current one. Only the former has a second, outgoing climate to display.
+  const transitionFadeOut =
+    registeredFadeOut && registeredFadeOut.climateId !== activeClimateId
+      ? registeredFadeOut
+      : undefined
+  const pendingFadeOut =
+    !registeredFadeOut &&
+    isTrackLoading &&
+    previousActiveClimateId !== null &&
+    previousActiveClimateId !== activeClimateId
+      ? {
+          climateId: previousActiveClimateId,
+          trackId: previousActiveTrackId ?? undefined,
+          direction: 'out' as const,
+          durationMs: 0,
+          startedAt: 0,
+        }
+      : undefined
+  const fadingOut = transitionFadeOut ?? pendingFadeOut
 
   useEffect(
     () =>
-      SoundboardEngine.getInstance().subscribe((soundId, activity) => {
+      SoundboardEngine.getInstance().subscribe((soundId, activity) =>
         setSoundboardActivity((current) => {
           if (!activity.playing) {
             if (!(soundId in current)) return current
@@ -113,53 +125,51 @@ export function ActiveSounds({
             return next
           }
           return { ...current, [soundId]: activity }
-        })
-      }),
+        }),
+      ),
     [],
   )
 
   const lookup = useMemo(() => {
-    let activeClimateName: string | undefined
+    let climateName: string | undefined
+    let climateColor: string | undefined
     let trackName: string | undefined
-    const ambientLayers = new Map<string, AmbientLayer>()
+    let ambientLayers: AmbientLayer[] = []
+    let fadingClimateName: string | undefined
+    let fadingClimateColor: string | undefined
+    let fadingTrackName: string | undefined
+    let fadingAmbientLayers: AmbientLayer[] = []
     const sounds = new Map<string, SoundboardSound>()
-    let previewLayer: AmbientLayer | undefined
-
     for (const campaign of campaigns) {
       for (const climate of campaign.climates) {
         if (climate.id === activeClimateId) {
-          activeClimateName = climate.name
+          climateName = climate.name
+          climateColor = climate.color
           trackName = climate.tracks.find((track) => track.id === activeTrackId)?.title
+          ambientLayers = [...(climate.ambientLayers ?? [])].sort((a, b) => a.order - b.order)
         }
-        for (const layer of climate.ambientLayers ?? []) {
-          ambientLayers.set(layer.id, layer)
-          if (layer.id === auditioningLayerId) previewLayer = layer
+        if (climate.id === fadingOut?.climateId) {
+          fadingClimateName = climate.name
+          fadingClimateColor = climate.color
+          fadingTrackName = climate.tracks.find((track) => track.id === fadingOut.trackId)?.title
+          fadingAmbientLayers = [...(climate.ambientLayers ?? [])].sort((a, b) => a.order - b.order)
         }
       }
       for (const sound of campaign.soundboard ?? []) sounds.set(sound.id, sound)
     }
+    return {
+      climateName,
+      climateColor,
+      trackName,
+      ambientLayers,
+      fadingClimateName,
+      fadingClimateColor,
+      fadingTrackName,
+      fadingAmbientLayers,
+      sounds,
+    }
+  }, [campaigns, activeClimateId, activeTrackId, fadingOut])
 
-    return { activeClimateName, trackName, ambientLayers, sounds, previewLayer }
-  }, [campaigns, activeClimateId, activeTrackId, auditioningLayerId])
-
-  const soundingLayers = Object.entries(ambientRuntime)
-    .filter(([, runtime]) => runtime.sounding)
-    .flatMap(([layerId, runtime]) => {
-      const layer = lookup.ambientLayers.get(layerId)
-      if (!layer) return []
-      return [
-        {
-          layer,
-          clipName: layer.clips.find((clip) => clip.id === runtime.activeClipId)?.title,
-          startedAt: runtime.soundingStartedAt ?? 0,
-          progress:
-            runtime.playbackStartedAt !== undefined && runtime.playbackDurationMs !== undefined
-              ? { startedAtMs: runtime.playbackStartedAt, durationMs: runtime.playbackDurationMs }
-              : undefined,
-        },
-      ]
-    })
-    .sort((a, b) => a.startedAt - b.startedAt)
   const activeSounds = Object.entries(soundboardActivity)
     .map(([soundId, activity]) => ({ sound: lookup.sounds.get(soundId), activity }))
     .filter(
@@ -167,34 +177,35 @@ export function ActiveSounds({
         entry.sound !== undefined,
     )
     .sort((a, b) => (a.activity.startedAtMs ?? 0) - (b.activity.startedAtMs ?? 0))
+  const musicPlayback = isPlaying ? AudioEngine.getInstance().getPlaybackProgress() : null
   const hasTimedPlayback =
-    soundingLayers.some((entry) => entry.progress !== undefined) ||
-    activeSounds.some(
-      ({ activity }) => activity.startedAtMs !== undefined && activity.durationMs !== undefined,
-    )
-
+    musicPlayback?.durationSec !== undefined ||
+    Object.values(ambientRuntime).some((runtime) => runtime.playbackDurationMs !== undefined) ||
+    activeSounds.some(({ activity }) => activity.durationMs !== undefined)
   useEffect(() => {
     if (!hasTimedPlayback) return
-    const interval = setInterval(() => setProgressNowMs(Date.now()), 250)
+    const interval = setInterval(() => setNowMs(Date.now()), 250)
     return () => clearInterval(interval)
   }, [hasTimedPlayback])
 
   const count =
     (isPlaying && lookup.trackName ? 1 : 0) +
-    soundingLayers.length +
-    activeSounds.reduce((total, entry) => total + entry.activity.voiceCount, 0) +
-    (lookup.previewLayer ? 1 : 0)
-
+    Object.values(ambientRuntime).filter((runtime) => runtime.sounding).length +
+    activeSounds.reduce((total, entry) => total + entry.activity.voiceCount, 0)
   useEffect(() => {
     onCountChange?.(count)
   }, [count, onCountChange])
-
-  function toggle(): void {
+  const hasContent =
+    Boolean(isPlaying && lookup.trackName) ||
+    Boolean(isPlaying && lookup.ambientLayers.length > 0) ||
+    Boolean(lookup.fadingTrackName) ||
+    lookup.fadingAmbientLayers.length > 0 ||
+    activeSounds.length > 0
+  const toggle = (): void =>
     setOpen((current) => {
       localStorage.setItem('ambora:active-sounds-open', String(!current))
       return !current
     })
-  }
 
   return (
     <SidebarSection
@@ -211,57 +222,163 @@ export function ActiveSounds({
       contentClassName="overflow-y-auto px-3 pb-2"
       fill={fill}
     >
-      {count === 0 ? (
+      {!hasContent ? (
         <p className="px-2 py-3 text-[11px] text-text-tertiary">Nothing playing</p>
       ) : (
         <div className="flex flex-col gap-1">
+          {isPlaying && lookup.climateName && (
+            <div className="px-2 pt-2">
+              <p className="flex items-center gap-1.5 text-[12px] font-bold text-text-primary">
+                {lookup.fadingClimateName && <span>{lookup.fadingClimateName}</span>}
+                {lookup.fadingClimateName && <ArrowRight className="size-3 text-text-tertiary" />}
+                <span>{lookup.climateName}</span>
+              </p>
+              <span
+                className="mt-1 block h-px w-full"
+                style={{
+                  background: lookup.fadingClimateColor
+                    ? `linear-gradient(to right, ${lookup.fadingClimateColor}, ${lookup.climateColor})`
+                    : lookup.climateColor,
+                }}
+              />
+            </div>
+          )}
           {isPlaying && lookup.trackName && (
-            <ActiveSection title="Music">
+            <ActiveSection
+              title="Music"
+              icon={<Music2 className="size-3.5" />}
+              meter={
+                <AudioLevelMeter
+                  label="Music"
+                  analyser={() => AudioEngine.getInstance().getMeterAnalyser()}
+                />
+              }
+            >
+              {lookup.fadingTrackName && (
+                <ActiveRow name={lookup.fadingTrackName} detail="Fading out" nowMs={nowMs} />
+              )}
               <ActiveRow
-                icon={<Music2 className="size-3.5" />}
                 name={lookup.trackName}
-                detail={lookup.activeClimateName}
+                nowMs={nowMs}
+                progress={
+                  musicPlayback?.durationSec !== undefined
+                    ? {
+                        startedAtMs: nowMs - musicPlayback.positionSec * 1000,
+                        durationMs: musicPlayback.durationSec * 1000,
+                      }
+                    : undefined
+                }
               />
             </ActiveSection>
           )}
-          {(soundingLayers.length > 0 || lookup.previewLayer) && (
-            <ActiveSection title="Ambient">
-              {soundingLayers.map(({ layer, clipName, progress }) => (
-                <ActiveRow
-                  key={layer.id}
-                  icon={<Waves className="size-3.5" />}
-                  name={layer.name}
-                  detail={clipName}
-                  progress={progress}
-                  nowMs={progressNowMs}
-                  onStop={() => AmbientEngine.getInstance().setLayerEnabled(layer.id, false)}
-                />
-              ))}
-              {lookup.previewLayer && (
-                <ActiveRow
-                  icon={<Play className="size-3.5" />}
-                  name={lookup.previewLayer.name}
-                  detail="Preview"
-                  onStop={() => AmbientEngine.getInstance().stopAudition()}
-                />
-              )}
-            </ActiveSection>
-          )}
+          {isPlaying &&
+            (lookup.ambientLayers.length > 0 || lookup.fadingAmbientLayers.length > 0) && (
+              <ActiveSection
+                title="Ambient"
+                icon={<Waves className="size-3.5" />}
+                meter={
+                  <AudioLevelMeter
+                    label="Ambient"
+                    analyser={() => AmbientEngine.getInstance().getMeterAnalyser()}
+                  />
+                }
+              >
+                {lookup.fadingAmbientLayers.map((layer) => (
+                  <ActiveRow
+                    key={`fading-${layer.id}`}
+                    control={
+                      <span className="relative z-10 flex size-6 shrink-0 items-center justify-center">
+                        <span
+                          className="size-3 animate-pulse rounded-full"
+                          style={{ backgroundColor: lookup.fadingClimateColor }}
+                        />
+                      </span>
+                    }
+                    name={layer.name}
+                    detail="Fading out"
+                    nowMs={nowMs}
+                  />
+                ))}
+                {lookup.ambientLayers.map((layer) => {
+                  const runtime = ambientRuntime[layer.id]
+                  const isTrigger = layer.mode === 'oneshot' || layer.mode === 'sequence'
+                  const enabled = runtime?.enabled ?? layer.enabled
+                  const control = isTrigger ? (
+                    <button
+                      type="button"
+                      disabled={layer.clips.length === 0}
+                      className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => AmbientEngine.getInstance().triggerLayer(layer.id)}
+                      aria-label={`Play ${layer.name}`}
+                      title={`Play ${layer.name}`}
+                    >
+                      <Play className="size-3.5" style={{ color: lookup.climateColor }} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={enabled}
+                      className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-1"
+                      onClick={() =>
+                        AmbientEngine.getInstance().setLayerEnabled(layer.id, !enabled)
+                      }
+                      aria-label={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
+                      title={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
+                    >
+                      <span
+                        className={`size-3 rounded-full border-2 transition-all ${enabled ? 'border-transparent' : 'border-text-tertiary'} ${runtime?.sounding ? 'animate-pulse' : ''}`}
+                        style={enabled ? { backgroundColor: lookup.climateColor } : undefined}
+                      />
+                    </button>
+                  )
+                  const progress =
+                    runtime?.playbackStartedAt !== undefined &&
+                    runtime.playbackDurationMs !== undefined
+                      ? {
+                          startedAtMs: runtime.playbackStartedAt,
+                          durationMs: runtime.playbackDurationMs,
+                        }
+                      : undefined
+                  return (
+                    <ActiveRow
+                      key={layer.id}
+                      control={control}
+                      name={layer.name}
+                      detail={
+                        runtime?.activeClipId
+                          ? layer.clips.find((clip) => clip.id === runtime.activeClipId)?.title
+                          : undefined
+                      }
+                      nowMs={nowMs}
+                      progress={progress}
+                    />
+                  )
+                })}
+              </ActiveSection>
+            )}
           {activeSounds.length > 0 && (
-            <ActiveSection title="SFX">
+            <ActiveSection
+              title="SFX"
+              icon={<Zap className="size-3.5" />}
+              meter={
+                <AudioLevelMeter
+                  label="SFX"
+                  analyser={() => SoundboardEngine.getInstance().getMeterAnalyser()}
+                />
+              }
+            >
               {activeSounds.map(({ sound, activity }) => (
                 <ActiveRow
                   key={sound.id}
-                  icon={<Zap className="size-3.5" />}
                   name={sound.name}
                   detail={activity.voiceCount > 1 ? `×${String(activity.voiceCount)}` : undefined}
+                  nowMs={nowMs}
                   progress={
                     activity.startedAtMs !== undefined && activity.durationMs !== undefined
                       ? { startedAtMs: activity.startedAtMs, durationMs: activity.durationMs }
                       : undefined
                   }
-                  nowMs={progressNowMs}
-                  onStop={() => SoundboardEngine.getInstance().stop(sound.id)}
                 />
               ))}
             </ActiveSection>

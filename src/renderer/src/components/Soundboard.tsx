@@ -16,7 +16,7 @@ import { SoundKey } from '@/components/SoundKey'
 import { SoundIconPicker } from '@/components/SoundIconPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
+import { WheelSlider } from '@/components/WheelSlider'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ACCEPTED_AUDIO_EXTENSIONS, SOUNDBOARD_DEFAULTS } from '@/lib/constants'
 import {
@@ -370,7 +370,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         <option value="loop">Loop</option>
                       </select>
                       <div className="flex items-center gap-2">
-                        <Slider
+                        <WheelSlider
                           value={[sound.volume]}
                           onValueChange={([volume]) =>
                             updateSoundboardSound(campaign.id, sound.id, { volume })
@@ -382,7 +382,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                         </span>
                       </div>
                       <label className="flex items-center gap-2 text-[10px] text-text-tertiary">
-                        <Slider
+                        <WheelSlider
                           min={0}
                           max={20}
                           step={1}

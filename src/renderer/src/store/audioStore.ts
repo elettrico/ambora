@@ -4,6 +4,8 @@ import type { AmbientLayerRuntime } from '@/lib/types'
 
 export interface FadeAnimation {
   climateId: string
+  /** The outgoing track, when a climate change is crossfading music. */
+  trackId?: string
   direction: 'in' | 'out'
   durationMs: number
   startedAt: number
@@ -17,6 +19,9 @@ interface AudioStore {
   sfxVolume: number
   activeClimateId: string | null
   activeTrackId: string | null
+  /** Previous scene retained while the next track is loading for a crossfade. */
+  previousActiveClimateId: string | null
+  previousActiveTrackId: string | null
   isFadingToSilence: boolean
   isShuffled: boolean
   /** True while a user-initiated climate/track load is in flight. */
@@ -76,6 +81,8 @@ export const useAudioStore = create<AudioStore>((set) => ({
   sfxVolume: storedVolume('ambora:mixer-sfx', 100),
   activeClimateId: null,
   activeTrackId: null,
+  previousActiveClimateId: null,
+  previousActiveTrackId: null,
   isFadingToSilence: false,
   isShuffled: true,
   isTrackLoading: false,
@@ -90,7 +97,16 @@ export const useAudioStore = create<AudioStore>((set) => ({
   setAmbientVolume: (ambientVolume) =>
     set({ ambientVolume: persistVolume('ambora:mixer-ambient', ambientVolume) }),
   setSfxVolume: (sfxVolume) => set({ sfxVolume: persistVolume('ambora:mixer-sfx', sfxVolume) }),
-  setActiveClimateId: (id) => set({ activeClimateId: id }),
+  setActiveClimateId: (id) =>
+    set((state) =>
+      state.activeClimateId === id
+        ? state
+        : {
+            previousActiveClimateId: state.activeClimateId,
+            previousActiveTrackId: state.activeTrackId,
+            activeClimateId: id,
+          },
+    ),
   setActiveTrackId: (id) => set({ activeTrackId: id }),
   setIsFadingToSilence: (isFading) => set({ isFadingToSilence: isFading }),
   setIsTrackLoading: (isTrackLoading) => set({ isTrackLoading }),

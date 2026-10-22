@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { Volume1, Volume2, VolumeX } from 'lucide-react'
+import { getOutputMeterAnalysers } from '@/audio/audioContext'
+import { AudioLevelMeter } from '@/components/AudioLevelMeter'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
+import { WheelSlider } from '@/components/WheelSlider'
 import { DEFAULTS } from '@/lib/constants'
 import { useAudioStore } from '@/store/audioStore'
 import { SidebarSection } from './SidebarSection'
@@ -16,7 +18,7 @@ function MixerRow({ label, value, onChange }: MixerRowProps): React.JSX.Element 
   return (
     <div className="grid grid-cols-[64px_1fr_34px] items-center gap-2">
       <span className="text-[12px] text-text-secondary">{label}</span>
-      <Slider
+      <WheelSlider
         value={[value]}
         min={0}
         max={100}
@@ -80,7 +82,7 @@ export function AudioMixer(): React.JSX.Element {
           </Button>
           <span className="text-[12px] text-text-primary">Master</span>
         </div>
-        <Slider
+        <WheelSlider
           value={[volume]}
           min={0}
           max={100}
@@ -89,6 +91,22 @@ export function AudioMixer(): React.JSX.Element {
           aria-label="Master volume"
         />
         <span className="text-right text-[11px] tabular-nums text-text-tertiary">{volume}%</span>
+      </div>
+      <div className="grid grid-cols-[64px_1fr_34px] items-center gap-2">
+        <span className="text-[12px] text-text-secondary">Output</span>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 text-[10px] font-medium text-text-tertiary">L</span>
+            <AudioLevelMeter label="Master left" analyser={() => getOutputMeterAnalysers().left} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 text-[10px] font-medium text-text-tertiary">R</span>
+            <AudioLevelMeter
+              label="Master right"
+              analyser={() => getOutputMeterAnalysers().right}
+            />
+          </div>
+        </div>
       </div>
       <MixerRow label="Music" value={musicVolume} onChange={setMusicVolume} />
       <MixerRow label="Ambient" value={ambientVolume} onChange={setAmbientVolume} />
