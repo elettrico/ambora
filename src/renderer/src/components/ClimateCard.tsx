@@ -1,12 +1,18 @@
 import { useState } from 'react'
-import { Play, AlertTriangle, Copy } from 'lucide-react'
+import { Play, Square, AlertTriangle, Copy, Waves } from 'lucide-react'
+import { Popover as PopoverPrimitive } from 'radix-ui'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
 import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
+import { useAudioStore } from '@/store/audioStore'
+import { useCampaignStore } from '@/store/campaignStore'
+import { AmbientEngine } from '@/audio/AmbientEngine'
+import { climateAudioIssues } from '@/lib/climateAudioIssues'
 import type { Climate } from '@/lib/types'
 import type { FadeAnimation } from '@/store/audioStore'
 
 interface ClimateCardProps {
+  campaignId: string
   climate: Climate
   isActive: boolean
   isSelected: boolean
@@ -15,6 +21,12 @@ interface ClimateCardProps {
   onPlay: () => void
   onDuplicate: () => void
   onDropFiles: (climateId: string, files: File[]) => void | Promise<void>
+  isReordering: boolean
+  isReorderTarget: boolean
+  onReorderDragStart: (climateId: string) => void
+  onReorderDragEnter: (climateId: string) => void
+  onReorderDrop: (climateId: string) => void
+  onReorderDragEnd: () => void
 }
 
 function hasAudioFiles(dt: DataTransfer): boolean {
@@ -35,6 +47,7 @@ function hasAudioFiles(dt: DataTransfer): boolean {
 }
 
 export function ClimateCard({
+  campaignId,
   climate,
   isActive,
   isSelected,
@@ -43,20 +56,38 @@ export function ClimateCard({
   onPlay,
   onDuplicate,
   onDropFiles,
+  isReordering,
+  isReorderTarget,
+  onReorderDragStart,
+  onReorderDragEnter,
+  onReorderDrop,
+  onReorderDragEnd,
 }: ClimateCardProps): React.JSX.Element {
   const Icon = ICON_MAP[climate.icon as ClimateIconName]
   const showGlow = isActive || fadeAnimation?.direction === 'out'
-  const unplayableCount = useDiagnosticsStore(
-    (s) => climate.tracks.filter((t) => s.unplayable[t.id]).length,
-  )
+  const unplayable = useDiagnosticsStore((s) => s.unplayable)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [ambientExpanded, setAmbientExpanded] = useState(false)
+  const updateAmbientLayer = useCampaignStore((s) => s.updateAmbientLayer)
+  const ambientRuntime = useAudioStore((s) => s.ambientRuntime)
   const ambientLayerCount = (climate.ambientLayers ?? []).length
+  const ambientLayers = [...(climate.ambientLayers ?? [])].sort((a, b) => a.order - b.order)
+  const issues = climateAudioIssues(climate, unplayable)
   // A climate can be ambience only — wind and birds with no score.
   const canPlay = climate.tracks.length > 0 || ambientLayerCount > 0
+
+  function handleAmbientToggle(layerId: string, enabled: boolean): void {
+    updateAmbientLayer(campaignId, climate.id, layerId, { enabled })
+    if (isActive) AmbientEngine.getInstance().setLayerEnabled(layerId, enabled)
+  }
 
   function handleDragOver(e: React.DragEvent): void {
     e.preventDefault()
     e.stopPropagation()
+    if (isReordering) {
+      e.dataTransfer.dropEffect = 'move'
+      return
+    }
     if (hasAudioFiles(e.dataTransfer)) {
       e.dataTransfer.dropEffect = 'copy'
       setIsDragOver(true)
@@ -66,6 +97,11 @@ export function ClimateCard({
   function handleDragEnter(e: React.DragEvent): void {
     e.preventDefault()
     e.stopPropagation()
+    if (isReordering) {
+      onReorderDragEnter(climate.id)
+      return
+    }
+    if (!hasAudioFiles(e.dataTransfer)) return
     setIsDragOver(true)
   }
 
@@ -83,6 +119,11 @@ export function ClimateCard({
     e.stopPropagation()
     setIsDragOver(false)
 
+    if (isReordering) {
+      onReorderDrop(climate.id)
+      return
+    }
+
     const files = Array.from(e.dataTransfer.files).filter((f) => {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase()
       return ACCEPTED_AUDIO_EXTENSIONS.includes(ext)
@@ -95,11 +136,29 @@ export function ClimateCard({
 
   return (
     <article
-      className="group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3"
+      draggable
+      className={`group relative flex min-h-[120px] min-w-[200px] flex-col justify-between overflow-hidden rounded-md bg-surface-2 p-4 text-left transition-colors duration-150 hover:bg-surface-3 ${isReordering ? 'cursor-grabbing' : 'cursor-grab'}`}
       style={{
         borderLeft: `3px solid ${climate.color}B3`,
-        outline: isSelected ? `2px solid ${climate.color}` : undefined,
-        outlineOffset: isSelected ? '-2px' : undefined,
+        outline: isReorderTarget
+          ? `2px dashed ${climate.color}`
+          : isSelected
+            ? `2px solid ${climate.color}`
+            : undefined,
+        outlineOffset: isReorderTarget || isSelected ? '-2px' : undefined,
+      }}
+      onDragStart={(event) => {
+        if ((event.target as HTMLElement).closest('[data-no-climate-drag]')) {
+          event.preventDefault()
+          return
+        }
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('application/x-ambora-climate', climate.id)
+        onReorderDragStart(climate.id)
+      }}
+      onDragEnd={() => {
+        setIsDragOver(false)
+        onReorderDragEnd()
       }}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
@@ -108,6 +167,7 @@ export function ClimateCard({
     >
       <button
         type="button"
+        data-no-climate-drag
         className="absolute inset-0 z-0 rounded-md"
         aria-label={`${climate.name}, ${climate.tracks.length} ${climate.tracks.length === 1 ? 'track' : 'tracks'}${isActive ? ', playing' : ''}`}
         onClick={onClick}
@@ -157,30 +217,113 @@ export function ClimateCard({
             {climate.tracks.length} {climate.tracks.length === 1 ? 'track' : 'tracks'}
             {ambientLayerCount > 0 && ` · ${ambientLayerCount} ambient`}
           </span>
-          {unplayableCount > 0 && (
+          {issues.total > 0 && (
             <span
               className="pointer-events-auto flex items-center gap-1 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
-              title={`${unplayableCount} track${unplayableCount === 1 ? '' : 's'} can't be played`}
+              title={issues.summary}
             >
               <AlertTriangle className="size-3" />
-              {unplayableCount}
+              {issues.total}
             </span>
           )}
         </div>
-        {canPlay && (
-          <button
-            type="button"
-            className="pointer-events-auto flex size-8 items-center justify-center rounded-full opacity-0 transition-opacity duration-150 hover:brightness-125 group-hover:opacity-100 focus-visible:opacity-100"
-            aria-label={`Play ${climate.name}`}
-            style={{ backgroundColor: `${climate.color}33` }}
-            onClick={(e) => {
-              e.stopPropagation()
-              onPlay()
-            }}
-          >
-            <Play className="size-4" style={{ color: climate.color }} />
-          </button>
-        )}
+        <div className="pointer-events-auto flex items-center gap-1">
+          {ambientLayerCount > 0 && (
+            <PopoverPrimitive.Root open={ambientExpanded} onOpenChange={setAmbientExpanded}>
+              <PopoverPrimitive.Trigger asChild>
+                <button
+                  type="button"
+                  data-no-climate-drag
+                  className="flex size-8 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-surface-1 hover:text-text-primary"
+                  aria-label={`${ambientExpanded ? 'Hide' : 'Show'} ambient controls for ${climate.name}`}
+                  title="Ambient controls"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Waves className="size-4" style={{ color: climate.color }} />
+                </button>
+              </PopoverPrimitive.Trigger>
+              <PopoverPrimitive.Portal>
+                <PopoverPrimitive.Content
+                  side="top"
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={12}
+                  data-no-climate-drag
+                  className="z-50 flex w-56 flex-col gap-1 rounded-md border border-border bg-surface-2 p-2 shadow-lg outline-none"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {ambientLayers.map((layer) => {
+                    const isTriggered = layer.mode === 'oneshot'
+                    const enabled = isActive
+                      ? (ambientRuntime[layer.id]?.enabled ?? layer.enabled)
+                      : layer.enabled
+                    return (
+                      <div
+                        key={layer.id}
+                        className="flex min-h-8 items-center gap-2 rounded px-1.5 text-[12px] text-text-secondary hover:bg-surface-3"
+                      >
+                        {isTriggered ? (
+                          <button
+                            type="button"
+                            data-no-climate-drag
+                            disabled={!isActive || layer.clips.length === 0}
+                            className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={`Play ${layer.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              AmbientEngine.getInstance().triggerLayer(layer.id)
+                            }}
+                          >
+                            <Play className="size-3.5" style={{ color: climate.color }} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            role="switch"
+                            data-no-climate-drag
+                            aria-checked={enabled}
+                            aria-label={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
+                            className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-1"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleAmbientToggle(layer.id, !enabled)
+                            }}
+                          >
+                            <span
+                              className={`size-3 rounded-full border-2 ${enabled ? 'border-transparent' : 'border-text-tertiary'}`}
+                              style={enabled ? { backgroundColor: climate.color } : undefined}
+                            />
+                          </button>
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{layer.name}</span>
+                      </div>
+                    )
+                  })}
+                </PopoverPrimitive.Content>
+              </PopoverPrimitive.Portal>
+            </PopoverPrimitive.Root>
+          )}
+          {canPlay && (
+            <button
+              type="button"
+              data-no-climate-drag
+              className="flex size-9 items-center justify-center rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+              aria-label={`${isActive ? 'Stop' : 'Play'} ${climate.name}`}
+              title={`${isActive ? 'Stop' : 'Play'} climate`}
+              style={{ backgroundColor: `${climate.color}33` }}
+              onClick={(event) => {
+                event.stopPropagation()
+                onPlay()
+              }}
+            >
+              {isActive ? (
+                <Square className="size-3.5 fill-current" style={{ color: climate.color }} />
+              ) : (
+                <Play className="size-4" style={{ color: climate.color }} />
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Crossfade progress bar */}
