@@ -34,7 +34,9 @@ export function debugLog(event: string, fields: DebugFields = {}): void {
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(' ')
   console.info(`[ambora-debug] ${event}${details ? ` ${details}` : ''}`, record)
-  window.api.debugLog(record)
+  // Unit-test mocks and older preloads may not expose this development-only
+  // bridge. Logging must never affect application behavior.
+  window.api?.debugLog?.(record)
 }
 
 interface DebugLogConsole {
