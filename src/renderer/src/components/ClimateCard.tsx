@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, Square, AlertTriangle, Copy, Waves } from 'lucide-react'
+import { Play, Square, AlertTriangle, Copy, Plus } from 'lucide-react'
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import { ICON_MAP, type ClimateIconName } from '@/lib/iconMap'
 import { ACCEPTED_AUDIO_EXTENSIONS } from '@/lib/constants'
@@ -174,10 +174,14 @@ export function ClimateCard({
       />
       <button
         type="button"
+        data-no-climate-drag
         className="absolute top-2 right-2 z-20 flex size-7 items-center justify-center rounded text-text-tertiary opacity-0 transition-opacity hover:bg-surface-1 hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
         aria-label={`Duplicate ${climate.name}`}
         title="Duplicate climate"
-        onClick={onDuplicate}
+        onClick={(event) => {
+          event.stopPropagation()
+          onDuplicate()
+        }}
       >
         <Copy className="size-3.5" />
       </button>
@@ -198,132 +202,151 @@ export function ClimateCard({
         </span>
       )}
 
-      <div className="pointer-events-none relative z-10 flex items-center gap-2 pr-6">
-        {Icon && <Icon className="size-6" style={{ color: climate.color }} />}
-        <span className="text-[14px] font-semibold text-text-primary">{climate.name}</span>
-        {/* Pulse dot — always rendered, opacity transitions */}
-        <span
-          className={`size-2 shrink-0 rounded-full ${isActive ? 'animate-pulse' : ''}`}
-          style={{
-            backgroundColor: climate.color,
-            opacity: isActive ? 1 : 0,
-            transition: 'opacity 400ms ease-out',
-          }}
-        />
-      </div>
-      <div className="pointer-events-none relative z-10 flex items-center justify-between">
+      <div className="pointer-events-none relative z-10 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
+          {Icon && <Icon className="size-6" style={{ color: climate.color }} />}
+          <span className="text-[14px] font-semibold text-text-primary">{climate.name}</span>
+          {/* Pulse dot — always rendered, opacity transitions */}
+          <span
+            className={`size-2 shrink-0 rounded-full ${isActive ? 'animate-pulse' : ''}`}
+            style={{
+              backgroundColor: climate.color,
+              opacity: isActive ? 1 : 0,
+              transition: 'opacity 400ms ease-out',
+            }}
+          />
+        </div>
+        <div className={`flex items-center gap-2 ${issues.total > 0 ? '' : 'pl-8'}`}>
+          {issues.total > 0 && (
+            <span
+              className="pointer-events-auto shrink-0 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+              title={issues.summary}
+            >
+              <span className="flex items-center gap-1">
+                <AlertTriangle className="size-3" />
+                {issues.total}
+              </span>
+            </span>
+          )}
           <span className="text-[11px] text-text-tertiary">
             {climate.tracks.length} {climate.tracks.length === 1 ? 'track' : 'tracks'}
             {ambientLayerCount > 0 && ` · ${ambientLayerCount} ambient`}
           </span>
-          {issues.total > 0 && (
-            <span
-              className="pointer-events-auto flex items-center gap-1 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
-              title={issues.summary}
-            >
-              <AlertTriangle className="size-3" />
-              {issues.total}
-            </span>
-          )}
         </div>
-        <div className="pointer-events-auto flex items-center gap-1">
-          {ambientLayerCount > 0 && (
-            <PopoverPrimitive.Root open={ambientExpanded} onOpenChange={setAmbientExpanded}>
-              <PopoverPrimitive.Trigger asChild>
-                <button
-                  type="button"
-                  data-no-climate-drag
-                  className="flex size-8 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-surface-1 hover:text-text-primary"
-                  aria-label={`${ambientExpanded ? 'Hide' : 'Show'} ambient controls for ${climate.name}`}
-                  title="Ambient controls"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <Waves className="size-4" style={{ color: climate.color }} />
-                </button>
-              </PopoverPrimitive.Trigger>
-              <PopoverPrimitive.Portal>
-                <PopoverPrimitive.Content
-                  side="top"
-                  align="end"
-                  sideOffset={8}
-                  collisionPadding={12}
-                  data-no-climate-drag
-                  className="z-50 flex w-56 flex-col gap-1 rounded-md border border-border bg-surface-2 p-2 shadow-lg outline-none"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {ambientLayers.map((layer) => {
-                    const isTriggered = layer.mode === 'oneshot'
-                    const enabled = isActive
-                      ? (ambientRuntime[layer.id]?.enabled ?? layer.enabled)
-                      : layer.enabled
-                    return (
-                      <div
-                        key={layer.id}
-                        className="flex min-h-8 items-center gap-2 rounded px-1.5 text-[12px] text-text-secondary hover:bg-surface-3"
-                      >
-                        {isTriggered ? (
-                          <button
-                            type="button"
-                            data-no-climate-drag
-                            disabled={!isActive || layer.clips.length === 0}
-                            className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-40"
-                            aria-label={`Play ${layer.name}`}
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              AmbientEngine.getInstance().triggerLayer(layer.id)
-                            }}
-                          >
-                            <Play className="size-3.5" style={{ color: climate.color }} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            role="switch"
-                            data-no-climate-drag
-                            aria-checked={enabled}
-                            aria-label={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
-                            className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-1"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              handleAmbientToggle(layer.id, !enabled)
-                            }}
-                          >
-                            <span
-                              className={`size-3 rounded-full border-2 ${enabled ? 'border-transparent' : 'border-text-tertiary'}`}
-                              style={enabled ? { backgroundColor: climate.color } : undefined}
+      </div>
+      <div className="relative z-10 flex items-center justify-between">
+        {ambientLayerCount > 0 ? (
+          <PopoverPrimitive.Root open={ambientExpanded} onOpenChange={setAmbientExpanded}>
+            <PopoverPrimitive.Trigger asChild>
+              <button
+                type="button"
+                data-no-climate-drag
+                className="flex size-8 items-center justify-center rounded-full transition-colors hover:bg-surface-1"
+                style={{ backgroundColor: ambientExpanded ? `${climate.color}33` : undefined }}
+                aria-label={`${ambientExpanded ? 'Hide' : 'Show'} ambient controls for ${climate.name}`}
+                title="Ambient controls"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Plus
+                  className={`size-4 transition-transform ${ambientExpanded ? 'rotate-45' : ''}`}
+                  style={{ color: climate.color }}
+                />
+              </button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                side="top"
+                align="start"
+                sideOffset={8}
+                collisionPadding={12}
+                data-no-climate-drag
+                className="z-50 flex w-56 flex-col gap-1 rounded-md border bg-surface-2 p-2 shadow-lg outline-none"
+                style={{ borderColor: climate.color }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {ambientLayers.map((layer) => {
+                  const isTriggered = layer.mode === 'oneshot'
+                  const enabled = isActive
+                    ? (ambientRuntime[layer.id]?.enabled ?? layer.enabled)
+                    : layer.enabled
+                  const sounding = ambientRuntime[layer.id]?.sounding ?? false
+                  return (
+                    <div
+                      key={layer.id}
+                      className="flex min-h-8 items-center gap-2 rounded px-1.5 text-[12px] text-text-secondary hover:bg-surface-3"
+                    >
+                      {isTriggered ? (
+                        <button
+                          type="button"
+                          data-no-climate-drag
+                          disabled={!isActive || layer.clips.length === 0}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary focus-visible:bg-surface-3 focus-visible:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label={`${sounding ? 'Stop' : 'Play'} ${layer.name}`}
+                          title={`${sounding ? 'Stop' : 'Play'} ${layer.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            if (sounding) AmbientEngine.getInstance().stopTriggeredLayer(layer.id)
+                            else AmbientEngine.getInstance().triggerLayer(layer.id)
+                          }}
+                        >
+                          {sounding ? (
+                            <Square
+                              className="size-3 fill-current"
+                              style={{ color: climate.color }}
                             />
-                          </button>
-                        )}
-                        <span className="min-w-0 flex-1 truncate">{layer.name}</span>
-                      </div>
-                    )
-                  })}
-                </PopoverPrimitive.Content>
-              </PopoverPrimitive.Portal>
-            </PopoverPrimitive.Root>
-          )}
-          {canPlay && (
-            <button
-              type="button"
-              data-no-climate-drag
-              className="flex size-9 items-center justify-center rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-              aria-label={`${isActive ? 'Stop' : 'Play'} ${climate.name}`}
-              title={`${isActive ? 'Stop' : 'Play'} climate`}
-              style={{ backgroundColor: `${climate.color}33` }}
-              onClick={(event) => {
-                event.stopPropagation()
-                onPlay()
-              }}
-            >
-              {isActive ? (
-                <Square className="size-3.5 fill-current" style={{ color: climate.color }} />
-              ) : (
-                <Play className="size-4" style={{ color: climate.color }} />
-              )}
-            </button>
-          )}
-        </div>
+                          ) : (
+                            <Play className="size-3.5" />
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          role="switch"
+                          data-no-climate-drag
+                          aria-checked={enabled}
+                          aria-label={`${enabled ? 'Disable' : 'Enable'} ${layer.name}`}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-1"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleAmbientToggle(layer.id, !enabled)
+                          }}
+                        >
+                          <span
+                            className={`size-3 rounded-full border-2 ${enabled ? 'border-transparent' : 'border-text-tertiary'}`}
+                            style={enabled ? { backgroundColor: climate.color } : undefined}
+                          />
+                        </button>
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{layer.name}</span>
+                    </div>
+                  )
+                })}
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        ) : (
+          <span />
+        )}
+        {canPlay && (
+          <button
+            type="button"
+            data-no-climate-drag
+            className="flex size-9 items-center justify-center rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+            aria-label={`${isActive ? 'Stop' : 'Play'} ${climate.name}`}
+            title={`${isActive ? 'Stop' : 'Play'} climate`}
+            style={{ backgroundColor: `${climate.color}33` }}
+            onClick={(event) => {
+              event.stopPropagation()
+              onPlay()
+            }}
+          >
+            {isActive ? (
+              <Square className="size-3.5 fill-current" style={{ color: climate.color }} />
+            ) : (
+              <Play className="size-4" style={{ color: climate.color }} />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Crossfade progress bar */}

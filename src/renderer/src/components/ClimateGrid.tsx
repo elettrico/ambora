@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { validateLocalAudioFile } from '@/lib/validateLocalAudio'
 import { probeLocalTrack } from '@/audio/probeTrack'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
+import { debugLog } from '@/lib/debugLog'
 
 interface ClimateGridProps {
   campaign: Campaign
@@ -57,14 +58,61 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
       ),
     ])
     const unprobed = assets.filter((asset) => !useDiagnosticsStore.getState().hasProbed(asset.id))
-    if (unprobed.length === 0) return
+    debugLog('campaign-grid-ready', {
+      campaignId: campaign.id,
+      climateCount: campaign.climates.length,
+      localAssetCount: assets.length,
+      assetsToProbe: unprobed.length,
+    })
+    if (unprobed.length === 0) {
+      let hideTimer: ReturnType<typeof setTimeout> | null = null
+      const completeProgress = setTimeout(() => {
+        useDiagnosticsStore.getState().setProbeProgress({
+          campaignId: campaign.id,
+          completed: 1,
+          total: 1,
+        })
+        hideTimer = setTimeout(() => useDiagnosticsStore.getState().setProbeProgress(null), 350)
+      }, 0)
+      return () => {
+        clearTimeout(completeProgress)
+        if (hideTimer) clearTimeout(hideTimer)
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      console.info(
+        `[campaigns] probing ${String(unprobed.length)} local asset(s) for “${campaign.name}”`,
+      )
+    }
+
+    let cancelled = false
+    let finishTimer: ReturnType<typeof setTimeout> | null = null
+    const showProgress = setTimeout(
+      () =>
+        useDiagnosticsStore.getState().setProbeProgress({
+          campaignId: campaign.id,
+          completed: 0,
+          total: unprobed.length,
+        }),
+      0,
+    )
 
     void (async () => {
+      let completed = 0
       for (const asset of unprobed) {
+        // React Strict Mode runs effects twice in development. Finish the one
+        // in-flight probe, but do not continue scanning the cancelled pass.
+        if (cancelled) break
         const diagnostics = useDiagnosticsStore.getState()
         if (diagnostics.hasProbed(asset.id)) continue
         diagnostics.markProbed(asset.id)
         const { ok, reason } = await probeLocalTrack(asset.localFilePath)
+        if (import.meta.env.DEV) {
+          console.info(
+            `[campaigns] probe ${asset.id}: ${ok ? 'ok' : `failed (${reason ?? 'unknown reason'})`}`,
+          )
+        }
         if (!ok) {
           diagnostics.setUnplayable(asset.id, {
             source: 'probe',
@@ -73,9 +121,29 @@ export function ClimateGrid({ campaign }: ClimateGridProps): React.JSX.Element {
         } else if (diagnostics.unplayable[asset.id]?.source === 'probe') {
           diagnostics.clearUnplayable(asset.id)
         }
+        completed++
+        if (!cancelled) {
+          useDiagnosticsStore.getState().setProbeProgress({
+            campaignId: campaign.id,
+            completed,
+            total: unprobed.length,
+          })
+        }
+      }
+      if (!cancelled) {
+        // Leave the completed state on screen long enough for the result to be legible.
+        finishTimer = setTimeout(() => {
+          if (!cancelled) useDiagnosticsStore.getState().setProbeProgress(null)
+        }, 350)
       }
     })()
-  }, [campaign.climates])
+
+    return () => {
+      cancelled = true
+      clearTimeout(showProgress)
+      if (finishTimer) clearTimeout(finishTimer)
+    }
+  }, [campaign.climates, campaign.id, campaign.name])
 
   function handleAddClimate(): void {
     const climate = createClimate(campaign.id, 'New Climate')
