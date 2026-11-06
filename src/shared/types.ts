@@ -25,6 +25,16 @@ export interface SoundboardSound {
   playbackMode: SoundboardPlaybackMode
   /** Symmetric random playback-rate range, 0-20%. Changes pitch and speed together. */
   pitchVariation?: number
+  /** Lower music and ambient while this sound has at least one active voice. */
+  duckBackground?: boolean
+  /** @deprecated Legacy combined background level. Migrated to both channel levels. */
+  duckLevel?: number
+  /** Music level while ducking, 0-100. */
+  duckMusicLevel?: number
+  /** Ambient level while ducking, 0-100. */
+  duckAmbientLevel?: number
+  /** Symmetric fade time used when applying and releasing ducking. */
+  duckFadeSec?: number
   duration?: number
   order: number
 }
@@ -43,6 +53,8 @@ export interface Climate {
   crossfadeDuration: number
   /** Per-climate music level, relative to the global master volume. */
   musicVolume?: number
+  /** Loop the playlist (default) or stop its music after every track has played once. */
+  musicPlaybackMode?: 'loop' | 'once'
   /**
    * Optional so campaigns saved before ambient layers existed load unchanged —
    * treat `undefined` as an empty list everywhere.
@@ -145,6 +157,40 @@ export interface LoadCampaignsResult {
   warning?: string
   /** Campaigns could not be loaded (corrupt primary and missing/bad backup). */
   error?: string
+}
+
+export interface CollectMediaFailure {
+  sourcePath: string
+  reason: string
+}
+
+export type CampaignMediaType = 'music' | 'ambient' | 'sfx'
+
+export interface CollectMediaPathUpdate {
+  sourcePath: string
+  collectedPath: string
+}
+
+export interface CollectMediaProgress {
+  completedFiles: number
+  totalFiles: number
+  copiedFiles: number
+  skippedFiles: number
+  failedFiles: number
+  completedBytes: number
+  copiedBytes: number
+  totalBytes: number
+  failures: CollectMediaFailure[]
+}
+
+export interface CollectCampaignMediaResult {
+  destinationDirectory: string
+  copiedFiles: number
+  skippedFiles: number
+  copiedBytes: number
+  failures: CollectMediaFailure[]
+  pathUpdates: CollectMediaPathUpdate[]
+  finalProgress: CollectMediaProgress
 }
 
 // WebSocket protocol types

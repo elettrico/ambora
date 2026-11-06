@@ -14,7 +14,12 @@ import { YouTubeAGC } from './YouTubeAGC'
 import { ShuffleBag, nextSequentialIndex } from './trackSelection'
 import { AmbientEngine } from './AmbientEngine'
 import { SoundboardEngine } from './SoundboardEngine'
-import { getAudioContext, getAudioOutputNode, closeAudioContext } from './audioContext'
+import {
+  getAudioContext,
+  getMusicOutputNode,
+  getBackgroundMeterAnalysers,
+  closeAudioContext,
+} from './audioContext'
 import { audioLog, extOf } from './audioLog'
 import { useAudioStore } from '@/store/audioStore'
 import { useDiagnosticsStore } from '@/store/diagnosticsStore'
@@ -75,6 +80,7 @@ interface ClimatePlaybackSnapshot {
   trackIndex: number
   positionSec: number
   trackFingerprint: string
+  playedOnceTrackIds?: string[]
 }
 
 const FADE_IN_DURATION = 1
@@ -108,6 +114,7 @@ export class AudioEngine {
 
   private currentClimate: Climate | null = null
   private currentTrackIndex = 0
+  private playedOnceTrackIds = new Set<string>()
   private pendingActiveChannelId: ChannelId | null = null
   private activationSeq = 0
   private isActivationLoading = false
@@ -115,9 +122,10 @@ export class AudioEngine {
   private volumeUnsub: (() => void) | null = null
   private onDurationAvailable: ((trackId: string, duration: number) => void) | null = null
   private climateSnapshots = new Map<string, ClimatePlaybackSnapshot>()
+  /** Current loaded climate that must start at track 1 / second 0 on its next play. */
+  private pendingRestartClimateId: string | null = null
   private lufsCache = new LufsCache()
   private channelNormChains = new Map<ChannelId, NormalizationChain>()
-  private musicMeter: AnalyserNode | null = null
   private youtubeAGC = new YouTubeAGC()
   private positionInterval: ReturnType<typeof setInterval> | null = null
   private autoAdvancing = false
@@ -169,18 +177,9 @@ export class AudioEngine {
       // Shared with the AmbientEngine so music and ambient graph into one output.
       this.audioContext = getAudioContext()
 
-      this.musicMeter =
-        typeof this.audioContext.createAnalyser === 'function'
-          ? this.audioContext.createAnalyser()
-          : null
-      if (this.musicMeter) {
-        this.musicMeter.fftSize = 256
-        this.musicMeter.smoothingTimeConstant = 0.75
-      }
-
       const gainA = this.audioContext.createGain()
       gainA.gain.value = 0
-      gainA.connect(getAudioOutputNode())
+      gainA.connect(getMusicOutputNode())
       this.channelA = {
         id: 'A',
         gainNode: gainA,
@@ -191,7 +190,7 @@ export class AudioEngine {
 
       const gainB = this.audioContext.createGain()
       gainB.gain.value = 0
-      gainB.connect(getAudioOutputNode())
+      gainB.connect(getMusicOutputNode())
       this.channelB = {
         id: 'B',
         gainNode: gainB,
@@ -286,7 +285,6 @@ export class AudioEngine {
       const chain = new NormalizationChain(ctx)
       source.connect(chain.input)
       chain.output.connect(channel.gainNode)
-      if (this.musicMeter) chain.output.connect(this.musicMeter)
       this.channelNormChains.set(channel.id, chain)
     }
   }
@@ -324,15 +322,27 @@ export class AudioEngine {
     const sorted = this.sortedTracks(this.currentClimate)
     const ids = sorted.map((t) => t.id)
 
+    const excluded = new Set(this.failedTrackIds)
+    if (this.currentClimate.musicPlaybackMode === 'once') {
+      for (const trackId of this.playedOnceTrackIds) excluded.add(trackId)
+    }
+
     if (!useAudioStore.getState().isShuffled || sorted.length <= 1) {
-      return nextSequentialIndex(this.currentTrackIndex, ids, this.failedTrackIds)
+      return nextSequentialIndex(this.currentTrackIndex, ids, excluded)
     }
 
     return this.shuffleBag.next(
       ids,
-      this.failedTrackIds,
+      excluded,
       this.currentTrackIndex,
       this.getTrackFingerprint(this.currentClimate),
+    )
+  }
+
+  private hasUnplayedOnceTrack(): boolean {
+    if (!this.currentClimate || this.currentClimate.musicPlaybackMode !== 'once') return true
+    return this.currentClimate.tracks.some(
+      (track) => !this.failedTrackIds.has(track.id) && !this.playedOnceTrackIds.has(track.id),
     )
   }
 
@@ -345,6 +355,7 @@ export class AudioEngine {
 
   private saveClimateSnapshot(): void {
     if (!this.currentClimate) return
+    if (this.pendingRestartClimateId === this.currentClimate.id) return
     const channel = this.getActiveChannel()
     if (!channel.player) return
 
@@ -352,6 +363,9 @@ export class AudioEngine {
       trackIndex: this.currentTrackIndex,
       positionSec: channel.player.getCurrentTime(),
       trackFingerprint: this.getTrackFingerprint(this.currentClimate),
+      ...(this.currentClimate.musicPlaybackMode === 'once'
+        ? { playedOnceTrackIds: [...this.playedOnceTrackIds] }
+        : {}),
     })
   }
 
@@ -428,6 +442,9 @@ export class AudioEngine {
     controller.setImmediate(0)
 
     player.play()
+    if (this.currentClimate?.musicPlaybackMode === 'once') {
+      this.playedOnceTrackIds.add(track.id)
+    }
     if (seekToSec && seekToSec > 0) {
       player.seekTo(seekToSec)
     }
@@ -585,6 +602,7 @@ export class AudioEngine {
 
     const remaining = duration - player.getCurrentTime()
     if (remaining > crossfade + NEAR_END_PRELOAD_MARGIN) return
+    if (!this.hasUnplayedOnceTrack()) return
 
     this.triggerAdvance(this.getNextTrackIndex(), crossfade)
   }
@@ -608,12 +626,43 @@ export class AudioEngine {
       return
     }
 
+    if (this.currentClimate?.musicPlaybackMode === 'once' && !this.hasUnplayedOnceTrack()) {
+      this.finishOncePlayback()
+      return
+    }
+
     if (!this.currentClimate || this.currentClimate.tracks.length <= 1) {
       this.triggerAdvance(this.currentTrackIndex)
       return
     }
 
     this.triggerAdvance(this.getNextTrackIndex())
+  }
+
+  /** Finish only the score; authored ambient layers keep running with the climate. */
+  private finishOncePlayback(): void {
+    const climate = this.currentClimate
+    if (!climate) return
+
+    this.stopYouTubeAGC()
+    this.crossfadeManager.cancelAll()
+    if (this.channelA) this.disposeChannel(this.channelA)
+    if (this.channelB) this.disposeChannel(this.channelB)
+    removeOrphanedYouTubeContainers()
+    this.climateSnapshots.delete(climate.id)
+    this.autoAdvancing = false
+    this.pendingActiveChannelId = null
+    this.isActivationLoading = false
+    useAudioStore.getState().clearAllFadeAnimations()
+
+    const ambientContinues = (climate.ambientLayers ?? []).length > 0
+    this.engineState = ambientContinues ? 'ambient' : 'idle'
+    this.updateStore({
+      activeTrackId: null,
+      isPlaying: ambientContinues,
+      isFadingToSilence: false,
+      isTrackLoading: false,
+    })
   }
 
   private completePendingCrossfade(): void {
@@ -639,8 +688,17 @@ export class AudioEngine {
   private async advanceToTrack(
     nextIndex: number,
     crossfadeDuration: number = TRACK_CROSSFADE_DURATION,
+    allowPlayedTrack = false,
   ): Promise<void> {
     if (!this.currentClimate) return
+    if (
+      !allowPlayedTrack &&
+      this.currentClimate.musicPlaybackMode === 'once' &&
+      !this.hasUnplayedOnceTrack()
+    ) {
+      this.finishOncePlayback()
+      return
+    }
     const mySeq = this.activationSeq
 
     const sorted = [...this.currentClimate.tracks].sort((a, b) => a.order - b.order)
@@ -767,6 +825,7 @@ export class AudioEngine {
 
     this.currentClimate = null
     this.currentTrackIndex = 0
+    this.playedOnceTrackIds.clear()
     this.failedTrackIds.clear()
     this.shuffleBag.reset()
     useAudioStore.getState().clearAllFadeAnimations()
@@ -785,12 +844,12 @@ export class AudioEngine {
     this.goIdle(0)
   }
 
-  /**
-   * Forget the in-memory resume point for every climate. The current player is
-   * left alone; future climate activations start from their first track.
-   */
+  /** Forget every resume point without interrupting audio that is sounding now. */
   resetClimatePositions(): void {
     this.climateSnapshots.clear()
+    this.pendingRestartClimateId = this.currentClimate?.tracks.length
+      ? this.currentClimate.id
+      : null
   }
 
   async activateClimate(climate: Climate, startTrackId?: string): Promise<void> {
@@ -801,7 +860,8 @@ export class AudioEngine {
     if (
       !startTrackId &&
       storeState.activeClimateId === climate.id &&
-      (this.engineState === 'playing' || this.engineState === 'ambient')
+      (this.engineState === 'playing' || this.engineState === 'ambient') &&
+      !(climate.musicPlaybackMode === 'once' && storeState.activeTrackId === null)
     ) {
       return
     }
@@ -845,12 +905,16 @@ export class AudioEngine {
     // A specific track was requested: start it from the beginning. Otherwise
     // restore from snapshot if available, else start at track 0 (or a random
     // track when shuffling).
-    const snapshot = this.getClimateSnapshot(climate)
+    const forceRestart = this.pendingRestartClimateId === climate.id
+    const snapshot = forceRestart ? null : this.getClimateSnapshot(climate)
     let startTrackIndex: number
     let startPositionSec: number
     if (startTrackId) {
       const idx = sorted.findIndex((t) => t.id === startTrackId)
       startTrackIndex = idx === -1 ? 0 : idx
+      startPositionSec = 0
+    } else if (forceRestart) {
+      startTrackIndex = 0
       startPositionSec = 0
     } else if (snapshot) {
       startTrackIndex = snapshot.trackIndex % sorted.length
@@ -870,6 +934,10 @@ export class AudioEngine {
 
     this.currentClimate = climate
     this.currentTrackIndex = startTrackIndex
+    this.playedOnceTrackIds =
+      climate.musicPlaybackMode === 'once'
+        ? new Set(snapshot?.playedOnceTrackIds ?? [])
+        : new Set<string>()
 
     if (
       this.engineState === 'idle' ||
@@ -900,6 +968,7 @@ export class AudioEngine {
 
       const loaded = await this.loadAndPlayOnChannel(channel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
+      if (this.pendingRestartClimateId === climate.id) this.pendingRestartClimateId = null
       this.isActivationLoading = false
       this.updateStore({ isTrackLoading: false })
       if (loaded) {
@@ -953,6 +1022,7 @@ export class AudioEngine {
       this.stopYouTubeAGC()
       const loaded = await this.loadAndPlayOnChannel(inChannel, track, startPositionSec, mySeq)
       if (this.activationSeq !== mySeq) return
+      if (this.pendingRestartClimateId === climate.id) this.pendingRestartClimateId = null
       this.isActivationLoading = false
       this.updateStore({ isTrackLoading: false })
       if (loaded) {
@@ -1053,6 +1123,7 @@ export class AudioEngine {
 
     this.currentClimate = climate
     this.currentTrackIndex = 0
+    this.playedOnceTrackIds.clear()
     this.failedTrackIds.clear()
     this.shuffleBag.reset()
     this.autoAdvancing = false
@@ -1130,7 +1201,7 @@ export class AudioEngine {
     this.autoAdvancing = true
     this.updateStore({ isTrackLoading: true })
     try {
-      await this.advanceToTrack(trackIndex)
+      await this.advanceToTrack(trackIndex, TRACK_CROSSFADE_DURATION, true)
     } finally {
       this.autoAdvancing = false
       this.updateStore({ isTrackLoading: false })
@@ -1141,9 +1212,18 @@ export class AudioEngine {
   syncClimate(climate: Climate): void {
     if (this.currentClimate?.id !== climate.id) return
     const previousVolume = this.currentClimate.musicVolume ?? 100
+    const previousPlaybackMode = this.currentClimate.musicPlaybackMode ?? 'loop'
     this.currentClimate = climate
 
     const store = useAudioStore.getState()
+    const nextPlaybackMode = climate.musicPlaybackMode ?? 'loop'
+    if (previousPlaybackMode !== nextPlaybackMode) {
+      this.playedOnceTrackIds.clear()
+      if (nextPlaybackMode === 'once' && store.activeTrackId) {
+        this.playedOnceTrackIds.add(store.activeTrackId)
+      }
+      this.shuffleBag.reset()
+    }
     const activeTrackWasRemoved =
       store.activeTrackId !== null &&
       !climate.tracks.some((track) => track.id === store.activeTrackId)
@@ -1272,7 +1352,20 @@ export class AudioEngine {
     const store = useAudioStore.getState()
     if (!store.activeClimateId || store.isPlaying) return
 
-    if (store.activeTrackId === null && this.currentClimate?.tracks.length) {
+    if (
+      this.currentClimate?.id === this.pendingRestartClimateId &&
+      this.currentClimate.tracks.length > 0
+    ) {
+      const firstTrack = this.sortedTracks(this.currentClimate)[0]
+      void this.activateClimate(this.currentClimate, firstTrack.id)
+      return
+    }
+
+    if (
+      store.activeTrackId === null &&
+      this.currentClimate?.tracks.length &&
+      this.engineState !== 'ambient'
+    ) {
       const firstTrack = this.sortedTracks(this.currentClimate)[0]
       void this.activateClimate(this.currentClimate, firstTrack.id)
       return
@@ -1366,7 +1459,7 @@ export class AudioEngine {
   }
 
   getMeterAnalyser(): AnalyserNode | null {
-    return this.musicMeter
+    return getBackgroundMeterAnalysers().music
   }
 
   /**
@@ -1414,8 +1507,6 @@ export class AudioEngine {
     removeOrphanedYouTubeContainers()
     this.lufsCache.dispose()
     this.volumeUnsub?.()
-    this.musicMeter?.disconnect()
-    this.musicMeter = null
     closeAudioContext()
     this.audioContext = null
     this.channelA = null
@@ -1426,6 +1517,7 @@ export class AudioEngine {
     this.failedTrackIds.clear()
     this.shuffleBag.reset()
     this.climateSnapshots.clear()
+    this.pendingRestartClimateId = null
     useAudioStore.getState().setIsTrackLoading(false)
     AudioEngine.instance = null
   }

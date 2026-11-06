@@ -47,6 +47,7 @@ export const DEFAULTS = {
   crossfadeDuration: 4,
   volume: 80,
   musicVolume: 100,
+  musicPlaybackMode: 'loop' as const,
   serverPort: 3000,
   minCrossfade: 1,
   maxCrossfade: 10,
@@ -70,6 +71,11 @@ export const AMBIENT_DEFAULTS = {
 export const SOUNDBOARD_DEFAULTS = {
   volume: 70,
   pitchVariation: 0,
+  duckMusicLevel: 20,
+  duckAmbientLevel: 20,
+  duckFadeSec: 1,
+  minDuckFadeSec: 0,
+  maxDuckFadeSec: 5,
 } as const
 
 export const SOUNDBOARD_ICONS = [

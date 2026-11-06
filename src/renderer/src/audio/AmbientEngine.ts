@@ -1,4 +1,4 @@
-import { getAudioContext, getAudioOutputNode } from './audioContext'
+import { getAudioContext, getAmbientOutputNode, getBackgroundMeterAnalysers } from './audioContext'
 import { localAudioUrl } from '@/lib/localAudioUrl'
 import { AmbientClipSelector, nextDelaySec, sortedClips } from './ambientScheduling'
 import { audioLog, extOf } from './audioLog'
@@ -151,7 +151,6 @@ export class AmbientEngine {
 
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
-  private meter: AnalyserNode | null = null
   private auditionGain: GainNode | null = null
   private stack: Stack | null = null
 
@@ -199,6 +198,41 @@ export class AmbientEngine {
     this.onClipDuration = callback
   }
 
+  /**
+   * Adopts collected paths without restarting byte-identical ambient audio that
+   * is already playing. Normal editor path changes still flow through
+   * syncClimate and re-arm the affected layer.
+   */
+  remapLocalPaths(
+    climateIds: ReadonlySet<string>,
+    replacements: ReadonlyMap<string, string>,
+  ): void {
+    const stack = this.stack
+    if (!stack || stack.disposed || !climateIds.has(stack.climateId) || replacements.size === 0) {
+      return
+    }
+
+    for (const live of stack.layers.values()) {
+      let changed = false
+      const clips = live.layer.clips.map((clip) => {
+        const replacement = replacements.get(clip.localFilePath)
+        if (!replacement) return clip
+
+        changed = true
+        const cached = this.bufferCache.get(clip.localFilePath)
+        if (cached && !this.bufferCache.has(replacement)) {
+          this.bufferCache.set(replacement, cached)
+        }
+        return { ...clip, localFilePath: replacement }
+      })
+
+      if (changed) {
+        live.layer = { ...live.layer, clips }
+        live.structuralKey = structuralKeyOf(live.layer)
+      }
+    }
+  }
+
   // ── Graph setup ──────────────────────────────────────────────────────────
 
   private ensureGraph(): AudioContext {
@@ -216,12 +250,7 @@ export class AmbientEngine {
       this.ctx = ctx
       this.masterGain = ctx.createGain()
       this.masterGain.gain.value = this.masterVolume01()
-      this.meter = typeof ctx.createAnalyser === 'function' ? ctx.createAnalyser() : null
-      if (this.meter) {
-        this.meter.fftSize = 256
-        this.meter.smoothingTimeConstant = 0.75
-      }
-      this.masterGain.connect(getAudioOutputNode())
+      this.masterGain.connect(getAmbientOutputNode())
 
       this.auditionGain = ctx.createGain()
       this.auditionGain.gain.value = 1
@@ -239,7 +268,7 @@ export class AmbientEngine {
   }
 
   getMeterAnalyser(): AnalyserNode | null {
-    return this.meter
+    return getBackgroundMeterAnalysers().ambient
   }
 
   private subscribeToVolume(): void {
@@ -369,7 +398,6 @@ export class AmbientEngine {
     const stackGain = ctx.createGain()
     stackGain.gain.value = 0
     stackGain.connect(this.masterGain!)
-    if (this.meter) stackGain.connect(this.meter)
 
     const stack: Stack = {
       climateId: climate.id,
@@ -1006,8 +1034,6 @@ export class AmbientEngine {
     this.auditionGain = null
     this.masterGain?.disconnect()
     this.masterGain = null
-    this.meter?.disconnect()
-    this.meter = null
     this.bufferCache.clear()
     this.decoding.clear()
     this.ctx = null

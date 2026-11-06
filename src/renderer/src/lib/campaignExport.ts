@@ -73,6 +73,7 @@ function exportClimate(climate: Climate): ExportedClimate {
     order: climate.order,
     crossfadeDuration: climate.crossfadeDuration,
     musicVolume: climate.musicVolume ?? DEFAULTS.musicVolume,
+    musicPlaybackMode: climate.musicPlaybackMode ?? DEFAULTS.musicPlaybackMode,
     tracks: climate.tracks.map(exportTrack),
   }
   const layers = climate.ambientLayers ?? []
@@ -100,6 +101,30 @@ function exportCampaign(campaign: Campaign): ExportedCampaign {
       if (sound.icon) result.icon = sound.icon
       if (sound.iconColor) result.iconColor = sound.iconColor
       result.pitchVariation = clampPitchVariation(sound.pitchVariation)
+      if (sound.duckBackground) {
+        result.duckBackground = true
+        result.duckMusicLevel = Math.max(
+          0,
+          Math.min(
+            100,
+            sound.duckMusicLevel ?? sound.duckLevel ?? SOUNDBOARD_DEFAULTS.duckMusicLevel,
+          ),
+        )
+        result.duckAmbientLevel = Math.max(
+          0,
+          Math.min(
+            100,
+            sound.duckAmbientLevel ?? sound.duckLevel ?? SOUNDBOARD_DEFAULTS.duckAmbientLevel,
+          ),
+        )
+        result.duckFadeSec = Math.max(
+          SOUNDBOARD_DEFAULTS.minDuckFadeSec,
+          Math.min(
+            SOUNDBOARD_DEFAULTS.maxDuckFadeSec,
+            sound.duckFadeSec ?? SOUNDBOARD_DEFAULTS.duckFadeSec,
+          ),
+        )
+      }
       if (sound.duration !== undefined) result.duration = sound.duration
       return result
     })
@@ -284,6 +309,7 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
           typeof cl.musicVolume === 'number'
             ? Math.max(0, Math.min(100, cl.musicVolume))
             : DEFAULTS.musicVolume,
+        musicPlaybackMode: cl.musicPlaybackMode === 'once' ? 'once' : 'loop',
         tracks,
         ...(ambientLayers.length > 0 ? { ambientLayers } : {}),
       })
@@ -330,6 +356,36 @@ export function deserializeCampaignFromImport(raw: string): ImportResult {
             pitchVariation: clampPitchVariation(
               typeof sound.pitchVariation === 'number' ? sound.pitchVariation : undefined,
             ),
+            duckBackground: sound.duckBackground === true,
+            duckMusicLevel: Math.max(
+              0,
+              Math.min(
+                100,
+                typeof sound.duckMusicLevel === 'number'
+                  ? sound.duckMusicLevel
+                  : typeof sound.duckLevel === 'number'
+                    ? sound.duckLevel
+                    : SOUNDBOARD_DEFAULTS.duckMusicLevel,
+              ),
+            ),
+            duckAmbientLevel: Math.max(
+              0,
+              Math.min(
+                100,
+                typeof sound.duckAmbientLevel === 'number'
+                  ? sound.duckAmbientLevel
+                  : typeof sound.duckLevel === 'number'
+                    ? sound.duckLevel
+                    : SOUNDBOARD_DEFAULTS.duckAmbientLevel,
+              ),
+            ),
+            duckFadeSec:
+              typeof sound.duckFadeSec === 'number'
+                ? Math.max(
+                    SOUNDBOARD_DEFAULTS.minDuckFadeSec,
+                    Math.min(SOUNDBOARD_DEFAULTS.maxDuckFadeSec, sound.duckFadeSec),
+                  )
+                : SOUNDBOARD_DEFAULTS.duckFadeSec,
             duration: typeof sound.duration === 'number' ? sound.duration : undefined,
             order: typeof sound.order === 'number' ? sound.order : order,
           }

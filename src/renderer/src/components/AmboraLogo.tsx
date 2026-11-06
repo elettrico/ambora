@@ -13,12 +13,12 @@ export function AmboraLogo({ size = 32 }: AmboraLogoProps): React.JSX.Element {
     >
       <defs>
         <linearGradient id="logoGradA" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#7B93F5" stopOpacity={0.9} />
-          <stop offset="100%" stopColor="#6659D9" stopOpacity={0.55} />
+          <stop offset="0%" stopColor="#F07070" stopOpacity={0.95} />
+          <stop offset="100%" stopColor="#B83F55" stopOpacity={0.6} />
         </linearGradient>
         <linearGradient id="logoGradB" x1="100%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#95A8F8" stopOpacity={0.9} />
-          <stop offset="100%" stopColor="#7B93F5" stopOpacity={0.55} />
+          <stop offset="0%" stopColor="#FF9A92" stopOpacity={0.95} />
+          <stop offset="100%" stopColor="#F07070" stopOpacity={0.6} />
         </linearGradient>
       </defs>
 
@@ -75,7 +75,7 @@ export function AmboraLogo({ size = 32 }: AmboraLogoProps): React.JSX.Element {
       />
 
       {/* Center dot */}
-      <circle cx={0} cy={0} r={8} fill="#7B93F5" opacity={0.12} />
+      <circle cx={0} cy={0} r={8} fill="#F07070" opacity={0.18} />
       <circle cx={0} cy={0} r={3.5} fill="#EAEAED" opacity={0.9} />
     </svg>
   )

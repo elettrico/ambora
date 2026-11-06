@@ -412,6 +412,22 @@ export function ClimateDetail({
                     {climate.musicVolume ?? DEFAULTS.musicVolume}%
                   </span>
                 </div>
+                <label className="flex shrink-0 items-center gap-2 text-[11px] text-text-secondary">
+                  Playback
+                  <select
+                    value={climate.musicPlaybackMode ?? DEFAULTS.musicPlaybackMode}
+                    className="h-8 rounded-sm border border-border bg-surface-2 px-2 text-[11px] text-text-secondary"
+                    aria-label={`${climate.name} music playback mode`}
+                    onChange={(event) =>
+                      updateClimate(campaignId, climate.id, {
+                        musicPlaybackMode: event.target.value === 'once' ? 'once' : 'loop',
+                      })
+                    }
+                  >
+                    <option value="loop">Loop playlist</option>
+                    <option value="once">Play once</option>
+                  </select>
+                </label>
               </div>
               <Button variant="ghost" size="xs" onClick={() => setAddTrackOpen(true)}>
                 <Plus className="size-3" />

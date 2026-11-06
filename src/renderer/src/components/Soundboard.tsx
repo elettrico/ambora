@@ -51,11 +51,10 @@ function isLetter(key: string): boolean {
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
-  return (
-    target.isContentEditable ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement
-  )
+  const isTextInput =
+    target instanceof HTMLInputElement &&
+    !['checkbox', 'radio', 'range', 'button', 'submit', 'reset'].includes(target.type)
+  return target.isContentEditable || isTextInput || target instanceof HTMLTextAreaElement
 }
 
 export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
@@ -132,6 +131,7 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
       const sound = sounds.find((item) => item.shortcutKey === key)
       if (!sound) return
       event.preventDefault()
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
       void play(sound, event.shiftKey)
     }
 
@@ -426,6 +426,92 @@ export function Soundboard({ campaign }: SoundboardProps): React.JSX.Element {
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
+                      <div className="col-span-full flex flex-wrap items-center gap-x-5 gap-y-2 py-2">
+                        <label className="flex items-center gap-2 text-[11px] text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={sound.duckBackground ?? false}
+                            className="size-3.5 accent-accent"
+                            onChange={(event) =>
+                              updateSoundboardSound(campaign.id, sound.id, {
+                                duckBackground: event.target.checked,
+                              })
+                            }
+                          />
+                          Ducking
+                        </label>
+                        {sound.duckBackground && (
+                          <>
+                            <label className="flex min-w-[210px] items-center gap-2 text-[10px] text-text-tertiary">
+                              <span className="shrink-0">Music while ducked</span>
+                              <WheelSlider
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={[
+                                  sound.duckMusicLevel ??
+                                    sound.duckLevel ??
+                                    SOUNDBOARD_DEFAULTS.duckMusicLevel,
+                                ]}
+                                className="min-w-20 flex-1"
+                                aria-label={`${sound.name} music volume while ducked percent`}
+                                onValueChange={([duckMusicLevel]) =>
+                                  updateSoundboardSound(campaign.id, sound.id, { duckMusicLevel })
+                                }
+                              />
+                              <span className="w-8 text-right tabular-nums">
+                                {sound.duckMusicLevel ??
+                                  sound.duckLevel ??
+                                  SOUNDBOARD_DEFAULTS.duckMusicLevel}
+                                %
+                              </span>
+                            </label>
+                            <label className="flex min-w-[220px] items-center gap-2 text-[10px] text-text-tertiary">
+                              <span className="shrink-0">Ambient while ducked</span>
+                              <WheelSlider
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={[
+                                  sound.duckAmbientLevel ??
+                                    sound.duckLevel ??
+                                    SOUNDBOARD_DEFAULTS.duckAmbientLevel,
+                                ]}
+                                className="min-w-20 flex-1"
+                                aria-label={`${sound.name} ambient volume while ducked percent`}
+                                onValueChange={([duckAmbientLevel]) =>
+                                  updateSoundboardSound(campaign.id, sound.id, {
+                                    duckAmbientLevel,
+                                  })
+                                }
+                              />
+                              <span className="w-8 text-right tabular-nums">
+                                {sound.duckAmbientLevel ??
+                                  sound.duckLevel ??
+                                  SOUNDBOARD_DEFAULTS.duckAmbientLevel}
+                                %
+                              </span>
+                            </label>
+                            <label className="flex min-w-[170px] items-center gap-2 text-[10px] text-text-tertiary">
+                              <span className="shrink-0">Fade</span>
+                              <WheelSlider
+                                min={SOUNDBOARD_DEFAULTS.minDuckFadeSec}
+                                max={SOUNDBOARD_DEFAULTS.maxDuckFadeSec}
+                                step={0.1}
+                                value={[sound.duckFadeSec ?? SOUNDBOARD_DEFAULTS.duckFadeSec]}
+                                className="min-w-20 flex-1"
+                                aria-label={`${sound.name} background duck fade seconds`}
+                                onValueChange={([duckFadeSec]) =>
+                                  updateSoundboardSound(campaign.id, sound.id, { duckFadeSec })
+                                }
+                              />
+                              <span className="w-9 text-right tabular-nums">
+                                {(sound.duckFadeSec ?? SOUNDBOARD_DEFAULTS.duckFadeSec).toFixed(1)}s
+                              </span>
+                            </label>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

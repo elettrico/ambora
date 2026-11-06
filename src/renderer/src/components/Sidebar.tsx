@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
+  CheckCircle2,
   Download,
   Library,
   Moon,
@@ -24,6 +25,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -43,7 +45,7 @@ import { useInlineEdit } from '@/hooks/useInlineEdit'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { serializeCampaignForExport, deserializeCampaignFromImport } from '@/lib/campaignExport'
-import type { Campaign } from '@/lib/types'
+import type { Campaign, CollectCampaignMediaResult, CollectMediaProgress } from '@/lib/types'
 import { AmboraLogo } from './AmboraLogo'
 import { QRCodePanel } from './QRCodePanel'
 import { SidebarSection } from './SidebarSection'
@@ -71,8 +73,14 @@ function CampaignItem({
   onSelect: () => void
 }): React.JSX.Element {
   const { id, name } = campaign
-  const { updateCampaign, deleteCampaign } = useCampaignStore()
+  const { updateCampaign, deleteCampaign, collectCampaignMedia } = useCampaignStore()
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [collectOpen, setCollectOpen] = useState(false)
+  const [collecting, setCollecting] = useState(false)
+  const [collectResult, setCollectResult] = useState<CollectCampaignMediaResult | null>(null)
+  const [collectProgress, setCollectProgress] = useState<CollectMediaProgress>(() =>
+    emptyCollectProgress(),
+  )
 
   const {
     isEditing: renameIsEditing,
@@ -102,6 +110,35 @@ function CampaignItem({
   function handleDelete(): void {
     deleteCampaign(id)
     toast.success('Campaign deleted')
+  }
+
+  async function handleCollectMedia(): Promise<void> {
+    setCollecting(true)
+    setCollectResult(null)
+    setCollectProgress(emptyCollectProgress())
+    try {
+      const result = await collectCampaignMedia(id, setCollectProgress)
+      if (!result) {
+        setCollectOpen(false)
+        return
+      }
+      setCollectResult(result)
+      if (result.failures.length === 0) {
+        toast.success('Campaign media collected')
+      } else {
+        toast.warning('Campaign media collected with some missing files')
+      }
+    } catch {
+      toast.error('Failed to collect campaign media')
+    } finally {
+      setCollecting(false)
+    }
+  }
+
+  function openCollectDialog(): void {
+    setCollectResult(null)
+    setCollectProgress(emptyCollectProgress())
+    setCollectOpen(true)
   }
 
   return (
@@ -138,7 +175,9 @@ function CampaignItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="right">
             <DropdownMenuItem onClick={startRenameEditing}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={openCollectDialog}>Collect Media…</DropdownMenuItem>
             <DropdownMenuItem onClick={handleExport}>Export</DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
               Delete
             </DropdownMenuItem>
@@ -162,7 +201,198 @@ function CampaignItem({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={collectOpen}
+        onOpenChange={(open) => {
+          if (!collecting) setCollectOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-[500px]" showCloseButton={false}>
+          {collecting || collectResult ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Collect media for &ldquo;{name}&rdquo;</DialogTitle>
+                <DialogDescription>
+                  Original files remain untouched. Campaign references are changed only after a file
+                  is copied successfully.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <CollectionMetrics
+                  copiedFiles={collectProgress.copiedFiles}
+                  copiedBytes={collectProgress.copiedBytes}
+                  skippedFiles={collectProgress.skippedFiles}
+                />
+                <CollectProgress progress={collectProgress} complete={!collecting} />
+                {collectResult && (
+                  <div className="rounded-md bg-surface-2 p-3">
+                    <p className="text-[11px] text-text-tertiary">Media folder</p>
+                    <p className="mt-1 break-all text-[12px] text-text-secondary">
+                      {collectResult.destinationDirectory}
+                    </p>
+                  </div>
+                )}
+                {collectProgress.failures.length > 0 ? (
+                  <CollectionFailures failures={collectProgress.failures} />
+                ) : (
+                  !collecting && (
+                    <div className="flex items-center gap-2 text-[13px] text-success">
+                      <CheckCircle2 className="size-4" />
+                      All available local media now points into the selected folder.
+                    </div>
+                  )
+                )}
+              </div>
+              <DialogFooter>
+                <Button disabled={collecting} onClick={() => setCollectOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Collect media for &ldquo;{name}&rdquo;?</DialogTitle>
+                <DialogDescription>
+                  Choose a folder, then copy all local music, ambient clips, and soundboard sounds
+                  into its music, ambient, and sfx subfolders. Existing source files will not be
+                  moved or deleted.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setCollectOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => void handleCollectMedia()}>
+                  Choose Folder &amp; Collect
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
+  )
+}
+
+function emptyCollectProgress(): CollectMediaProgress {
+  return {
+    completedFiles: 0,
+    totalFiles: 0,
+    copiedFiles: 0,
+    skippedFiles: 0,
+    failedFiles: 0,
+    completedBytes: 0,
+    copiedBytes: 0,
+    totalBytes: 0,
+    failures: [],
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** unitIndex
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
+}
+
+function ResultMetric({ label, value }: { label: string; value: string }): React.JSX.Element {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 rounded-md bg-surface-2 p-3">
+      <span className="text-[11px] text-text-tertiary">{label}</span>
+      <span className="truncate text-[14px] font-medium text-text-primary">{value}</span>
+    </div>
+  )
+}
+
+function CollectionMetrics({
+  copiedFiles,
+  copiedBytes,
+  skippedFiles,
+}: {
+  copiedFiles: number
+  copiedBytes: number
+  skippedFiles: number
+}): React.JSX.Element {
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      <ResultMetric label="Copied" value={String(copiedFiles)} />
+      <ResultMetric label="Disk used" value={formatBytes(copiedBytes)} />
+      <ResultMetric label="Already there" value={String(skippedFiles)} />
+    </div>
+  )
+}
+
+function CollectionFailures({
+  failures,
+}: {
+  failures: CollectMediaProgress['failures']
+}): React.JSX.Element {
+  return (
+    <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded-md border border-warning/30 bg-warning/10 p-3">
+      <div className="flex items-center gap-2 text-[13px] font-medium text-warning">
+        <AlertTriangle className="size-4 shrink-0" />
+        {failures.length} file{failures.length === 1 ? '' : 's'} could not be collected
+      </div>
+      <ul className="flex flex-col gap-2">
+        {failures.map((failure, index) => (
+          <li key={`${failure.sourcePath}-${index}`} className="min-w-0 text-[12px]">
+            <p className="break-all text-text-secondary">{failure.sourcePath}</p>
+            <p className="text-warning">{failure.reason}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function CollectProgress({
+  progress,
+  complete,
+}: {
+  progress: CollectMediaProgress
+  complete: boolean
+}): React.JSX.Element {
+  const percentage = complete
+    ? 100
+    : progress.totalBytes > 0
+      ? Math.round((progress.completedBytes / progress.totalBytes) * 100)
+      : progress.totalFiles > 0 && progress.completedFiles === progress.totalFiles
+        ? 100
+        : 0
+
+  return (
+    <div className="flex flex-col gap-2" aria-live="polite">
+      <div className="flex items-center justify-between text-[12px] text-text-secondary">
+        <span>
+          {complete
+            ? 'Collection complete'
+            : progress.totalFiles === 0
+              ? 'Preparing files…'
+              : 'Collecting files…'}
+        </span>
+        {progress.totalFiles > 0 && (
+          <span>
+            {progress.completedFiles} of {progress.totalFiles}
+          </span>
+        )}
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Collecting campaign media"
+        aria-valuemin={0}
+        aria-valuemax={progress.totalBytes || 1}
+        aria-valuenow={progress.completedBytes}
+        className="h-2 overflow-hidden rounded-full bg-surface-3"
+      >
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-200 motion-reduce:transition-none"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -269,9 +499,14 @@ export function Sidebar({ onOpenClimate, theme, onThemeChange }: SidebarProps): 
     <aside className="flex w-[260px] shrink-0 flex-col border-r border-border-subtle bg-surface-1">
       <div className="flex items-center gap-3 px-5 pt-5 pb-4">
         <AmboraLogo size={32} />
-        <h1 className="text-[22px] font-light tracking-[0.25em] text-text-primary opacity-95">
-          AMBORA
-        </h1>
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-light tracking-[0.25em] text-danger opacity-95">
+            AMBORA
+          </h1>
+          <span className="mt-0.5 inline-flex rounded-sm border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.16em] text-danger">
+            EXPERIMENTAL
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1 px-3 pb-3" role="tablist" aria-label="Sidebar mode">

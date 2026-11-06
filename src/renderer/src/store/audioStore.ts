@@ -17,6 +17,8 @@ interface AudioStore {
   musicVolume: number
   ambientVolume: number
   sfxVolume: number
+  /** True from duck attack through the end of its final release ramp. */
+  isBackgroundDucking: boolean
   activeClimateId: string | null
   activeTrackId: string | null
   /** Previous scene retained while the next track is loading for a crossfade. */
@@ -42,6 +44,7 @@ interface AudioStore {
   setMusicVolume: (volume: number) => void
   setAmbientVolume: (volume: number) => void
   setSfxVolume: (volume: number) => void
+  setBackgroundDucking: (ducking: boolean) => void
   setActiveClimateId: (id: string | null) => void
   setActiveTrackId: (id: string | null) => void
   setIsFadingToSilence: (isFading: boolean) => void
@@ -79,6 +82,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   musicVolume: storedVolume('ambora:mixer-music', 100),
   ambientVolume: storedVolume('ambora:mixer-ambient', 100),
   sfxVolume: storedVolume('ambora:mixer-sfx', 100),
+  isBackgroundDucking: false,
   activeClimateId: null,
   activeTrackId: null,
   previousActiveClimateId: null,
@@ -97,6 +101,7 @@ export const useAudioStore = create<AudioStore>((set) => ({
   setAmbientVolume: (ambientVolume) =>
     set({ ambientVolume: persistVolume('ambora:mixer-ambient', ambientVolume) }),
   setSfxVolume: (sfxVolume) => set({ sfxVolume: persistVolume('ambora:mixer-sfx', sfxVolume) }),
+  setBackgroundDucking: (isBackgroundDucking) => set({ isBackgroundDucking }),
   setActiveClimateId: (id) =>
     set((state) =>
       state.activeClimateId === id

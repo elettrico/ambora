@@ -52,17 +52,21 @@ class FakeSource {
 
 class FakeAudioContext {
   static instances: FakeAudioContext[] = []
+  static bufferDuration = 3
   currentTime = 0
   state = 'running'
   destination = {}
   sources: FakeSource[] = []
+  gains: FakeGain[] = []
 
   constructor() {
     FakeAudioContext.instances.push(this)
   }
 
   createGain(): FakeGain {
-    return new FakeGain()
+    const gain = new FakeGain()
+    this.gains.push(gain)
+    return gain
   }
   createBufferSource(): FakeSource {
     const source = new FakeSource()
@@ -70,7 +74,7 @@ class FakeAudioContext {
     return source
   }
   decodeAudioData(): Promise<AudioBuffer> {
-    return Promise.resolve({ duration: 3 } as AudioBuffer)
+    return Promise.resolve({ duration: FakeAudioContext.bufferDuration } as AudioBuffer)
   }
   resume(): Promise<void> {
     return Promise.resolve()
@@ -92,10 +96,12 @@ const sound = (id: string): SoundboardSound => ({
 
 let SoundboardEngine: typeof import('../../src/renderer/src/audio/SoundboardEngine').SoundboardEngine
 let closeAudioContext: typeof import('../../src/renderer/src/audio/audioContext').closeAudioContext
+let useAudioStore: typeof import('../../src/renderer/src/store/audioStore').useAudioStore
 
 beforeEach(async () => {
   vi.resetModules()
   FakeAudioContext.instances.length = 0
+  FakeAudioContext.bufferDuration = 3
   vi.stubGlobal('AudioContext', FakeAudioContext)
   vi.stubGlobal('window', {
     api: { registerAudioPath: () => Promise.resolve('token') },
@@ -108,6 +114,8 @@ beforeEach(async () => {
   closeAudioContext = contextModule.closeAudioContext
   SoundboardEngine = (await import('../../src/renderer/src/audio/SoundboardEngine'))
     .SoundboardEngine
+  useAudioStore = (await import('../../src/renderer/src/store/audioStore')).useAudioStore
+  useAudioStore.setState({ isBackgroundDucking: false })
 })
 
 afterEach(() => {
@@ -117,6 +125,95 @@ afterEach(() => {
 })
 
 describe('SoundboardEngine lifecycle', () => {
+  it('starts release before EOF so full background level coincides with the sound ending', async () => {
+    vi.useFakeTimers()
+    try {
+      FakeAudioContext.bufferDuration = 20
+      const engine = SoundboardEngine.getInstance()
+      await engine.trigger({
+        ...sound('long-voice'),
+        playbackMode: 'restart',
+        duckBackground: true,
+        duckMusicLevel: 20,
+        duckAmbientLevel: 40,
+        duckFadeSec: 5,
+      })
+
+      const context = FakeAudioContext.instances.at(-1)!
+      const musicDuckGain = context.gains.at(-2)!
+      const ambientDuckGain = context.gains.at(-1)!
+      expect(musicDuckGain.gain.value).toBe(0.2)
+      expect(ambientDuckGain.gain.value).toBe(0.4)
+      expect(useAudioStore.getState().isBackgroundDucking).toBe(true)
+
+      vi.advanceTimersByTime(14_999)
+      expect(musicDuckGain.gain.value).toBe(0.2)
+      expect(ambientDuckGain.gain.value).toBe(0.4)
+      vi.advanceTimersByTime(1)
+      expect(musicDuckGain.gain.value).toBe(1)
+      expect(ambientDuckGain.gain.value).toBe(1)
+      expect(useAudioStore.getState().isBackgroundDucking).toBe(true)
+
+      vi.advanceTimersByTime(4_999)
+      expect(useAudioStore.getState().isBackgroundDucking).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(useAudioStore.getState().isBackgroundDucking).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('ducks the background while a configured voice is active and releases it on stop', async () => {
+    const engine = SoundboardEngine.getInstance()
+    await engine.trigger({
+      ...sound('narration'),
+      duckBackground: true,
+      duckMusicLevel: 25,
+      duckAmbientLevel: 60,
+      duckFadeSec: 1.5,
+    })
+
+    const context = FakeAudioContext.instances.at(-1)!
+    expect(context.gains.at(-2)?.gain.value).toBe(0.25)
+    expect(context.gains.at(-1)?.gain.value).toBe(0.6)
+
+    engine.stop('narration')
+    expect(context.gains.at(-2)?.gain.value).toBe(1)
+    expect(context.gains.at(-1)?.gain.value).toBe(1)
+  })
+
+  it('keeps the strongest duck until every overlapping request has ended', async () => {
+    const engine = SoundboardEngine.getInstance()
+    await engine.trigger({
+      ...sound('voice-a'),
+      duckBackground: true,
+      duckMusicLevel: 20,
+      duckAmbientLevel: 70,
+      duckFadeSec: 1,
+    })
+    const context = FakeAudioContext.instances.at(-1)!
+    const musicDuckGain = context.gains.at(-2)!
+    const ambientDuckGain = context.gains.at(-1)!
+    await engine.trigger({
+      ...sound('voice-b'),
+      duckBackground: true,
+      duckMusicLevel: 55,
+      duckAmbientLevel: 30,
+      duckFadeSec: 1,
+    })
+
+    expect(musicDuckGain.gain.value).toBe(0.2)
+    expect(ambientDuckGain.gain.value).toBe(0.3)
+
+    engine.stop('voice-a')
+    expect(musicDuckGain.gain.value).toBe(0.55)
+    expect(ambientDuckGain.gain.value).toBe(0.3)
+
+    engine.stop('voice-b')
+    expect(musicDuckGain.gain.value).toBe(1)
+    expect(ambientDuckGain.gain.value).toBe(1)
+  })
+
   it('clears stale activity and rebuilds voices after an AudioContext swap', async () => {
     const engine = SoundboardEngine.getInstance()
     const activity: Array<{ id: string; playing: boolean }> = []

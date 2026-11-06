@@ -35,6 +35,8 @@ import {
 import { analyzeLufs, cancelLufs } from './lufsAnalyze'
 import { probeAudioFile } from './audioProbe'
 import { tokenFromLocalAudioUrl } from '../shared/localAudioUrl'
+import { collectCampaignMedia } from './collectCampaignMedia'
+import type { Campaign, CollectMediaProgress } from '../shared/types'
 
 // Portal file choosers before v4 ignore dialog.defaultPath on Linux. Requiring
 // v4 makes Electron use a compatible portal or fall back to GTK/KDE, so Ambora's
@@ -124,7 +126,7 @@ function audioMimeForPath(filePath: string): string {
 function createWindow(): BrowserWindow {
   // Create the browser window.
   const win = new BrowserWindow({
-    title: `Ambora ${is.dev ? '(dev)' : `v${app.getVersion()}`}`,
+    title: `Ambora Experimental ${is.dev ? '(dev)' : `v${app.getVersion()}`}`,
     width: 900,
     height: 670,
     minWidth: 900,
@@ -256,6 +258,28 @@ function registerIpcHandlers(): void {
     if (canceled || filePaths.length === 0) return null
     return readFileSync(filePaths[0], 'utf-8')
   })
+
+  ipcMain.handle(
+    'campaign:collect-media',
+    async (
+      event,
+      campaign: Campaign,
+      requestId: string,
+    ): Promise<Awaited<ReturnType<typeof collectCampaignMedia>> | null> => {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: `Choose a media folder for ${campaign.name}`,
+        defaultPath: app.getPath('documents'),
+        properties: ['openDirectory', 'createDirectory'],
+      })
+      if (canceled || filePaths.length === 0) return null
+
+      return collectCampaignMedia(campaign, filePaths[0], (progress: CollectMediaProgress) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('campaign:collect-media-progress', { requestId, progress })
+        }
+      })
+    },
+  )
 
   ipcMain.handle(
     'audio:pick-files',

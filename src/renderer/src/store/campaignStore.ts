@@ -3,13 +3,22 @@ import type {
   AmbientClip,
   AmbientLayer,
   Campaign,
+  CollectCampaignMediaResult,
+  CollectMediaProgress,
   Climate,
   LoadCampaignsResult,
   SoundboardSound,
   Track,
 } from '@/lib/types'
-import { DEFAULTS, CLIMATE_COLORS, CLIMATE_ICONS, AMBIENT_DEFAULTS } from '@/lib/constants'
+import {
+  DEFAULTS,
+  CLIMATE_COLORS,
+  CLIMATE_ICONS,
+  AMBIENT_DEFAULTS,
+  SOUNDBOARD_DEFAULTS,
+} from '@/lib/constants'
 import { clampPitchVariation } from '@/audio/playbackVariation'
+import { AmbientEngine } from '@/audio/AmbientEngine'
 
 interface CampaignStore {
   campaigns: Campaign[]
@@ -24,6 +33,10 @@ interface CampaignStore {
   createCampaign: (name: string, description?: string) => Campaign
   updateCampaign: (id: string, updates: Partial<Pick<Campaign, 'name' | 'description'>>) => void
   deleteCampaign: (id: string) => void
+  collectCampaignMedia: (
+    id: string,
+    onProgress: (progress: CollectMediaProgress) => void,
+  ) => Promise<CollectCampaignMediaResult | null>
   setActiveCampaign: (id: string | null) => void
 
   // Climate CRUD
@@ -33,7 +46,16 @@ interface CampaignStore {
     campaignId: string,
     climateId: string,
     updates: Partial<
-      Pick<Climate, 'name' | 'remoteLabel' | 'color' | 'icon' | 'crossfadeDuration' | 'musicVolume'>
+      Pick<
+        Climate,
+        | 'name'
+        | 'remoteLabel'
+        | 'color'
+        | 'icon'
+        | 'crossfadeDuration'
+        | 'musicVolume'
+        | 'musicPlaybackMode'
+      >
     >,
   ) => void
   deleteClimate: (campaignId: string, climateId: string) => void
@@ -116,7 +138,17 @@ interface CampaignStore {
     updates: Partial<
       Pick<
         SoundboardSound,
-        'name' | 'volume' | 'shortcutKey' | 'icon' | 'iconColor' | 'playbackMode' | 'pitchVariation'
+        | 'name'
+        | 'volume'
+        | 'shortcutKey'
+        | 'icon'
+        | 'iconColor'
+        | 'playbackMode'
+        | 'pitchVariation'
+        | 'duckBackground'
+        | 'duckMusicLevel'
+        | 'duckAmbientLevel'
+        | 'duckFadeSec'
       >
     >,
   ) => void
@@ -182,15 +214,44 @@ function normalizeCampaign(campaign: Campaign): Campaign {
     ...campaign,
     ...(campaign.soundboard
       ? {
-          soundboard: campaign.soundboard.map((sound) =>
-            sound.pitchVariation === undefined
-              ? sound
-              : { ...sound, pitchVariation: clampPitchVariation(sound.pitchVariation) },
-          ),
+          soundboard: campaign.soundboard.map((sound) => {
+            const legacyLevel = sound.duckLevel
+            return {
+              ...sound,
+              ...(sound.pitchVariation === undefined
+                ? {}
+                : { pitchVariation: clampPitchVariation(sound.pitchVariation) }),
+              ...(sound.duckMusicLevel === undefined && legacyLevel === undefined
+                ? {}
+                : {
+                    duckMusicLevel: Math.max(
+                      0,
+                      Math.min(100, sound.duckMusicLevel ?? legacyLevel ?? 100),
+                    ),
+                  }),
+              ...(sound.duckAmbientLevel === undefined && legacyLevel === undefined
+                ? {}
+                : {
+                    duckAmbientLevel: Math.max(
+                      0,
+                      Math.min(100, sound.duckAmbientLevel ?? legacyLevel ?? 100),
+                    ),
+                  }),
+              ...(sound.duckFadeSec === undefined
+                ? {}
+                : {
+                    duckFadeSec: Math.max(
+                      SOUNDBOARD_DEFAULTS.minDuckFadeSec,
+                      Math.min(SOUNDBOARD_DEFAULTS.maxDuckFadeSec, sound.duckFadeSec),
+                    ),
+                  }),
+            }
+          }),
         }
       : {}),
     climates: campaign.climates.map((climate) => ({
       ...climate,
+      musicPlaybackMode: climate.musicPlaybackMode === 'once' ? 'once' : 'loop',
       ...(typeof climate.musicVolume === 'number'
         ? { musicVolume: Math.max(0, Math.min(100, climate.musicVolume)) }
         : {}),
@@ -204,6 +265,42 @@ function normalizeCampaign(campaign: Campaign): Campaign {
           }
         : {}),
     })),
+  }
+}
+
+function replaceLocalPaths(
+  campaign: Campaign,
+  replacements: ReadonlyMap<string, string>,
+): Campaign {
+  return {
+    ...campaign,
+    climates: campaign.climates.map((climate) => ({
+      ...climate,
+      tracks: climate.tracks.map((track) => {
+        if (track.source !== 'local' || !track.localFilePath) return track
+        const replacement = replacements.get(track.localFilePath)
+        return replacement ? { ...track, localFilePath: replacement } : track
+      }),
+      ...(climate.ambientLayers
+        ? {
+            ambientLayers: climate.ambientLayers.map((layer) => ({
+              ...layer,
+              clips: layer.clips.map((clip) => {
+                const replacement = replacements.get(clip.localFilePath)
+                return replacement ? { ...clip, localFilePath: replacement } : clip
+              }),
+            })),
+          }
+        : {}),
+    })),
+    ...(campaign.soundboard
+      ? {
+          soundboard: campaign.soundboard.map((sound) => {
+            const replacement = replacements.get(sound.localFilePath)
+            return replacement ? { ...sound, localFilePath: replacement } : sound
+          }),
+        }
+      : {}),
   }
 }
 
@@ -255,6 +352,34 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     persist(campaigns)
   },
 
+  collectCampaignMedia: async (id, onProgress) => {
+    const campaign = get().campaigns.find((candidate) => candidate.id === id)
+    if (!campaign) return null
+
+    const result = await window.api.collectCampaignMedia(campaign, onProgress)
+    if (!result || result.pathUpdates.length === 0) return result
+
+    const replacements = new Map(
+      result.pathUpdates.map(({ sourcePath, collectedPath }) => [sourcePath, collectedPath]),
+    )
+    const currentCampaign = get().campaigns.find((candidate) => candidate.id === id)
+    if (currentCampaign) {
+      AmbientEngine.getInstance().remapLocalPaths(
+        new Set(currentCampaign.climates.map((climate) => climate.id)),
+        replacements,
+      )
+    }
+
+    const campaigns = get().campaigns.map((candidate) =>
+      candidate.id === id
+        ? { ...replaceLocalPaths(candidate, replacements), updatedAt: now() }
+        : candidate,
+    )
+    set({ campaigns })
+    persist(campaigns)
+    return result
+  },
+
   setActiveCampaign: (id) => {
     set({ activeCampaignId: id })
   },
@@ -281,6 +406,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       order: campaign.climates.length,
       crossfadeDuration: DEFAULTS.crossfadeDuration,
       musicVolume: DEFAULTS.musicVolume,
+      musicPlaybackMode: DEFAULTS.musicPlaybackMode,
     }
 
     const campaigns = get().campaigns.map((c) =>
@@ -675,10 +801,22 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   },
 
   updateSoundboardSound: (campaignId, soundId, updates) => {
-    const safeUpdates =
-      updates.pitchVariation === undefined
-        ? updates
-        : { ...updates, pitchVariation: clampPitchVariation(updates.pitchVariation) }
+    const safeUpdates = { ...updates }
+    if (updates.pitchVariation !== undefined) {
+      safeUpdates.pitchVariation = clampPitchVariation(updates.pitchVariation)
+    }
+    if (updates.duckMusicLevel !== undefined) {
+      safeUpdates.duckMusicLevel = Math.max(0, Math.min(100, updates.duckMusicLevel))
+    }
+    if (updates.duckAmbientLevel !== undefined) {
+      safeUpdates.duckAmbientLevel = Math.max(0, Math.min(100, updates.duckAmbientLevel))
+    }
+    if (updates.duckFadeSec !== undefined) {
+      safeUpdates.duckFadeSec = Math.max(
+        SOUNDBOARD_DEFAULTS.minDuckFadeSec,
+        Math.min(SOUNDBOARD_DEFAULTS.maxDuckFadeSec, updates.duckFadeSec),
+      )
+    }
     const campaigns = get().campaigns.map((c) =>
       c.id === campaignId
         ? {

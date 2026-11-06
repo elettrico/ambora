@@ -89,6 +89,23 @@ describe('serializeCampaignForExport', () => {
     expect(parsed.campaign.name).toBe('Curse of Strahd')
     expect(parsed.campaign.description).toBe('Gothic horror campaign')
   })
+
+  it('round-trips a climate configured to play its music once', () => {
+    const json = serializeCampaignForExport(
+      {
+        ...sampleCampaign,
+        climates: [{ ...sampleCampaign.climates[0], musicPlaybackMode: 'once' }],
+      },
+      '0.8.0',
+    )
+    const parsed = JSON.parse(json) as AmboraExportFile
+    expect(parsed.campaign.climates[0].musicPlaybackMode).toBe('once')
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.climates[0].musicPlaybackMode).toBe('once')
+  })
 })
 
 describe('soundboard export', () => {
@@ -145,6 +162,64 @@ describe('soundboard export', () => {
     expect(result.warnings.some((warning) => warning.includes('1 soundboard audio file'))).toBe(
       true,
     )
+  })
+
+  it('round-trips background ducking settings', () => {
+    const json = serializeCampaignForExport(
+      {
+        ...campaign,
+        soundboard: [
+          {
+            ...campaign.soundboard![0],
+            duckBackground: true,
+            duckMusicLevel: 15,
+            duckAmbientLevel: 45,
+            duckFadeSec: 1.8,
+          },
+        ],
+      },
+      '0.8.0',
+    )
+    const parsed = JSON.parse(json) as AmboraExportFile
+    expect(parsed.campaign.soundboard?.[0]).toMatchObject({
+      duckBackground: true,
+      duckMusicLevel: 15,
+      duckAmbientLevel: 45,
+      duckFadeSec: 1.8,
+    })
+
+    const result = deserializeCampaignFromImport(json)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.soundboard?.[0]).toMatchObject({
+      duckBackground: true,
+      duckMusicLevel: 15,
+      duckAmbientLevel: 45,
+      duckFadeSec: 1.8,
+    })
+  })
+
+  it('migrates the legacy combined duck level to both channels on import', () => {
+    const json = serializeCampaignForExport(
+      {
+        ...campaign,
+        soundboard: [{ ...campaign.soundboard![0], duckBackground: true }],
+      },
+      '0.8.0',
+    )
+    const parsed = JSON.parse(json) as AmboraExportFile
+    const exportedSound = parsed.campaign.soundboard![0]
+    delete exportedSound.duckMusicLevel
+    delete exportedSound.duckAmbientLevel
+    exportedSound.duckLevel = 35
+
+    const result = deserializeCampaignFromImport(JSON.stringify(parsed))
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.campaign.soundboard?.[0]).toMatchObject({
+      duckMusicLevel: 35,
+      duckAmbientLevel: 35,
+    })
   })
 
   it('clamps volume and removes invalid or duplicate shortcuts on import', () => {

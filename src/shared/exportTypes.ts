@@ -1,5 +1,5 @@
-/** v5 preserves the manual activation fade authored for ambient layers. */
-export const AMBORA_FILE_VERSION = 5
+/** v6 preserves climate music completion and soundboard ducking settings. */
+export const AMBORA_FILE_VERSION = 6
 
 export const AMBORA_FILE_FILTER = {
   name: 'Ambora Campaign',
@@ -47,6 +47,7 @@ export interface ExportedClimate {
   order: number
   crossfadeDuration: number
   musicVolume?: number
+  musicPlaybackMode?: 'loop' | 'once'
   tracks: ExportedTrack[]
   ambientLayers?: ExportedAmbientLayer[]
 }
@@ -66,6 +67,12 @@ export interface ExportedSoundboardSound {
   iconColor?: string
   playbackMode: 'ignore' | 'stop' | 'restart' | 'multiple' | 'loop'
   pitchVariation?: number
+  duckBackground?: boolean
+  /** Legacy combined level, accepted when importing older experimental exports. */
+  duckLevel?: number
+  duckMusicLevel?: number
+  duckAmbientLevel?: number
+  duckFadeSec?: number
   duration?: number
   order: number
 }

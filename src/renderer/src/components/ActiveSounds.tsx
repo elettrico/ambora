@@ -51,11 +51,13 @@ function ActiveSection({
   title,
   icon,
   meter,
+  ducking = false,
   children,
 }: {
   title: string
   icon: React.ReactNode
   meter: React.ReactNode
+  ducking?: boolean
   children: React.ReactNode
 }): React.JSX.Element {
   return (
@@ -63,7 +65,18 @@ function ActiveSection({
       <h3 className="flex items-center gap-1.5 px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
         <span>{icon}</span>
         {title}
-        <span className="ml-auto">{meter}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {ducking && (
+            <span
+              className="flex size-3.5 items-center justify-center rounded bg-amber-400/10 text-[9px] font-bold text-amber-300/75"
+              aria-label="Background ducking active"
+              title="Background ducking active"
+            >
+              D
+            </span>
+          )}
+          {meter}
+        </span>
       </h3>
       {children}
     </section>
@@ -84,6 +97,7 @@ export function ActiveSounds({
     isTrackLoading,
     ambientRuntime,
     fadeAnimations,
+    isBackgroundDucking,
   } = useAudioStore()
   const [open, setOpen] = useState(
     () => localStorage.getItem('ambora:active-sounds-open') !== 'false',
@@ -247,6 +261,7 @@ export function ActiveSounds({
             <ActiveSection
               title="Music"
               icon={<Music2 className="size-3.5" />}
+              ducking={isBackgroundDucking}
               meter={
                 <AudioLevelMeter
                   label="Music"
@@ -276,6 +291,7 @@ export function ActiveSounds({
               <ActiveSection
                 title="Ambient"
                 icon={<Waves className="size-3.5" />}
+                ducking={isBackgroundDucking}
                 meter={
                   <AudioLevelMeter
                     label="Ambient"
